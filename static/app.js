@@ -48,10 +48,63 @@ let presets = [];
 let serverRunning = false;
 let prevLogLen = 0;
 
+// --- Settings Persistence (backend) ---
+
+let settingsSaveTimer = null;
+
+function collectSettings() {
+    return {
+        preset_id: document.getElementById('preset-select').value,
+        port: parseInt(document.getElementById('port').value) || 8080,
+        ctx: document.getElementById('ctx').value,
+        ctk: document.getElementById('ctk').value,
+        ctv: document.getElementById('ctv').value,
+        ts: document.getElementById('ts').value,
+        batch: document.getElementById('batch').value,
+        slots: document.getElementById('slots').value,
+        no_mmap: document.getElementById('no_mmap').checked,
+        ngram_spec: document.getElementById('ngram_spec').checked,
+    };
+}
+
+function saveSettings() {
+    // Debounce: wait 400ms of inactivity before saving
+    clearTimeout(settingsSaveTimer);
+    settingsSaveTimer = setTimeout(() => {
+        fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(collectSettings()),
+        }).catch(() => {});
+    }, 400);
+}
+
+function applySettings(s) {
+    if (!s) return;
+    if (s.port) document.getElementById('port').value = s.port;
+    if (s.ctx) document.getElementById('ctx').value = s.ctx;
+    if (s.ctk) document.getElementById('ctk').value = s.ctk;
+    if (s.ctv) document.getElementById('ctv').value = s.ctv;
+    if (s.ts !== undefined) document.getElementById('ts').value = s.ts;
+    if (s.batch) document.getElementById('batch').value = s.batch;
+    if (s.slots) document.getElementById('slots').value = s.slots;
+    if (s.no_mmap !== undefined) document.getElementById('no_mmap').checked = s.no_mmap;
+    if (s.ngram_spec !== undefined) document.getElementById('ngram_spec').checked = s.ngram_spec;
+}
+
+// Auto-save on any control bar change
+document.getElementById('controls').addEventListener('input', saveSettings);
+document.getElementById('controls').addEventListener('change', saveSettings);
+
 // Load presets and populate dropdown
 async function loadPresets(selectId) {
-    const resp = await fetch('/api/presets');
-    presets = await resp.json();
+    const [presetsResp, settingsResp] = await Promise.all([
+        fetch('/api/presets'),
+        selectId === undefined ? fetch('/api/settings') : Promise.resolve(null),
+    ]);
+    presets = await presetsResp.json();
+    const saved = settingsResp ? await settingsResp.json() : null;
+
     const sel = document.getElementById('preset-select');
     sel.innerHTML = '';
     presets.forEach(p => {
@@ -60,12 +113,18 @@ async function loadPresets(selectId) {
         opt.textContent = p.name;
         sel.appendChild(opt);
     });
-    if (selectId !== undefined && selectId !== null) {
-        // Try to select the requested id
-        const exists = presets.find(p => p.id === selectId);
+
+    // Determine which preset to select
+    // Only restore overrides if settings were previously saved (preset_id non-empty)
+    const hasSaved = saved && saved.preset_id;
+    const targetId = selectId ?? (hasSaved ? saved.preset_id : null);
+
+    if (targetId) {
+        const exists = presets.find(p => p.id === targetId);
         if (exists) {
-            sel.value = selectId;
-            applyPresetById(selectId);
+            sel.value = targetId;
+            applyPresetById(targetId);
+            if (selectId === undefined && hasSaved) applySettings(saved);
             return;
         }
     }
@@ -73,6 +132,7 @@ async function loadPresets(selectId) {
     if (presets.length > 0) {
         sel.value = presets[0].id;
         applyPresetById(presets[0].id);
+        if (hasSaved) applySettings(saved);
     }
 }
 
@@ -87,6 +147,7 @@ function applyPresetById(id) {
     document.getElementById('slots').value = p.parallel_slots || 1;
     document.getElementById('no_mmap').checked = !!p.no_mmap;
     document.getElementById('ngram_spec').checked = !!p.ngram_spec;
+    saveSettings();
 }
 
 // Initial load
@@ -154,7 +215,7 @@ async function saveGpuEnv() {
             document.getElementById('gpu-detected-info').textContent = 'Saved. Changes apply on next server start.';
         }
     } catch (err) {
-        alert('Failed to save GPU env: ' + err.message);
+        showToast('Failed to save GPU env: ' + err.message, 'error');
     }
 }
 
@@ -164,6 +225,21 @@ document.getElementById('preset-select').addEventListener('change', e => {
     applyPresetById(e.target.value);
 });
 
+// --- Toast Notifications ---
+
+function showToast(message, type = 'error') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    toast.textContent = message;
+    container.appendChild(toast);
+    requestAnimationFrame(() => { toast.classList.add('show'); });
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
 // --- Preset Modal ---
 
 function setVal(id, v) { document.getElementById(id).value = v ?? ''; }
@@ -171,17 +247,26 @@ function setChk(id, v) { document.getElementById(id).checked = !!v; }
 function setOpt(id, v) { document.getElementById(id).value = v || ''; }
 function numOrEmpty(id, v) { document.getElementById(id).value = v != null ? v : ''; }
 
+function clearFieldErrors() {
+    document.querySelectorAll('#preset-form .field-error').forEach(el => el.classList.remove('field-error'));
+}
+
 function openPresetModal(mode) {
     const modal = document.getElementById('preset-modal');
     const title = document.getElementById('modal-title');
+    const badge = document.getElementById('modal-edit-badge');
     const form = document.getElementById('preset-form');
     form.reset();
+    clearFieldErrors();
+    // Close model browser if open
+    document.getElementById('model-browser').classList.remove('open');
 
     if (mode === 'edit') {
         const id = document.getElementById('preset-select').value;
         const p = presets.find(pr => pr.id === id);
-        if (!p) { alert('No preset selected'); return; }
+        if (!p) { showToast('No preset selected', 'warn'); return; }
         title.textContent = 'Edit Preset';
+        badge.classList.add('visible');
         setVal('modal-preset-id', p.id);
         // Model & Memory
         setVal('modal-name', p.name);
@@ -221,6 +306,7 @@ function openPresetModal(mode) {
         setVal('modal-extra-args', p.extra_args);
     } else {
         title.textContent = 'New Preset';
+        badge.classList.remove('visible');
         setVal('modal-preset-id', '');
         setVal('modal-context-size', 128000);
         setVal('modal-ctk', 'q8_0');
@@ -230,11 +316,15 @@ function openPresetModal(mode) {
         setVal('modal-parallel-slots', 1);
     }
 
-    modal.style.display = 'flex';
+    modal.classList.add('open');
+    // Scroll modal body to top
+    const body = modal.querySelector('.modal-body');
+    if (body) body.scrollTop = 0;
 }
 
 function closePresetModal() {
-    document.getElementById('preset-modal').style.display = 'none';
+    const modal = document.getElementById('preset-modal');
+    modal.classList.remove('open');
 }
 
 // Close modal on overlay click
@@ -244,7 +334,7 @@ document.getElementById('preset-modal').addEventListener('click', e => {
 
 // Close modal on Escape key
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('preset-modal').style.display === 'flex') {
+    if (e.key === 'Escape' && document.getElementById('preset-modal').classList.contains('open')) {
         closePresetModal();
     }
 });
@@ -255,6 +345,8 @@ function strVal(id) { return document.getElementById(id).value.trim(); }
 
 async function savePreset(event) {
     event.preventDefault();
+    clearFieldErrors();
+
     const id = document.getElementById('modal-preset-id').value;
     const preset = {
         // Model & Memory
@@ -295,14 +387,29 @@ async function savePreset(event) {
         extra_args: strVal('modal-extra-args'),
     };
 
-    if (!preset.name) { alert('Name is required'); return; }
-    if (!preset.model_path) { alert('Model path is required'); return; }
+    // Inline validation
+    let valid = true;
+    if (!preset.name) {
+        document.getElementById('modal-name').classList.add('field-error');
+        valid = false;
+    }
+    if (!preset.model_path) {
+        document.getElementById('modal-model-path').classList.add('field-error');
+        valid = false;
+    }
+    if (!valid) {
+        showToast('Please fill in all required fields', 'error');
+        return;
+    }
+
+    const saveBtn = document.getElementById('btn-modal-save');
+    saveBtn.classList.add('saving');
+    saveBtn.textContent = 'Saving...';
 
     try {
         let resp;
         let savedId;
         if (id) {
-            // Update existing
             resp = await fetch('/api/presets/' + encodeURIComponent(id), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -310,12 +417,11 @@ async function savePreset(event) {
             });
             if (!resp.ok) {
                 const err = await resp.text().catch(() => 'Unknown error');
-                alert('Save failed: ' + err);
+                showToast('Save failed: ' + err, 'error');
                 return;
             }
             savedId = id;
         } else {
-            // Create new
             resp = await fetch('/api/presets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -323,7 +429,7 @@ async function savePreset(event) {
             });
             if (!resp.ok) {
                 const err = await resp.text().catch(() => 'Unknown error');
-                alert('Save failed: ' + err);
+                showToast('Save failed: ' + err, 'error');
                 return;
             }
             const data = await resp.json();
@@ -331,27 +437,32 @@ async function savePreset(event) {
         }
         closePresetModal();
         await loadPresets(savedId);
+        showToast('Preset saved', 'success');
     } catch (err) {
-        alert('Save failed: ' + err.message);
+        showToast('Save failed: ' + err.message, 'error');
+    } finally {
+        saveBtn.classList.remove('saving');
+        saveBtn.textContent = 'Save';
     }
 }
 
 async function deletePreset() {
     const id = document.getElementById('preset-select').value;
     const p = presets.find(pr => pr.id === id);
-    if (!p) { alert('No preset selected'); return; }
+    if (!p) { showToast('No preset selected', 'warn'); return; }
     if (!confirm('Delete preset "' + p.name + '"?')) return;
 
     try {
         const resp = await fetch('/api/presets/' + encodeURIComponent(id), { method: 'DELETE' });
         if (!resp.ok) {
             const err = await resp.text().catch(() => 'Unknown error');
-            alert('Delete failed: ' + err);
+            showToast('Delete failed: ' + err, 'error');
             return;
         }
         await loadPresets();
+        showToast('Preset deleted', 'success');
     } catch (err) {
-        alert('Delete failed: ' + err.message);
+        showToast('Delete failed: ' + err.message, 'error');
     }
 }
 
@@ -361,49 +472,80 @@ async function resetPresets() {
         const resp = await fetch('/api/presets/reset', { method: 'POST' });
         if (!resp.ok) {
             const err = await resp.text().catch(() => 'Unknown error');
-            alert('Reset failed: ' + err);
+            showToast('Reset failed: ' + err, 'error');
             return;
         }
         await loadPresets();
+        showToast('Presets reset to defaults', 'success');
     } catch (err) {
-        alert('Reset failed: ' + err.message);
+        showToast('Reset failed: ' + err.message, 'error');
     }
 }
 
 // --- Model Browser ---
 
+let cachedModels = [];
+
 async function toggleModelBrowser() {
     const browser = document.getElementById('model-browser');
-    if (browser.style.display !== 'none') {
-        browser.style.display = 'none';
+    if (browser.classList.contains('open')) {
+        browser.classList.remove('open');
         return;
     }
-    browser.innerHTML = '<div style="padding:6px;color:#6a7585;">Loading...</div>';
-    browser.style.display = 'block';
+    const list = document.getElementById('model-browser-list');
+    const search = document.getElementById('model-browser-search');
+    search.value = '';
+    list.innerHTML = '<div style="padding:8px;color:#6a7585;">Loading...</div>';
+    browser.classList.add('open');
     try {
         const resp = await fetch('/api/models');
-        const models = await resp.json();
-        if (models.length === 0) {
-            browser.innerHTML = '<div style="padding:6px;color:#6a7585;">No models found. Use --models-dir to specify a directory.</div>';
+        cachedModels = await resp.json();
+        if (cachedModels.length === 0) {
+            list.innerHTML = '<div style="padding:8px;color:#6a7585;">No models found. Use --models-dir to specify a directory.</div>';
             return;
         }
-        browser.innerHTML = models.map(m => {
-            const quant = m.quant_type ? ` <span style="color:#88c0d1;">${m.quant_type}</span>` : '';
-            const split = m.is_split ? ' <span style="color:#d08770;">[split]</span>' : '';
-            return `<div class="model-item" style="padding:4px 8px;cursor:pointer;border-bottom:1px solid #3b4252;" onclick="selectModel('${m.path.replace(/'/g, "\\'")}')">
-                <span style="color:#d8dee9;">${m.model_name || m.filename}</span>${quant}${split}
-                <span style="color:#6a7585;float:right;">${m.size_display}</span>
-            </div>`;
-        }).join('');
+        renderModelList(cachedModels);
+        search.focus();
     } catch (err) {
-        browser.innerHTML = `<div style="padding:6px;color:#bf616a;">Error: ${err.message}</div>`;
+        list.innerHTML = '<div style="padding:8px;color:#bf616a;">Error: ' + err.message + '</div>';
     }
+}
+
+function filterModels(query) {
+    const q = query.toLowerCase();
+    const filtered = q ? cachedModels.filter(m =>
+        (m.model_name || m.filename || '').toLowerCase().includes(q) ||
+        (m.quant_type || '').toLowerCase().includes(q)
+    ) : cachedModels;
+    renderModelList(filtered);
+}
+
+function renderModelList(models) {
+    const list = document.getElementById('model-browser-list');
+    list.innerHTML = models.map(m => {
+        const name = m.model_name || m.filename;
+        const quant = m.quant_type ? '<span class="model-item-quant">' + m.quant_type + '</span>' : '';
+        const split = m.is_split ? '<span class="model-item-split">[split]</span>' : '';
+        return '<div class="model-item" onclick="selectModel(\'' + m.path.replace(/'/g, "\\'") + '\')">' +
+            '<span class="model-item-name">' + name + '</span>' +
+            '<span class="model-item-meta">' + quant + split +
+            '<span class="model-item-size">' + m.size_display + '</span></span>' +
+            '</div>';
+    }).join('');
 }
 
 function selectModel(path) {
     document.getElementById('modal-model-path').value = path;
-    document.getElementById('model-browser').style.display = 'none';
+    document.getElementById('modal-model-path').classList.remove('field-error');
+    document.getElementById('model-browser').classList.remove('open');
 }
+
+// Clear field errors on input
+['modal-name', 'modal-model-path'].forEach(id => {
+    document.getElementById(id).addEventListener('input', function() {
+        this.classList.remove('field-error');
+    });
+});
 
 // --- End Preset Modal ---
 
@@ -453,7 +595,7 @@ async function doStart() {
         body: JSON.stringify(getConfig()),
     });
     const data = await resp.json();
-    if (!data.ok) alert('Start failed: ' + (data.error || 'unknown'));
+    if (!data.ok) showToast('Start failed: ' + (data.error || 'unknown'), 'error');
 }
 
 async function doStop() {
@@ -587,7 +729,8 @@ async function sendChat() {
     chatHistory.push({ role: 'user', content: text });
     appendMsg('user', text);
 
-    const url = '/api/chat';
+    const chatPort = document.getElementById('port').value || '8080';
+    const url = '/api/chat?port=' + encodeURIComponent(chatPort);
 
     chatBusy = true;
     document.getElementById('btn-send').disabled = true;

@@ -14,6 +14,7 @@ pub struct AppConfig {
     pub gpu_env_file: PathBuf,
     pub gpu_arch_override: Option<String>,
     pub gpu_devices_override: Option<String>,
+    pub ui_settings_file: PathBuf,
 }
 
 impl AppConfig {
@@ -42,6 +43,7 @@ impl AppConfig {
             gpu_env_file: config_dir.join("gpu-env.json"),
             gpu_arch_override: args.gpu_arch,
             gpu_devices_override: args.gpu_devices,
+            ui_settings_file: config_dir.join("ui-settings.json"),
         }
     }
 }
@@ -73,6 +75,7 @@ mod tests {
                 .contains("llama-monitor")
         );
         assert!(config.gpu_env_file.to_str().unwrap().contains("gpu-env"));
+        assert!(config.ui_settings_file.to_str().unwrap().contains("ui-settings"));
     }
 
     #[test]

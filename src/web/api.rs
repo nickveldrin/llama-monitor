@@ -6,7 +6,7 @@ use crate::gpu::env::{self as gpu_env, GPU_ARCHITECTURES, GpuEnv};
 use crate::llama::server::{self, ServerConfig};
 use crate::models;
 use crate::presets::{self, ModelPreset};
-use crate::state::AppState;
+use crate::state::{self as app_state, AppState, UiSettings};
 
 pub fn api_routes(
     state: AppState,
@@ -23,6 +23,8 @@ pub fn api_routes(
     let refresh_models = api_refresh_models(state.clone());
     let get_gpu_env = api_get_gpu_env(state.clone());
     let put_gpu_env = api_put_gpu_env(state.clone());
+    let get_settings = api_get_settings(state.clone());
+    let put_settings = api_put_settings(state.clone());
     let chat = api_chat(state);
 
     start
@@ -36,6 +38,8 @@ pub fn api_routes(
         .or(refresh_models)
         .or(put_gpu_env)
         .or(get_gpu_env)
+        .or(put_settings)
+        .or(get_settings)
         .or(chat)
 }
 
@@ -221,22 +225,54 @@ fn api_put_gpu_env(
         })
 }
 
+fn api_get_settings(
+    state: AppState,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "settings")
+        .and(warp::get())
+        .map(move || {
+            let settings = state.ui_settings.lock().unwrap().clone();
+            warp::reply::json(&settings)
+        })
+}
+
+fn api_put_settings(
+    state: AppState,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "settings")
+        .and(warp::put())
+        .and(warp::body::json())
+        .map(move |updated: UiSettings| {
+            let mut settings = state.ui_settings.lock().unwrap();
+            *settings = updated;
+            let _ = app_state::save_ui_settings(&state.ui_settings_path, &settings);
+            warp::reply::json(&serde_json::json!({"ok": true}))
+        })
+}
+
 fn api_chat(
     state: AppState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "chat")
         .and(warp::post())
+        .and(warp::query::<std::collections::HashMap<String, String>>())
         .and(warp::body::bytes())
-        .and_then(move |body: bytes::Bytes| {
+        .and_then(move |query: std::collections::HashMap<String, String>, body: bytes::Bytes| {
             let state = state.clone();
             async move {
-                let port = state
-                    .server_config
-                    .lock()
-                    .unwrap()
-                    .as_ref()
-                    .map(|c| c.port)
-                    .unwrap_or(8080);
+                // Use port from query param if provided, else from server config, else 8080
+                let port = query
+                    .get("port")
+                    .and_then(|p| p.parse::<u16>().ok())
+                    .unwrap_or_else(|| {
+                        state
+                            .server_config
+                            .lock()
+                            .unwrap()
+                            .as_ref()
+                            .map(|c| c.port)
+                            .unwrap_or(8080)
+                    });
                 let url = format!("http://127.0.0.1:{port}/v1/chat/completions");
 
                 let client = reqwest::Client::new();
