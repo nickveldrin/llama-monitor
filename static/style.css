@@ -24,6 +24,8 @@ h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
 .status-dot.running { background: #a3be8c; }
 .status-dot.stopped { background: #4c566a; }
 .status-text { font-size: 0.85rem; padding-bottom: 4px; }
+.btn-config { background: none; border: 1px solid #4c566a; color: #6a7585; font-size: 1.1rem; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color 0.15s, border-color 0.15s; line-height: 1; padding: 0; }
+.btn-config:hover { color: #88c0d1; border-color: #88c0d1; }
 
 /* GPU table */
 .gpu-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
@@ -128,15 +130,6 @@ h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
 .msg-assistant table { border-collapse: collapse; margin: 0.4em 0; font-size: 0.85em; }
 .msg-assistant th, .msg-assistant td { border: 1px solid #4c566a; padding: 3px 8px; }
 
-/* GPU Environment panel */
-.gpu-env-panel { background: #3b4252; border-radius: 8px; margin-bottom: 12px; border: 1px solid #4c566a; }
-.gpu-env-panel summary { cursor: pointer; padding: 8px 14px; font-size: 0.85rem; font-weight: 600; color: #88c0d1; user-select: none; }
-.gpu-env-panel summary:hover { color: #a3d5e4; }
-.gpu-env-body { padding: 0 14px 12px 14px; }
-.gpu-env-row { display: flex; gap: 10px; align-items: end; }
-.gpu-env-field { display: flex; flex-direction: column; gap: 3px; font-size: 0.78rem; color: #8899aa; flex: 1; }
-.gpu-env-field select, .gpu-env-field input { background: #2e3440; color: #d8dee9; border: 1px solid #4c566a; border-radius: 4px; padding: 5px 8px; font-size: 0.82rem; font-family: monospace; }
-@media (max-width: 700px) { .gpu-env-row { flex-direction: column; gap: 6px; } }
 
 /* Preset management buttons */
 .preset-actions { display: flex; gap: 4px; margin-top: 4px; }
