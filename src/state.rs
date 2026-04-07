@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, VecDeque};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use crate::gpu::GpuMetrics;
@@ -10,6 +10,73 @@ use crate::models::DiscoveredModel;
 use crate::presets::ModelPreset;
 
 const MAX_LOG_LINES: usize = 500;
+
+/// Persisted UI control-bar settings (survives page reload).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct UiSettings {
+    #[serde(default)]
+    pub preset_id: String,
+    #[serde(default = "default_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub ctx: String,
+    #[serde(default)]
+    pub ctk: String,
+    #[serde(default)]
+    pub ctv: String,
+    #[serde(default)]
+    pub ts: String,
+    #[serde(default)]
+    pub batch: String,
+    #[serde(default)]
+    pub slots: String,
+    #[serde(default)]
+    pub no_mmap: bool,
+    #[serde(default)]
+    pub ngram_spec: bool,
+}
+
+fn default_port() -> u16 {
+    8080
+}
+
+impl Default for UiSettings {
+    fn default() -> Self {
+        Self {
+            preset_id: String::new(),
+            port: 8080,
+            ctx: String::new(),
+            ctk: String::new(),
+            ctv: String::new(),
+            ts: String::new(),
+            batch: String::new(),
+            slots: String::new(),
+            no_mmap: false,
+            ngram_spec: false,
+        }
+    }
+}
+
+pub fn load_ui_settings(path: &Path) -> UiSettings {
+    if path.exists()
+        && let Ok(contents) = std::fs::read_to_string(path)
+        && let Ok(s) = serde_json::from_str::<UiSettings>(&contents)
+    {
+        return s;
+    }
+    UiSettings::default()
+}
+
+pub fn save_ui_settings(path: &Path, settings: &UiSettings) -> anyhow::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let tmp = path.with_extension("json.tmp");
+    let json = serde_json::to_string_pretty(settings)?;
+    std::fs::write(&tmp, json)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -26,6 +93,8 @@ pub struct AppState {
     pub models_dir: Option<PathBuf>,
     pub gpu_env: Arc<Mutex<GpuEnv>>,
     pub gpu_env_path: PathBuf,
+    pub ui_settings: Arc<Mutex<UiSettings>>,
+    pub ui_settings_path: PathBuf,
 }
 
 impl AppState {
@@ -35,6 +104,8 @@ impl AppState {
         models_dir: Option<PathBuf>,
         gpu_env: GpuEnv,
         gpu_env_path: PathBuf,
+        ui_settings: UiSettings,
+        ui_settings_path: PathBuf,
     ) -> Self {
         let discovered = models_dir
             .as_ref()
@@ -55,6 +126,8 @@ impl AppState {
             models_dir,
             gpu_env: Arc::new(Mutex::new(gpu_env)),
             gpu_env_path,
+            ui_settings: Arc::new(Mutex::new(ui_settings)),
+            ui_settings_path,
         }
     }
 

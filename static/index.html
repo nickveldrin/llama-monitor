@@ -129,25 +129,37 @@
         </div>
     </div>
 
+<!-- Toast notifications -->
+<div class="toast-container" id="toast-container"></div>
+
 <!-- Preset Modal -->
-<div class="modal-overlay" id="preset-modal" style="display:none;">
+<div class="modal-overlay" id="preset-modal">
     <div class="modal">
-        <h2 id="modal-title">New Preset</h2>
+        <div class="modal-header">
+            <h2><span id="modal-title">New Preset</span><span class="modal-edit-badge" id="modal-edit-badge">editing &mdash; changes sync to control bar</span></h2>
+            <button type="button" class="modal-close" onclick="closePresetModal()" aria-label="Close">&times;</button>
+        </div>
         <form id="preset-form" onsubmit="savePreset(event)">
             <input type="hidden" id="modal-preset-id">
+            <div class="modal-body">
 
             <!-- Model & Memory -->
             <details class="modal-section" open>
                 <summary>Model &amp; Memory</summary>
                 <label class="modal-field" title="Display name for this preset">Name
                     <input type="text" id="modal-name" required>
+                    <span class="field-error-msg">Name is required</span>
                 </label>
                 <label class="modal-field" title="Absolute path to the .gguf model file on disk">Model Path
                     <div style="display:flex;gap:6px;">
                         <input type="text" id="modal-model-path" required style="flex:1;">
-                        <button type="button" class="btn-sm btn-preset" onclick="toggleModelBrowser()" title="Browse discovered models">Browse</button>
+                        <button type="button" class="btn-sm btn-preset" onclick="toggleModelBrowser()" title="Browse discovered models" id="btn-model-browse">Browse</button>
                     </div>
-                    <div id="model-browser" style="display:none;max-height:150px;overflow-y:auto;background:#2e3440;border:1px solid #4c566a;border-radius:4px;margin-top:4px;font-size:0.78rem;"></div>
+                    <span class="field-error-msg">Model path is required</span>
+                    <div class="model-browser-wrap" id="model-browser">
+                        <input type="text" class="model-browser-search" id="model-browser-search" placeholder="Filter models..." oninput="filterModels(this.value)">
+                        <div class="model-browser-list" id="model-browser-list"></div>
+                    </div>
                 </label>
                 <div class="modal-row">
                     <label class="modal-field" title="Number of layers to offload to GPU. 99 = all layers. Lower values keep some layers on CPU to save VRAM.">GPU Layers (-ngl)
@@ -293,9 +305,10 @@
                 </label>
             </details>
 
+            </div><!-- /modal-body -->
             <div class="modal-buttons">
                 <button type="button" class="btn btn-modal-cancel" onclick="closePresetModal()">Cancel</button>
-                <button type="submit" class="btn btn-modal-save">Save</button>
+                <button type="submit" class="btn btn-modal-save" id="btn-modal-save">Save</button>
             </div>
         </form>
     </div>
