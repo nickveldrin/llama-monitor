@@ -19,6 +19,7 @@
         <div style="display:flex;align-items:center;gap:8px;padding-bottom:4px;">
             <span class="status-dot stopped" id="status-dot"></span>
             <span class="status-text" id="status-text">Stopped</span>
+            <button class="btn-config" onclick="openConfigModal()" title="Configuration">&#9881;</button>
         </div>
     </div>
 
@@ -30,54 +31,6 @@
 
     <!-- Page: Server (control + logs) -->
     <div class="page active" id="page-server">
-        <details class="gpu-env-panel" id="server-paths-panel">
-            <summary>Server Paths <span id="server-paths-info" style="font-weight:400;color:#6a7585;font-size:0.78rem;"></span></summary>
-            <div class="gpu-env-body">
-                <div class="gpu-env-row">
-                    <label class="gpu-env-field" style="flex:2;" title="Path to the llama-server binary. Leave empty to use $PATH.">llama-server binary
-                        <div style="display:flex;gap:4px;">
-                            <input type="text" id="set-server-path" placeholder="llama-server (from $PATH)">
-                            <button class="btn-sm btn-preset" onclick="openFileBrowser('set-server-path','executable')" title="Browse">Browse</button>
-                        </div>
-                    </label>
-                    <label class="gpu-env-field" title="Working directory for llama-server process.">Working Dir
-                        <div style="display:flex;gap:4px;">
-                            <input type="text" id="set-server-cwd" placeholder=". (current dir)">
-                            <button class="btn-sm btn-preset" onclick="openFileBrowser('set-server-cwd','dir')" title="Browse">Browse</button>
-                        </div>
-                    </label>
-                </div>
-                <div class="gpu-env-row" style="margin-top:8px;">
-                    <label class="gpu-env-field" style="flex:2;" title="Directory containing .gguf model files for auto-discovery.">Models Directory
-                        <div style="display:flex;gap:4px;">
-                            <input type="text" id="set-models-dir" placeholder="not set (use Browse in presets)">
-                            <button class="btn-sm btn-preset" onclick="openFileBrowser('set-models-dir','dir')" title="Browse">Browse</button>
-                        </div>
-                    </label>
-                    <button class="btn btn-start" style="align-self:end;padding:6px 12px;" onclick="saveServerPaths()">Save</button>
-                </div>
-            </div>
-        </details>
-
-        <details class="gpu-env-panel" id="gpu-env-panel">
-            <summary>GPU Environment <span id="gpu-env-info" style="font-weight:400;color:#6a7585;font-size:0.78rem;"></span></summary>
-            <div class="gpu-env-body">
-                <div class="gpu-env-row">
-                    <label class="gpu-env-field" title="GPU architecture for ROCm HSA_OVERRIDE_GFX_VERSION. Auto = let ROCm detect natively.">Architecture
-                        <select id="gpu-env-arch"></select>
-                    </label>
-                    <label class="gpu-env-field" title="Comma-separated GPU device indices to use (e.g. 0,1,2,3). Empty = all GPUs.">GPU Devices
-                        <input type="text" id="gpu-env-devices" placeholder="all">
-                    </label>
-                    <label class="gpu-env-field" title="Path to ROCm installation directory.">ROCm Path
-                        <input type="text" id="gpu-env-rocm-path" value="/opt/rocm">
-                    </label>
-                    <button class="btn btn-start" style="align-self:end;padding:6px 12px;" onclick="saveGpuEnv()">Save</button>
-                </div>
-                <div id="gpu-detected-info" style="font-size:0.72rem;color:#6a7585;margin-top:4px;"></div>
-            </div>
-        </details>
-
         <h2>Server Control</h2>
         <div class="control-bar" id="controls">
             <label class="preset-label">Model Preset
@@ -159,8 +112,63 @@
         </div>
     </div>
 
-<!-- File Browser Modal (z-index above preset modal) -->
-<div class="modal-overlay" id="file-browser-modal" style="z-index:1100;">
+<!-- Config Modal -->
+<div class="modal-overlay" id="config-modal">
+    <div class="modal" style="width:540px;">
+        <div class="modal-header">
+            <h2>Configuration</h2>
+            <button type="button" class="modal-close" onclick="closeConfigModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+
+            <details class="modal-section" open>
+                <summary>Server Paths</summary>
+                <label class="modal-field" title="Path to the llama-server binary. Leave empty to use $PATH.">llama-server binary
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="set-server-path" placeholder="llama-server (from $PATH)" style="flex:1;">
+                        <button type="button" class="btn-sm btn-preset" onclick="openFileBrowser('set-server-path','executable')">Browse</button>
+                    </div>
+                </label>
+                <label class="modal-field" title="Working directory for llama-server process.">Working Directory
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="set-server-cwd" placeholder=". (current dir)" style="flex:1;">
+                        <button type="button" class="btn-sm btn-preset" onclick="openFileBrowser('set-server-cwd','dir')">Browse</button>
+                    </div>
+                </label>
+                <label class="modal-field" title="Directory containing .gguf model files for auto-discovery.">Models Directory
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="set-models-dir" placeholder="not set" style="flex:1;">
+                        <button type="button" class="btn-sm btn-preset" onclick="openFileBrowser('set-models-dir','dir')">Browse</button>
+                    </div>
+                </label>
+            </details>
+
+            <details class="modal-section" open>
+                <summary>GPU Environment <span id="gpu-env-info" style="font-weight:400;color:#6a7585;font-size:0.72rem;"></span></summary>
+                <div class="modal-row">
+                    <label class="modal-field" title="GPU architecture for ROCm HSA_OVERRIDE_GFX_VERSION. Auto = let ROCm detect natively.">Architecture
+                        <select id="gpu-env-arch"></select>
+                    </label>
+                    <label class="modal-field" title="Comma-separated GPU device indices to use (e.g. 0,1,2,3). Empty = all GPUs.">GPU Devices
+                        <input type="text" id="gpu-env-devices" placeholder="all">
+                    </label>
+                </div>
+                <label class="modal-field" title="Path to ROCm installation directory.">ROCm Path
+                    <input type="text" id="gpu-env-rocm-path" value="/opt/rocm">
+                </label>
+                <div id="gpu-detected-info" style="font-size:0.72rem;color:#6a7585;margin-top:2px;"></div>
+            </details>
+
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeConfigModal()">Cancel</button>
+            <button type="button" class="btn btn-modal-save" onclick="saveConfig()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- File Browser Modal (z-index above all modals) -->
+<div class="modal-overlay" id="file-browser-modal" style="z-index:1200;">
     <div class="modal" style="width:560px;">
         <div class="modal-header">
             <h2>Browse</h2>

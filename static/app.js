@@ -97,7 +97,6 @@ function applySettings(s) {
     if (s.llama_server_path !== undefined) document.getElementById('set-server-path').value = s.llama_server_path;
     if (s.llama_server_cwd !== undefined) document.getElementById('set-server-cwd').value = s.llama_server_cwd;
     if (s.models_dir !== undefined) document.getElementById('set-models-dir').value = s.models_dir;
-    updateServerPathsInfo();
 }
 
 // Auto-save on any control bar change
@@ -172,16 +171,13 @@ async function loadGpuEnv() {
         const archs = data.architectures;
         const detected = data.detected;
 
-        // Populate architecture dropdown
         const sel = document.getElementById('gpu-env-arch');
         sel.innerHTML = '';
         archs.forEach(a => {
             const opt = document.createElement('option');
             opt.value = a.id;
             let label = a.name;
-            if (detected && detected.arch === a.id) {
-                label += ' (detected)';
-            }
+            if (detected && detected.arch === a.id) label += ' (detected)';
             opt.textContent = label;
             sel.appendChild(opt);
         });
@@ -190,12 +186,11 @@ async function loadGpuEnv() {
         document.getElementById('gpu-env-devices').value = env.devices;
         document.getElementById('gpu-env-rocm-path').value = env.rocm_path || '/opt/rocm';
 
-        // Show detection info
         const infoEl = document.getElementById('gpu-detected-info');
         const summaryInfo = document.getElementById('gpu-env-info');
         if (detected) {
             infoEl.textContent = 'Detected: ' + detected.count + 'x ' + detected.arch + ' (' + detected.names.join(', ') + ')';
-            summaryInfo.textContent = ' \u2014 ' + detected.count + 'x ' + detected.arch;
+            summaryInfo.textContent = '\u2014 ' + detected.count + 'x ' + detected.arch;
         } else {
             infoEl.textContent = 'No GPU detected via rocminfo/nvidia-smi';
             summaryInfo.textContent = '';
@@ -205,51 +200,44 @@ async function loadGpuEnv() {
     }
 }
 
-async function saveGpuEnv() {
+// --- Config Modal ---
+
+function openConfigModal() {
+    document.getElementById('config-modal').classList.add('open');
+}
+
+function closeConfigModal() {
+    document.getElementById('config-modal').classList.remove('open');
+}
+
+document.getElementById('config-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeConfigModal();
+});
+
+function saveConfig() {
+    // Save server paths via settings
+    clearTimeout(settingsSaveTimer);
+    fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(collectSettings()),
+    }).catch(() => {});
+
+    // Save GPU env
     const env = {
         arch: document.getElementById('gpu-env-arch').value,
         devices: document.getElementById('gpu-env-devices').value.trim(),
         rocm_path: document.getElementById('gpu-env-rocm-path').value.trim() || '/opt/rocm',
         extra_env: [],
     };
-    try {
-        const resp = await fetch('/api/gpu-env', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(env),
-        });
-        const data = await resp.json();
-        if (data.ok) {
-            document.getElementById('gpu-detected-info').textContent = 'Saved. Changes apply on next server start.';
-        }
-    } catch (err) {
-        showToast('Failed to save GPU env: ' + err.message, 'error');
-    }
-}
-
-// --- Server Paths ---
-
-function updateServerPathsInfo() {
-    const path = document.getElementById('set-server-path').value;
-    const dir = document.getElementById('set-models-dir').value;
-    const parts = [];
-    if (path) parts.push(path.split('/').pop() || path);
-    if (dir) parts.push('models: ' + (dir.split('/').pop() || dir));
-    document.getElementById('server-paths-info').textContent = parts.length ? ' \u2014 ' + parts.join(', ') : '';
-}
-
-function saveServerPaths() {
-    saveSettings();
-    // Force immediate save (bypass debounce)
-    clearTimeout(settingsSaveTimer);
-    fetch('/api/settings', {
+    fetch('/api/gpu-env', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(collectSettings()),
-    }).then(() => {
-        showToast('Server paths saved', 'success');
-        updateServerPathsInfo();
-    }).catch(() => showToast('Failed to save', 'error'));
+        body: JSON.stringify(env),
+    }).catch(() => {});
+
+    closeConfigModal();
+    showToast('Configuration saved', 'success');
 }
 
 // --- File Browser ---
@@ -461,9 +449,11 @@ document.getElementById('preset-modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closePresetModal();
 });
 
-// Close modal on Escape key
+// Close modals on Escape key
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && document.getElementById('preset-modal').classList.contains('open')) {
+    if (e.key === 'Escape' && document.getElementById('config-modal').classList.contains('open')) {
+        closeConfigModal();
+    } else if (e.key === 'Escape' && document.getElementById('preset-modal').classList.contains('open')) {
         closePresetModal();
     }
 });
