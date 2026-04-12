@@ -2,24 +2,12 @@
 
 Web dashboard for managing [llama.cpp](https://github.com/ggerganov/llama.cpp) servers with real-time GPU monitoring.
 
-</function>
-</tool_call>
-<tool_call>
-<function=edit>
-<parameter=filePath>
-D:\AI\metrics\llama-monitor\README.md
-
-
-
-
-
-
-
-
-
-
 ## Features
 
+- **Multi-Session Support** -- Run multiple llama-server instances simultaneously with independent session management
+  - Spawn new local servers on custom ports or attach to external servers
+  - Session persistence across restarts (saved to `~/.config/llama-monitor/sessions.json`)
+  - Quick session switching with sidebar navigation
 - **Server Management** -- Start/stop llama.cpp server from configurable presets
 - **Real-time GPU Monitoring** -- Temperature, load, VRAM, power, clock speeds (AMD ROCm + NVIDIA)
 - **Inference Metrics** -- Prompt/generation speed, KV cache usage, slot status via Prometheus endpoint
@@ -71,6 +59,18 @@ The binary is at `target/release/llama-monitor`. It's a single self-contained ex
 
 Open `http://localhost:7778` in your browser. Click the gear icon to configure server paths, then create a preset to get started.
 
+## Multi-Session Workflow
+
+1. **Create a Session** -- Click `+ New Session` in the sidebar
+   - **Spawn Mode**: Creates a session with a port; server runs locally
+   - **Attach Mode**: Connects to an external server at a URL endpoint
+
+2. **Spawn a Server** -- Use the "Spawn with Preset" button to start a llama-server instance with selected preset config
+
+3. **Switch Sessions** -- Click any session in the sidebar to activate it; metrics/chat will update to show the active session's server
+
+4. **Manage Sessions** -- Delete sessions or change the active session as needed
+
 ## CLI Reference
 
 | Flag | Short | Default | Description |
@@ -79,6 +79,7 @@ Open `http://localhost:7778` in your browser. Click the gear icon to configure s
 | `--llama-server-cwd` | | `.` | Working directory for llama-server |
 | `--port` | `-p` | `7778` | Monitor web UI port |
 | `--presets-file` | | `~/.config/llama-monitor/presets.json` | Custom presets file location |
+| `--sessions-file` | | `~/.config/llama-monitor/sessions.json` | Custom sessions file location |
 | `--gpu-backend` | | `auto` | Force GPU backend: `auto`, `rocm`, `nvidia`, `none` |
 | `--gpu-arch` | | (from config) | GPU architecture for ROCm (e.g. `gfx906`, `gfx1100`, `auto`) |
 | `--gpu-devices` | | (from config) | Visible GPU device indices (e.g. `0,1,2,3`) |
@@ -118,11 +119,14 @@ The preset editor groups parameters into collapsible sections:
 
 ## Web UI
 
+### Sidebar (Session Manager)
+Lists all sessions with mode (Spawn/Attach), status (Running/Stopped/Disconnected), and port. Click to switch active session. Sessions persist to disk.
+
 ### Server Tab
 Control bar with preset selector and port. Start/stop the server. Live inference metrics (prompt/generation speed, context usage, slot status) and GPU monitoring table (temperature, load, VRAM, power, clocks).
 
 ### Chat Tab
-Streaming chat interface that proxies to the running llama-server's `/v1/chat/completions` endpoint on the configured port. Supports reasoning/thinking blocks and Markdown rendering.
+Streaming chat interface that proxies to the running llama-server's `/v1/chat/completions` endpoint on the active session's port. Supports reasoning/thinking blocks and Markdown rendering.
 
 ### Logs Tab
 Real-time server log output.
@@ -134,7 +138,7 @@ src/
   main.rs              -- Entry point: CLI parsing, wiring, tokio::main
   cli.rs               -- Clap argument definitions
   config.rs            -- AppConfig resolved from CLI args
-  state.rs             -- Shared AppState (Arc<Mutex<...>>), UiSettings persistence
+  state.rs             -- Shared AppState (Arc<Mutex<...>>), Sessions, UiSettings persistence
   gpu/
     mod.rs             -- GpuMetrics, GpuBackend trait, auto-detection
     rocm.rs            -- AMD ROCm via rocm-smi JSON
@@ -151,13 +155,13 @@ src/
     mod.rs             -- GGUF file discovery and filename parsing
   web/
     mod.rs             -- Warp route composition
-    api.rs             -- REST API handlers, file browser, chat proxy
+    api.rs             -- REST API handlers, file browser, chat proxy, session management
     ws.rs              -- WebSocket real-time metrics push
     static_assets.rs   -- Embedded frontend (include_str!)
 static/
   index.html           -- Dashboard HTML
   style.css            -- Nord-themed CSS
-  app.js               -- Frontend JavaScript
+  app.js               -- Frontend JavaScript with session management
   manifest.json        -- PWA manifest
   sw.js                -- Service worker
   icon.svg             -- App icon
@@ -168,11 +172,13 @@ static/
 ```
 GPU (rocm-smi/nvidia-smi)  -->  GPU Poller (500ms)  --> AppState
 llama-server /metrics       -->  Llama Poller (1s)   --> AppState
-                                                         |
-                                                    WebSocket (500ms)
-                                                         |
-                                                      Browser
+                                                          |
+                                                     WebSocket (500ms)
+                                                          |
+                                                       Browser
 ```
+
+Sessions are stored to disk every 30 seconds and loaded on startup.
 
 ## API Reference
 
@@ -189,6 +195,12 @@ llama-server /metrics       -->  Llama Poller (1s)   --> AppState
 | POST | `/api/presets/reset` | Reset presets to defaults |
 | GET | `/api/settings` | Get persisted UI settings |
 | PUT | `/api/settings` | Save UI settings |
+| GET | `/api/sessions` | List all sessions |
+| POST | `/api/sessions` | Create a new session |
+| DELETE | `/api/sessions/{id}` | Delete a session |
+| GET | `/api/sessions/active` | Get active session info |
+| POST | `/api/sessions/active` | Set active session |
+| POST | `/api/sessions/spawn` | Spawn server with preset (port, name, preset_id) |
 | GET | `/api/browse?path=&filter=` | Browse filesystem (filter: `gguf`, `executable`) |
 | GET | `/api/gpu-env` | Get GPU environment config |
 | PUT | `/api/gpu-env` | Save GPU environment config |
@@ -215,6 +227,7 @@ cargo fmt
 - Frontend files in `static/` are embedded at compile time via `include_str!`
 - No Node.js or build tooling required
 - Single binary deployment -- no external assets needed
+- Session data persists to `~/.config/llama-monitor/sessions.json`
 
 ## License
 
