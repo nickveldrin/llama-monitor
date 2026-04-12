@@ -2,20 +2,20 @@
 
 Web dashboard for managing [llama.cpp](https://github.com/ggerganov/llama.cpp) servers with real-time GPU monitoring.
 
-### Dashboard
-![Dashboard](https://github.com/arte-fact/llama-monitor/blob/main/Dashboard.png)
+</function>
+</tool_call>
+<tool_call>
+<function=edit>
+<parameter=filePath>
+D:\AI\metrics\llama-monitor\README.md
 
-### Presets
-![Dashboard](https://github.com/arte-fact/llama-monitor/blob/main/Presets.png)
 
-### Config
-![Dashboard](https://github.com/arte-fact/llama-monitor/blob/main/Configs.png)
 
-### TestChat
-![Dashboard](https://github.com/arte-fact/llama-monitor/blob/main/TestChat.png)
 
-### Server Logs
-![Dashboard](https://github.com/arte-fact/llama-monitor/blob/main/Logs.png)
+
+
+
+
 
 
 ## Features
