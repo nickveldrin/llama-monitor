@@ -272,15 +272,23 @@ impl AppState {
     }
 
     pub fn add_session(&self, session: Session) -> bool {
-        let mut sessions = self.sessions.lock().unwrap();
+        let mut sessions = match self.sessions.lock() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[error] Failed to acquire sessions lock: {e}");
+                return false;
+            }
+        };
         if sessions.len() >= MAX_SESSIONS {
             return false;
         }
-        // Update last_active timestamp
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
+         let now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+            Ok(d) => d.as_secs(),
+            Err(_) => {
+                eprintln!("[error] Failed to get system time");
+                0
+            }
+        };
         let mut new_session = session;
         new_session.last_active = now;
         sessions.push(new_session);

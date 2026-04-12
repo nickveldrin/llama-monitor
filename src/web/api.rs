@@ -36,6 +36,7 @@ pub fn api_routes(
     let get_active_session = api_get_active_session(state.clone());
     let set_active_session = api_set_active_session(state.clone());
     let spawn_session_with_preset = api_spawn_session_with_preset(state.clone(), app_config.clone());
+    let attach = api_attach(state.clone());
 
     start
         .or(stop)
@@ -59,6 +60,7 @@ pub fn api_routes(
         .or(get_active_session)
         .or(set_active_session)
         .or(spawn_session_with_preset)
+        .or(attach)
 }
 
 fn api_start(
@@ -692,6 +694,43 @@ fn api_spawn_session_with_preset(
                         state.remove_session(&session_id);
                         Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": false, "error": e.to_string()})))
                     }
+                }
+            }
+        })
+}
+
+fn api_attach(state: AppState) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "attach")
+        .and(warp::path::end())
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(move |payload: serde_json::Map<String, serde_json::Value>| {
+            let state = state.clone();
+            async move {
+                let endpoint: String = match payload.get("endpoint") {
+                    Some(v) => {
+                        if let Some(s) = v.as_str() {
+                            s.to_string()
+                        } else {
+                            return Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": false, "error": "Invalid endpoint"})));
+                        }
+                    }
+                    None => {
+                        return Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": false, "error": "Missing endpoint"})));
+                    }
+                };
+                
+                let session_id = crate::state::generate_session_id();
+                let session = crate::state::Session::new_attach(
+                    session_id,
+                    format!("Attached: {}", endpoint),
+                    endpoint,
+                );
+                
+                if state.add_session(session) {
+                    Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
+                } else {
+                    Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": false, "error": "Maximum sessions reached"})))
                 }
             }
         })

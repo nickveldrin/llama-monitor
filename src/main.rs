@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 mod cli;
 mod config;
 mod gpu;
@@ -80,9 +82,16 @@ async fn main() -> Result<()> {
         app_config.sessions_file.clone(),
     );
 
-    if let Some(ref dir) = app_config.models_dir {
-        let count = state.discovered_models.lock().unwrap().len();
-        println!("[info] Discovered {count} models in {}", dir.display());
+  if let Some(ref dir) = app_config.models_dir {
+        match state.discovered_models.lock() {
+            Ok(models) => {
+                let count = models.len();
+                println!("[info] Discovered {count} models in {}", dir.display());
+            }
+            Err(e) => {
+                eprintln!("[error] Failed to acquire discovered_models lock: {e}");
+            }
+        }
     }
 
     // Detect and start GPU poller
@@ -92,7 +101,13 @@ async fn main() -> Result<()> {
         thread::spawn(move || {
             loop {
                 match backend.read_metrics() {
-                    Ok(m) => *gpu.lock().unwrap() = m,
+                    Ok(m) => {
+                        if let Ok(mut gpu_lock) = gpu.lock() {
+                            *gpu_lock = m;
+                        } else {
+                            eprintln!("[error] Failed to acquire gpu lock");
+                        }
+                    }
                     Err(e) => eprintln!("[error] GPU metrics: {e}"),
                 }
                 thread::sleep(GPU_POLL_INTERVAL);
@@ -106,7 +121,11 @@ async fn main() -> Result<()> {
         thread::spawn(move || {
             loop {
                 let metrics = system::get_system_metrics();
-                *s.system_metrics.lock().unwrap() = metrics;
+                if let Ok(mut sys_lock) = s.system_metrics.lock() {
+                    *sys_lock = metrics;
+                } else {
+                    eprintln!("[error] Failed to acquire system_metrics lock");
+                }
                 std::thread::sleep(SYSTEM_POLL_INTERVAL);
             }
         });

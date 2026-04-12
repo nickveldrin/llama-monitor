@@ -51,7 +51,7 @@ The binary is at `target/release/llama-monitor`. It's a single self-contained ex
 
 ## Apple Silicon Support
 
-On macOS with Apple Silicon (M1/M2/M3), install `mactop` for GPU/system metrics:
+On macOS with Apple Silicon (M1/M2/M3/M4/M5 or later), install `mactop` for GPU/system metrics:
 
 ```bash
 brew install mactop

@@ -7,10 +7,16 @@ use super::metrics::parse_prometheus_metrics;
   const LLAMA_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 pub async fn llama_metrics_poller(state: AppState) {
-    let client = reqwest::Client::builder()
+    let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(3))
         .build()
-        .unwrap();
+    {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[error] Failed to build HTTP client: {e}");
+            return;
+        }
+    };
 
     loop {
         // Determine endpoint from active session
