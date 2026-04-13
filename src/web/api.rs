@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 use warp::Filter;
+use warp::hyper::body::Body;
 
 use crate::config::AppConfig;
 use crate::gpu::env::{self as gpu_env, GPU_ARCHITECTURES, GpuEnv};
@@ -446,7 +447,7 @@ fn api_chat(
                                 .unwrap_or("application/json")
                                 .to_string();
                             let stream = resp.bytes_stream();
-                            let body = warp::hyper::Body::wrap_stream(stream);
+                            let body = Body::wrap_stream(stream);
                             Ok::<_, warp::Rejection>(
                                 warp::http::Response::builder()
                                     .status(status)
@@ -463,7 +464,7 @@ fn api_chat(
                             Ok(warp::http::Response::builder()
                                 .status(502)
                                 .header("content-type", "application/json")
-                                .body(warp::hyper::Body::from(err))
+                                .body(Body::from(err))
                                 .unwrap())
                         }
                     }
