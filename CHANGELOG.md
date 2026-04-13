@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.3](https://github.com/nickveldrin/llama-monitor/compare/v0.2.2...v0.2.3) (2026-04-13)
+
+
+### Bug Fixes
+
+* fix release workflow by using RELEASE_PAT for automated artifact builds
+
+
 ## [0.2.2](https://github.com/nickveldrin/llama-monitor/compare/v0.2.1...v0.2.2) (2026-04-13)
 
 
