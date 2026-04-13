@@ -2,7 +2,22 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 use warp::Filter;
-use warp::hyper::body::Body;
+use warp::reject::Reject;
+use bytes::Bytes;
+use std::fmt;
+
+#[derive(Debug)]
+struct ApiError(String);
+
+impl fmt::Display for ApiError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "API error: {}", self.0)
+    }
+}
+
+impl std::error::Error for ApiError {}
+
+impl Reject for ApiError {}
 
 use crate::config::AppConfig;
 use crate::gpu::env::{self as gpu_env, GPU_ARCHITECTURES, GpuEnv};
@@ -446,13 +461,14 @@ fn api_chat(
                                 .and_then(|v| v.to_str().ok())
                                 .unwrap_or("application/json")
                                 .to_string();
-                            let stream = resp.bytes_stream();
-                            let body = Body::wrap_stream(stream);
+                            let bytes = resp.bytes().await.map_err(|e| {
+                                warp::reject::custom(ApiError(e.to_string()))
+                            })?;
                             Ok::<_, warp::Rejection>(
                                 warp::http::Response::builder()
                                     .status(status)
                                     .header("content-type", ct)
-                                    .body(body)
+                                    .body(bytes)
                                     .unwrap(),
                             )
                         }
@@ -464,7 +480,7 @@ fn api_chat(
                             Ok(warp::http::Response::builder()
                                 .status(502)
                                 .header("content-type", "application/json")
-                                .body(Body::from(err))
+                                .body(Bytes::from(err))
                                 .unwrap())
                         }
                     }
