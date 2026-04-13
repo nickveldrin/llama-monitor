@@ -1,10 +1,10 @@
+use bytes::Bytes;
+use std::fmt;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 use warp::Filter;
 use warp::reject::Reject;
-use bytes::Bytes;
-use std::fmt;
 
 #[derive(Debug)]
 struct ApiError(String);
@@ -461,9 +461,10 @@ fn api_chat(
                                 .and_then(|v| v.to_str().ok())
                                 .unwrap_or("application/json")
                                 .to_string();
-                            let bytes = resp.bytes().await.map_err(|e| {
-                                warp::reject::custom(ApiError(e.to_string()))
-                            })?;
+                            let bytes = resp
+                                .bytes()
+                                .await
+                                .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
                             Ok::<_, warp::Rejection>(
                                 warp::http::Response::builder()
                                     .status(status)
