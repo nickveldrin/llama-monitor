@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/nickveldrin/llama-monitor/compare/v0.2.1...v0.2.2) (2026-04-13)
+
+
+### Bug Fixes
+
+* update release workflow to use release.published event ([004da34](https://github.com/nickveldrin/llama-monitor/commit/004da348d039ca2d21b5184beb5324d1b84320b2))
+* update release workflow trigger to use release.published event ([32b933f](https://github.com/nickveldrin/llama-monitor/commit/32b933faf6db371e0b9a014e19f842e7c9110b34))
+
 ## [0.2.1](https://github.com/nickveldrin/llama-monitor/compare/v0.2.0...v0.2.1) (2026-04-13)
 
 
