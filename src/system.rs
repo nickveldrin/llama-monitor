@@ -89,7 +89,7 @@ fn get_motherboard() -> String {
             Ok(conn) => conn,
             Err(_) => return "Unknown Motherboard".to_string(),
         };
-        
+
         match wmi.raw_query("SELECT Product FROM Win32_BaseBoard") {
             Ok(results) => {
                 for row in &results {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::path::Path;
-use wmi::{Variant, COMLibrary, WMIConnection};
+use wmi::{COMLibrary, Variant, WMIConnection};
 
 #[cfg(target_os = "windows")]
 pub async fn ensure_lhm_available() -> Result<(), String> {
@@ -60,7 +60,10 @@ pub async fn ensure_lhm_available() -> Result<(), String> {
             eprintln!("[LHM] LibreHardwareMonitorService is running");
             return Ok(());
         }
-        eprintln!("[LHM] LibreHardwareMonitorService not running: {}", stdout.trim());
+        eprintln!(
+            "[LHM] LibreHardwareMonitorService not running: {}",
+            stdout.trim()
+        );
     }
 
     eprintln!("[LHM] Checking registry key...");
@@ -94,18 +97,23 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
         .await
         .map_err(|e| format!("Failed to fetch LHM release info: {}", e))?;
 
-    let release_json: serde_json::Value = release.json().await.map_err(|e| {
-        format!("Failed to parse LHM release JSON: {}", e)
-    })?;
+    let release_json: serde_json::Value = release
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse LHM release JSON: {}", e))?;
 
-    eprintln!("[LHM] Latest release: {}", release_json["tag_name"].as_str().unwrap_or("unknown"));
+    eprintln!(
+        "[LHM] Latest release: {}",
+        release_json["tag_name"].as_str().unwrap_or("unknown")
+    );
 
-    let assets = release_json["assets"].as_array().ok_or("No assets in release")?;
+    let assets = release_json["assets"]
+        .as_array()
+        .ok_or("No assets in release")?;
     let zip_url = assets
         .iter()
         .find(|a| a["name"].as_str() == Some("LibreHardwareMonitor.zip"))
-        .ok_or("LibreHardwareMonitor.zip not found in latest release")?
-        ["browser_download_url"]
+        .ok_or("LibreHardwareMonitor.zip not found in latest release")?["browser_download_url"]
         .as_str()
         .ok_or("browser_download_url not found")?;
 
@@ -135,30 +143,26 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
         .map_err(|e| format!("Failed to create install directory: {}", e))?;
 
     let zip_reader = std::io::Cursor::new(zip_bytes);
-    let mut archive = ZipArchive::new(zip_reader)
-        .map_err(|e| format!("Failed to extract LHM ZIP: {}", e))?;
+    let mut archive =
+        ZipArchive::new(zip_reader).map_err(|e| format!("Failed to extract LHM ZIP: {}", e))?;
 
     eprintln!("[LHM] Extracting {} files...", archive.len());
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| {
-            format!("Failed to read ZIP entry {}: {}", i, e)
-        })?;
+        let mut file = archive
+            .by_index(i)
+            .map_err(|e| format!("Failed to read ZIP entry {}: {}", i, e))?;
         let path = lhm_dir.join(file.mangled_name());
 
         if file.is_dir() {
-            fs::create_dir_all(&path).map_err(|e| {
-                format!("Failed to create directory {}: {}", path.display(), e)
-            })?;
+            fs::create_dir_all(&path)
+                .map_err(|e| format!("Failed to create directory {}: {}", path.display(), e))?;
         } else if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
-                format!("Failed to create directory {}: {}", parent.display(), e)
-            })?;
-            let mut output = fs::File::create(&path).map_err(|e| {
-                format!("Failed to create file {}: {}", path.display(), e)
-            })?;
-            std::io::copy(&mut file, &mut output).map_err(|e| {
-                format!("Failed to write file {}: {}", path.display(), e)
-            })?;
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create directory {}: {}", parent.display(), e))?;
+            let mut output = fs::File::create(&path)
+                .map_err(|e| format!("Failed to create file {}: {}", path.display(), e))?;
+            std::io::copy(&mut file, &mut output)
+                .map_err(|e| format!("Failed to write file {}: {}", path.display(), e))?;
         }
     }
     eprintln!("[LHM] Extraction complete");

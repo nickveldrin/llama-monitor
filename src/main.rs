@@ -3,9 +3,9 @@
 mod cli;
 mod config;
 mod gpu;
-mod llama;
 mod lhm;
 mod lhm_persistence;
+mod llama;
 mod models;
 mod presets;
 mod state;

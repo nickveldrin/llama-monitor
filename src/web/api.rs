@@ -48,7 +48,7 @@ fn api_check_lhm() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
                         }
                     }
                 }
-                
+
                 #[cfg(not(target_os = "windows"))]
                 {
                     Ok::<_, warp::Rejection>(warp::reply::json(
@@ -59,7 +59,9 @@ fn api_check_lhm() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         })
 }
 
-fn api_lhm_status(app_config: Arc<AppConfig>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_lhm_status(
+    app_config: Arc<AppConfig>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let lhm_disabled_file = app_config.lhm_disabled_file.clone();
     warp::path!("api" / "lhm" / "status")
         .and(warp::get())
@@ -77,7 +79,7 @@ fn api_lhm_status(app_config: Arc<AppConfig>) -> impl Filter<Extract = (impl war
                         )),
                     }
                 }
-                
+
                 #[cfg(not(target_os = "windows"))]
                 {
                     Ok::<_, warp::Rejection>(warp::reply::json(
@@ -88,7 +90,8 @@ fn api_lhm_status(app_config: Arc<AppConfig>) -> impl Filter<Extract = (impl war
         })
 }
 
-fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+{
     warp::path!("api" / "lhm" / "install")
         .and(warp::post())
         .and_then(move || {
@@ -108,7 +111,7 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
                         }
                     }
                 }
-                
+
                 #[cfg(not(target_os = "windows"))]
                 {
                     Ok::<_, warp::Rejection>(warp::reply::json(
@@ -119,7 +122,9 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
         })
 }
 
-fn api_disable_lhm(app_config: Arc<AppConfig>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_disable_lhm(
+    app_config: Arc<AppConfig>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let lhm_disabled_file = app_config.lhm_disabled_file.clone();
     warp::path!("api" / "lhm" / "disable")
         .and(warp::post())
@@ -920,23 +925,23 @@ fn api_kill_llama(
                     match Command::new("taskkill")
                         .args(["/IM", "llama-server.exe", "/F"])
                         .output()
-                {
-                    Ok(output) => {
-                        if output.status.success() {
-                            Ok::<_, warp::Rejection>(warp::reply::json(
-                                &serde_json::json!({"ok": true}),
-                            ))
-                        } else {
-                            let err = String::from_utf8_lossy(&output.stderr);
-                            Ok::<_, warp::Rejection>(warp::reply::json(
-                                &serde_json::json!({"ok": false, "error": err}),
-                            ))
+                    {
+                        Ok(output) => {
+                            if output.status.success() {
+                                Ok::<_, warp::Rejection>(warp::reply::json(
+                                    &serde_json::json!({"ok": true}),
+                                ))
+                            } else {
+                                let err = String::from_utf8_lossy(&output.stderr);
+                                Ok::<_, warp::Rejection>(warp::reply::json(
+                                    &serde_json::json!({"ok": false, "error": err}),
+                                ))
+                            }
                         }
+                        Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"ok": false, "error": e.to_string()}),
+                        )),
                     }
-                    Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(
-                        &serde_json::json!({"ok": false, "error": e.to_string()}),
-                    )),
-                }
                 }
                 #[cfg(target_os = "linux")]
                 {

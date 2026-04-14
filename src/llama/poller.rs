@@ -24,9 +24,9 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
 
         // Skip polling if no active session
         if active_id.is_empty() {
-             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
-             continue;
-         }
+            tokio::time::sleep(Duration::from_secs(poll_interval)).await;
+            continue;
+        }
 
         // Determine endpoint from active session
         let endpoint = {
@@ -44,7 +44,7 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
                 }
             } else {
                 // No active session found, skip polling
-             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
+                tokio::time::sleep(Duration::from_secs(poll_interval)).await;
                 continue;
             }
         };
@@ -87,12 +87,12 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
             }
         }
 
-       if !server_reachable {
-             // Don't reset metrics when server is temporarily unavailable
-             // Just continue with the last known metrics
-             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
-             continue;
-         }
+        if !server_reachable {
+            // Don't reset metrics when server is temporarily unavailable
+            // Just continue with the last known metrics
+            tokio::time::sleep(Duration::from_secs(poll_interval)).await;
+            continue;
+        }
 
         // Poll /metrics
         if let Ok(resp) = client.get(format!("{base}/metrics")).send().await

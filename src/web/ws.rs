@@ -22,9 +22,9 @@ pub fn ws_route(
                     let mut interval = tokio::time::interval(WS_PUSH_INTERVAL);
                     loop {
                         interval.tick().await;
-                        
+
                         let running = *state.server_running.lock().unwrap();
-                        
+
                         // Only send metrics if server is running
                         if running {
                             let json = {
@@ -33,7 +33,8 @@ pub fn ws_route(
                                 let system = state.system_metrics.lock().unwrap().clone();
                                 let logs: Vec<String> =
                                     state.server_logs.lock().unwrap().iter().cloned().collect();
-                                let active_session_id = state.active_session_id.lock().unwrap().clone();
+                                let active_session_id =
+                                    state.active_session_id.lock().unwrap().clone();
                                 let sessions = state.sessions.lock().unwrap();
                                 let session_mode = sessions
                                     .iter()
