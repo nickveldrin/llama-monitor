@@ -43,9 +43,9 @@ fn get_cpu_name() -> String {
         let results: Vec<HashMap<String, Variant>> =
             wmi.raw_query("SELECT Name FROM Win32_Processor").unwrap();
         if let Some(row) = results.first()
-            && let Some(Variant::String(name)) = row.get("Name")
+            && let Some(Variant::String(_name)) = row.get("Name")
         {
-            return name.clone();
+            return _name.clone();
         }
     }
 

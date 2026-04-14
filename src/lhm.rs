@@ -1,53 +1,55 @@
 use std::collections::HashMap;
 use std::path::Path;
+#[allow(unused_imports)]
 use wmi::{COMLibrary, Variant, WMIConnection};
 
 #[cfg(target_os = "windows")]
 pub async fn ensure_lhm_available() -> Result<(), String> {
     eprintln!("[LHM] Checking WMI Sensor class...");
-    if let Ok(com) = COMLibrary::new() {
-        let wmi = match WMIConnection::new(com) {
-            Ok(conn) => conn,
-            Err(_) => {
-                eprintln!("[LHM] Failed to create WMI connection");
-                return Err("WMI connection failed".to_string());
+    match WMIConnection::new(
+        COMLibrary::new().map_err(|e| format!("COM library init failed: {}", e))?,
+    ) {
+        Ok(wmi) => {
+            match wmi
+                .raw_query::<HashMap<String, Variant>>("SELECT * FROM Sensor")
+                .map_err(|_| "WMI query failed".to_string())
+            {
+                Ok(results) => {
+                    if !results.is_empty() {
+                        eprintln!("[LHM] WMI Sensor class available");
+                        return Ok(());
+                    }
+                    eprintln!("[LHM] WMI Sensor class not available");
+                }
+                Err(_) => {
+                    eprintln!("[LHM] WMI Sensor query failed");
+                }
             }
-        };
-        let results: Vec<HashMap<String, Variant>> = match wmi.raw_query("SELECT * FROM Sensor") {
-            Ok(res) => res,
-            Err(_) => {
-                eprintln!("[LHM] WMI Sensor query failed");
-                return Err("WMI Sensor query failed".to_string());
-            }
-        };
-        if !results.is_empty() {
-            eprintln!("[LHM] WMI Sensor class available");
-            return Ok(());
         }
-        eprintln!("[LHM] WMI Sensor class not available");
+        Err(_) => {
+            eprintln!("[LHM] Failed to connect to WMI");
+        }
     }
 
     eprintln!("[LHM] Checking WMI Hardware class...");
-    if let Ok(com) = COMLibrary::new() {
-        let wmi = match WMIConnection::new(com) {
-            Ok(conn) => conn,
-            Err(_) => {
-                eprintln!("[LHM] Failed to create WMI connection");
-                return Err("WMI connection failed".to_string());
+    match WMIConnection::new(
+        COMLibrary::new().map_err(|e| format!("COM library init failed: {}", e))?,
+    ) {
+        Ok(wmi) => match wmi.raw_query::<HashMap<String, Variant>>("SELECT * FROM Hardware") {
+            Ok(results) => {
+                if !results.is_empty() {
+                    eprintln!("[LHM] WMI Hardware class available");
+                    return Ok(());
+                }
+                eprintln!("[LHM] WMI Hardware class not available");
             }
-        };
-        let results: Vec<HashMap<String, Variant>> = match wmi.raw_query("SELECT * FROM Hardware") {
-            Ok(res) => res,
             Err(_) => {
                 eprintln!("[LHM] WMI Hardware query failed");
-                return Err("WMI Hardware query failed".to_string());
             }
-        };
-        if !results.is_empty() {
-            eprintln!("[LHM] WMI Hardware class available");
-            return Ok(());
+        },
+        Err(_) => {
+            eprintln!("[LHM] Failed to connect to WMI");
         }
-        eprintln!("[LHM] WMI Hardware class not available");
     }
 
     eprintln!("[LHM] Checking LibreHardwareMonitorService...");
