@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::path::Path;
+#[cfg(target_os = "windows")]
 use wmi::{Variant, WMIConnection};
 
 #[cfg(target_os = "windows")]

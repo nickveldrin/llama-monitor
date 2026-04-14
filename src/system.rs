@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 use sysinfo::System;
+
+#[cfg(target_os = "windows")]
 use wmi::{Variant, WMIConnection};
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -37,6 +39,7 @@ pub fn get_system_metrics() -> SystemMetrics {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn get_cpu_name() -> String {
     if let Ok(wmi) = WMIConnection::new() {
         let results: Vec<HashMap<String, Variant>> =
@@ -51,6 +54,11 @@ fn get_cpu_name() -> String {
         }
     }
 
+    "Unknown CPU".to_string()
+}
+
+#[cfg(not(target_os = "windows"))]
+fn get_cpu_name() -> String {
     "Unknown CPU".to_string()
 }
 
