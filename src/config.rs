@@ -9,6 +9,7 @@ pub struct AppConfig {
     pub llama_server_cwd: PathBuf,
     pub port: u16,
     pub gpu_backend: String,
+    pub llama_poll_interval: u64,
     pub models_dir: Option<PathBuf>,
     pub presets_file: PathBuf,
     pub gpu_env_file: PathBuf,
@@ -16,6 +17,7 @@ pub struct AppConfig {
     pub gpu_devices_override: Option<String>,
     pub ui_settings_file: PathBuf,
     pub sessions_file: PathBuf,
+    pub lhm_disabled_file: PathBuf,
 }
 
 impl AppConfig {
@@ -45,6 +47,8 @@ impl AppConfig {
             sessions_file: args
                 .sessions_file
                 .unwrap_or_else(|| config_dir.join("sessions.json")),
+            lhm_disabled_file: config_dir.join("lhm-disabled"),
+            llama_poll_interval: args.llama_poll_interval,
         }
     }
 }
@@ -69,21 +73,17 @@ mod tests {
         let config = AppConfig::from_args(args);
         assert_eq!(config.port, 7778);
         assert_eq!(config.gpu_backend, "auto");
-        assert!(
-            config
-                .presets_file
-                .to_str()
-                .unwrap()
-                .contains("llama-monitor")
-        );
+        assert!(config
+            .presets_file
+            .to_str()
+            .unwrap()
+            .contains("llama-monitor"));
         assert!(config.gpu_env_file.to_str().unwrap().contains("gpu-env"));
-        assert!(
-            config
-                .ui_settings_file
-                .to_str()
-                .unwrap()
-                .contains("ui-settings")
-        );
+        assert!(config
+            .ui_settings_file
+            .to_str()
+            .unwrap()
+            .contains("ui-settings"));
         assert!(config.sessions_file.to_str().unwrap().contains("sessions"));
     }
 
