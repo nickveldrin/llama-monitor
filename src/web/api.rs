@@ -69,6 +69,7 @@ fn api_lhm_status(
     warp::path!("api" / "lhm" / "status")
         .and(warp::get())
         .and_then(move || {
+            #[allow(unused_variables)]
             let file = lhm_disabled_file.clone();
             async move {
                 #[cfg(target_os = "windows")]
@@ -134,6 +135,7 @@ fn api_disable_lhm(
         .and(warp::body::json())
         .and_then(move |body: serde_json::Value| {
             let disabled = body["disabled"].as_bool().unwrap_or(false);
+            #[allow(unused_variables)]
             let file = lhm_disabled_file.clone();
             async move {
                 let result = lhm_persist::save_lhm_disabled(&file, disabled)
