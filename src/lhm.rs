@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 use std::path::Path;
-#[allow(unused_imports)]
-use wmi::{COMLibrary, Variant, WMIConnection};
+use wmi::{Variant, WMIConnection};
 
 #[cfg(target_os = "windows")]
 pub async fn ensure_lhm_available() -> Result<(), String> {
     eprintln!("[LHM] Checking WMI Sensor class...");
-    match WMIConnection::new(
-        COMLibrary::new().map_err(|e| format!("COM library init failed: {}", e))?,
-    ) {
+    match WMIConnection::new() {
         Ok(wmi) => {
             match wmi
                 .raw_query::<HashMap<String, Variant>>("SELECT * FROM Sensor")
@@ -32,9 +29,7 @@ pub async fn ensure_lhm_available() -> Result<(), String> {
     }
 
     eprintln!("[LHM] Checking WMI Hardware class...");
-    match WMIConnection::new(
-        COMLibrary::new().map_err(|e| format!("COM library init failed: {}", e))?,
-    ) {
+    match WMIConnection::new() {
         Ok(wmi) => match wmi.raw_query::<HashMap<String, Variant>>("SELECT * FROM Hardware") {
             Ok(results) => {
                 if !results.is_empty() {

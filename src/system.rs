@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use sysinfo::System;
-use wmi::{COMLibrary, Variant, WMIConnection};
+use wmi::{Variant, WMIConnection};
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SystemMetrics {
@@ -38,14 +38,16 @@ pub fn get_system_metrics() -> SystemMetrics {
 }
 
 fn get_cpu_name() -> String {
-    if let Ok(com) = COMLibrary::new() {
-        let wmi = WMIConnection::new(com).unwrap();
+    if let Ok(wmi) = WMIConnection::new() {
         let results: Vec<HashMap<String, Variant>> =
-            wmi.raw_query("SELECT Name FROM Win32_Processor").unwrap();
+            match wmi.raw_query("SELECT Name FROM Win32_Processor") {
+                Ok(r) => r,
+                Err(_) => return "Unknown CPU".to_string(),
+            };
         if let Some(row) = results.first()
-            && let Some(Variant::String(_name)) = row.get("Name")
+            && let Some(Variant::String(name)) = row.get("Name")
         {
-            return _name.clone();
+            return name.clone();
         }
     }
 
@@ -84,19 +86,12 @@ fn get_ram_info(sys: &System) -> (f64, f64) {
 
 #[cfg(target_os = "windows")]
 fn get_motherboard() -> String {
-    if let Ok(com) = COMLibrary::new() {
-        let wmi = match WMIConnection::new(com) {
-            Ok(conn) => conn,
-            Err(_) => return "Unknown Motherboard".to_string(),
-        };
-
-        match wmi.raw_query("SELECT Product FROM Win32_BaseBoard") {
+    if let Ok(wmi) = WMIConnection::new() {
+        match wmi.raw_query::<HashMap<String, Variant>>("SELECT Product FROM Win32_BaseBoard") {
             Ok(results) => {
                 for row in &results {
-                    let _row: &HashMap<String, Variant> = row;
-                    let product: &Variant = row.get("Product").unwrap();
-                    if let Variant::String(product_str) = product {
-                        return product_str.clone();
+                    if let Some(Variant::String(product)) = row.get("Product") {
+                        return product.clone();
                     }
                 }
             }
