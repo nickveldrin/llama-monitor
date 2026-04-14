@@ -52,28 +52,11 @@ fn get_cpu_name() -> String {
     "Unknown CPU".to_string()
 }
 
-fn get_cpu_temp(_sys: &System) -> (f32, bool) {
-    #[cfg(target_os = "windows")]
-    {
-        // LHM detection handled in lhm.rs
-        // Return (0.0, false) - frontend will prompt if needed
-        (0.0, false)
+fn get_cpu_temp(sys: &System) -> (f32, bool) {
+    if sys.cpus().is_empty() {
+        return (0.0, false);
     }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        // Linux/macOS can use sysinfo crate for temp
-        if _sys.cpus().is_empty() {
-            return (0.0, false);
-        }
-        let temp = _sys
-            .cpus()
-            .iter()
-            .map(|c| c.temperature())
-            .max()
-            .unwrap_or(0.0);
-        (temp, temp > 0.0)
-    }
+    (0.0, false)
 }
 
 fn get_cpu_load(sys: &System) -> u32 {
@@ -102,14 +85,24 @@ fn get_ram_info(sys: &System) -> (f64, f64) {
 #[cfg(target_os = "windows")]
 fn get_motherboard() -> String {
     if let Ok(com) = COMLibrary::new() {
-        let wmi = WMIConnection::new(com).unwrap();
-        let results: Vec<HashMap<String, Variant>> = wmi
-            .raw_query("SELECT Product FROM Win32_BaseBoard")
-            .unwrap();
-        if let Some(row) = results.first()
-            && let Some(Variant::String(product)) = row.get("Product")
-        {
-            return product.clone();
+        let wmi = match WMIConnection::new(com) {
+            Ok(conn) => conn,
+            Err(_) => return "Unknown Motherboard".to_string(),
+        };
+        
+        match wmi.raw_query("SELECT Product FROM Win32_BaseBoard") {
+            Ok(results) => {
+                for row in &results {
+                    let _row: &HashMap<String, Variant> = row;
+                    let product: &Variant = row.get("Product").unwrap();
+                    if let Variant::String(product_str) = product {
+                        return product_str.clone();
+                    }
+                }
+            }
+            Err(_) => {
+                eprintln!("[system] WMI query failed for Win32_BaseBoard");
+            }
         }
     }
 

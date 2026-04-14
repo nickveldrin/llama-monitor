@@ -3,26 +3,26 @@ use std::path::Path;
 use wmi::{Variant, COMLibrary, WMIConnection};
 
 #[cfg(target_os = "windows")]
-fn check_lhm_available() -> bool {
+pub async fn ensure_lhm_available() -> Result<(), String> {
     eprintln!("[LHM] Checking WMI Sensor class...");
     if let Ok(com) = COMLibrary::new() {
         let wmi = match WMIConnection::new(com) {
             Ok(conn) => conn,
             Err(_) => {
                 eprintln!("[LHM] Failed to create WMI connection");
-                return false;
+                return Err("WMI connection failed".to_string());
             }
         };
         let results: Vec<HashMap<String, Variant>> = match wmi.raw_query("SELECT * FROM Sensor") {
             Ok(res) => res,
             Err(_) => {
                 eprintln!("[LHM] WMI Sensor query failed");
-                return false;
+                return Err("WMI Sensor query failed".to_string());
             }
         };
         if !results.is_empty() {
             eprintln!("[LHM] WMI Sensor class available");
-            return true;
+            return Ok(());
         }
         eprintln!("[LHM] WMI Sensor class not available");
     }
@@ -33,19 +33,19 @@ fn check_lhm_available() -> bool {
             Ok(conn) => conn,
             Err(_) => {
                 eprintln!("[LHM] Failed to create WMI connection");
-                return false;
+                return Err("WMI connection failed".to_string());
             }
         };
         let results: Vec<HashMap<String, Variant>> = match wmi.raw_query("SELECT * FROM Hardware") {
             Ok(res) => res,
             Err(_) => {
                 eprintln!("[LHM] WMI Hardware query failed");
-                return false;
+                return Err("WMI Hardware query failed".to_string());
             }
         };
         if !results.is_empty() {
             eprintln!("[LHM] WMI Hardware class available");
-            return true;
+            return Ok(());
         }
         eprintln!("[LHM] WMI Hardware class not available");
     }
@@ -58,7 +58,7 @@ fn check_lhm_available() -> bool {
         let stdout = String::from_utf8_lossy(&output.stdout);
         if stdout.contains("RUNNING") || stdout.contains("STARTED") {
             eprintln!("[LHM] LibreHardwareMonitorService is running");
-            return true;
+            return Ok(());
         }
         eprintln!("[LHM] LibreHardwareMonitorService not running: {}", stdout.trim());
     }
@@ -70,13 +70,12 @@ fn check_lhm_available() -> bool {
     {
         if output.status.success() {
             eprintln!("[LHM] Registry key exists");
-            return true;
+            return Ok(());
         }
         eprintln!("[LHM] Registry key not found");
     }
 
-   eprintln!("[LHM] No LHM installation found");
-    false
+    Err("No LHM installation found".to_string())
 }
 
 #[cfg(target_os = "windows")]
@@ -183,24 +182,4 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
     eprintln!("[LHM] LHM installer completed successfully");
 
     Ok(())
-}
-
-pub async fn ensure_lhm_available() -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        eprintln!("[LHM] Checking if LibreHardwareMonitor is available...");
-
-        if check_lhm_available() {
-            eprintln!("[LHM] LibreHardwareMonitor is available");
-            return Ok(());
-        }
-
-        eprintln!("[LHM] LibreHardwareMonitor not found");
-        Err("LibreHardwareMonitor not available. Please install from https://github.com/LibreHardwareMonitor/LibreHardwareMonitor".to_string())
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        Err("CPU temperature monitoring not available on this platform".to_string())
-    }
 }

@@ -54,7 +54,7 @@ pub fn ws_route(
                                     "active_session_id": active_session_id
                                 })
                             };
-                            if ws_tx.send(Message::text(&json.to_string())).await.is_err() {
+                            if ws_tx.send(Message::text(json.to_string())).await.is_err() {
                                 break;
                             }
                         }

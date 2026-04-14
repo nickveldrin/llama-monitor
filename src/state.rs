@@ -28,6 +28,8 @@ pub struct UiSettings {
     pub models_dir: String,
     #[serde(default)]
     pub server_endpoint: String,
+    #[serde(default = "default_llama_poll_interval")]
+    pub llama_poll_interval: u64,
 }
 
 /// Session mode: either spawn a new server or attach to existing
@@ -95,6 +97,10 @@ fn default_port() -> u16 {
     8001
 }
 
+fn default_llama_poll_interval() -> u64 {
+    1
+}
+
 impl Default for UiSettings {
     fn default() -> Self {
         Self {
@@ -104,6 +110,7 @@ impl Default for UiSettings {
             llama_server_cwd: String::new(),
             models_dir: String::new(),
             server_endpoint: String::new(),
+            llama_poll_interval: default_llama_poll_interval(),
         }
     }
 }

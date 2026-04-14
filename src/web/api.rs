@@ -119,6 +119,25 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
         })
 }
 
+fn api_disable_lhm(app_config: Arc<AppConfig>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    let lhm_disabled_file = app_config.lhm_disabled_file.clone();
+    warp::path!("api" / "lhm" / "disable")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(move |body: serde_json::Value| {
+            let disabled = body["disabled"].as_bool().unwrap_or(false);
+            let file = lhm_disabled_file.clone();
+            async move {
+                let result = lhm_persist::save_lhm_disabled(&file, disabled)
+                    .map(|_| warp::reply::json(&serde_json::json!({"ok": true})))
+                    .unwrap_or_else(|e| {
+                        warp::reply::json(&serde_json::json!({"ok": false, "error": e}))
+                    });
+                Ok::<_, warp::Rejection>(result)
+            }
+        })
+}
+
 pub fn api_routes(
     state: AppState,
     app_config: Arc<AppConfig>,
@@ -179,25 +198,6 @@ pub fn api_routes(
         .or(status_lhm)
         .or(install_lhm)
         .or(disable_lhm)
-}
-
-fn api_disable_lhm(app_config: Arc<AppConfig>) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let lhm_disabled_file = app_config.lhm_disabled_file.clone();
-    warp::path!("api" / "lhm" / "disable")
-        .and(warp::post())
-        .and(warp::body::json())
-        .and_then(move |body: serde_json::Value| {
-            let disabled = body["disabled"].as_bool().unwrap_or(false);
-            let file = lhm_disabled_file.clone();
-            async move {
-                let result = lhm_persist::save_lhm_disabled(&file, disabled)
-                    .map(|_| warp::reply::json(&serde_json::json!({"ok": true})))
-                    .unwrap_or_else(|e| {
-                        warp::reply::json(&serde_json::json!({"ok": false, "error": e}))
-                    });
-                Ok::<_, warp::Rejection>(result)
-            }
-        })
 }
 
 fn api_start(
@@ -745,7 +745,6 @@ fn api_spawn_session_with_preset(
             let state = state.clone();
             let app_config = app_config.clone();
             async move {
-                // Extract port, name, and preset_id from payload
                 let port: u16 = match payload.get("port") {
                     Some(v) => {
                         if let Some(p) = v.as_u64() {
@@ -783,7 +782,6 @@ fn api_spawn_session_with_preset(
                     }
                 };
 
-                // Load the preset (scope the lock)
                 let preset = {
                     let presets = state.presets.lock().unwrap();
                     match presets.iter().find(|p| p.id == preset_id).cloned() {
@@ -796,7 +794,6 @@ fn api_spawn_session_with_preset(
                     }
                 };
 
-                // Create session
                 let session_id = app_state::generate_session_id();
                 let session = app_state::Session::new_spawn(session_id.clone(), name.clone(), port);
 
@@ -806,10 +803,8 @@ fn api_spawn_session_with_preset(
                     ));
                 }
 
-                // Set as active
                 state.set_active_session(&session_id);
 
-                // Build server config from preset
                 let config = crate::llama::server::ServerConfig {
                     model_path: preset.model_path.clone(),
                     context_size: preset.context_size,
@@ -849,7 +844,6 @@ fn api_spawn_session_with_preset(
 
                 match crate::llama::server::start_server(&state, config, &app_config).await {
                     Ok(()) => {
-                        // Update session status to Running
                         state.update_session_status(&session_id, SessionStatus::Running);
                         Ok::<_, warp::Rejection>(warp::reply::json(
                             &serde_json::json!({"ok": true, "session_id": session_id}),
@@ -926,23 +920,23 @@ fn api_kill_llama(
                     match Command::new("taskkill")
                         .args(["/IM", "llama-server.exe", "/F"])
                         .output()
-                    {
-                        Ok(output) => {
-                            if output.status.success() {
-                                Ok::<_, warp::Rejection>(warp::reply::json(
-                                    &serde_json::json!({"ok": true}),
-                                ))
-                            } else {
-                                let err = String::from_utf8_lossy(&output.stderr);
-                                Ok::<_, warp::Rejection>(warp::reply::json(
-                                    &serde_json::json!({"ok": false, "error": err}),
-                                ))
-                            }
+                {
+                    Ok(output) => {
+                        if output.status.success() {
+                            Ok::<_, warp::Rejection>(warp::reply::json(
+                                &serde_json::json!({"ok": true}),
+                            ))
+                        } else {
+                            let err = String::from_utf8_lossy(&output.stderr);
+                            Ok::<_, warp::Rejection>(warp::reply::json(
+                                &serde_json::json!({"ok": false, "error": err}),
+                            ))
                         }
-                        Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(
-                            &serde_json::json!({"ok": false, "error": e.to_string()}),
-                        )),
                     }
+                    Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"ok": false, "error": e.to_string()}),
+                    )),
+                }
                 }
                 #[cfg(target_os = "linux")]
                 {

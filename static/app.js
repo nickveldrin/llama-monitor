@@ -1793,7 +1793,7 @@ ws.onmessage = e => {
 
             '<td class="value sclk">' + (sys && sys.cpu_clock_mhz > 0 ? sys.cpu_clock_mhz + 'MHz' : '\u2014') + '</td>' +
 
-            '<td class="value vram">' + (sys && sys.ram_total_gb > 0 ? ((sys.ram_used_gb / sys.ram_total_gb) * 100).toFixed(0) + '% (' + (sys.ram_used_gb / 1024).toFixed(1) + ' GB)' : '\u2014') + '</td>' +
+            '<td class="value vram">' + (sys && sys.ram_total_gb > 0 ? ((sys.ram_used_gb / sys.ram_total_gb) * 100).toFixed(0) + '% (' + sys.ram_used_gb.toFixed(1) + ' GB)' : '\u2014') + '</td>' +
 
             '<td class="value">' + (sys && sys.cpu_name ? sys.cpu_name : '\u2014') + '</td>' +
 

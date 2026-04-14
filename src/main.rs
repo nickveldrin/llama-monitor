@@ -2,11 +2,10 @@
 
 mod cli;
 mod config;
-mod gui;
 mod gpu;
 mod llama;
 mod lhm;
- mod lhm_persistence;
+mod lhm_persistence;
 mod models;
 mod presets;
 mod state;
