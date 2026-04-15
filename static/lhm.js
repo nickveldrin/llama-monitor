@@ -1,4 +1,5 @@
-// DEPRECATED: LHM functionality integrated in app.js
+// DEPRECATED: LHM integration functionality moved to app.js (v0.4.0)
+
 
 
 
