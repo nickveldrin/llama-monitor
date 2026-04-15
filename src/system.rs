@@ -120,6 +120,8 @@ fn get_cpu_temp(sys: &System) -> (f32, bool) {
             "/sys/class/thermal/thermal_zone0/temp",
             "/sys/class/hwmon/hwmon0/temp1_input",
             "/sys/class/hwmon/hwmon0/device/temp1_input",
+            "/sys/class/hwmon/hwmon1/temp1_input",
+            "/sys/class/hwmon/hwmon2/temp1_input",
         ];
 
         for path in temp_paths {
@@ -137,40 +139,22 @@ fn get_cpu_temp(sys: &System) -> (f32, bool) {
     {
         use std::process::Command;
 
-        match Command::new("sysctl")
-            .arg("-n")
-            .arg("hw.sensors.cpu0.temp0")
-            .output()
-        {
-            Ok(output) => {
-                if output.status.success() {
-                    if let Ok(temp) = String::from_utf8_lossy(&output.stdout)
-                        .trim()
-                        .parse::<f32>()
-                    {
-                        return (temp, true);
-                    }
-                }
-            }
-            Err(_) => {}
-        }
+        let sensors = [
+            "hw.sensors.cpu0.temp0",
+            "hw.acpi.thermal.cpu0.temperature",
+        ];
 
-        match Command::new("sysctl")
-            .arg("-n")
-            .arg("hw.acpi.thermal.cpu0.temperature")
-            .output()
-        {
-            Ok(output) => {
-                if output.status.success() {
-                    if let Ok(temp) = String::from_utf8_lossy(&output.stdout)
-                        .trim()
-                        .parse::<f32>()
-                    {
-                        return (temp, true);
-                    }
+        for sensor in sensors {
+            if let Ok(output) = Command::new("sysctl").arg("-n").arg(sensor).output()
+                && output.status.success()
+            {
+                if let Ok(temp) = String::from_utf8_lossy(&output.stdout)
+                    .trim()
+                    .parse::<f32>()
+                {
+                    return (temp, true);
                 }
             }
-            Err(_) => {}
         }
 
         (0.0, false)
