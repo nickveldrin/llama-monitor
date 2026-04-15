@@ -102,13 +102,17 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
             async move {
                 #[cfg(target_os = "windows")]
                 {
+                    eprintln!("[API] /api/lhm/install called");
+                    
                     match lhm::download_and_install_lhm().await {
                         Ok(()) => {
+                            eprintln!("[API] LHM install succeeded");
                             Ok::<_, warp::Rejection>(warp::reply::json(
                                 &serde_json::json!({"success": true}),
                             ))
                         }
                         Err(e) => {
+                            eprintln!("[API] LHM install failed: {}", e);
                             Ok::<_, warp::Rejection>(warp::reply::json(
                                 &serde_json::json!({"success": false, "error": e}),
                             ))
@@ -118,6 +122,7 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
 
                 #[cfg(not(target_os = "windows"))]
                 {
+                    eprintln!("[API] /api/lhm/install called (non-Windows, not supported)");
                     Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"success": false, "error": "Not supported on this platform"}),
                     ))

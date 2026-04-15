@@ -89,49 +89,62 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
     use std::fs;
     use zip::ZipArchive;
 
+    eprintln!("[LHM] Starting download_and_install_lhm()");
+
     eprintln!("[LHM] Fetching latest release info from GitHub...");
 
     let client = Client::new();
+    eprintln!("[LHM] Created HTTP client");
+    
+    eprintln!("[LHM] Making GitHub API request...");
     let release = client
         .get("https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest")
         .header("User-Agent", "llama-monitor")
         .send()
         .await
         .map_err(|e| format!("Failed to fetch LHM release info: {}", e))?;
+    eprintln!("[LHM] GitHub API request completed");
 
+    eprintln!("[LHM] Parsing JSON response...");
     let release_json: serde_json::Value = release
         .json()
         .await
         .map_err(|e| format!("Failed to parse LHM release JSON: {}", e))?;
+    eprintln!("[LHM] JSON parsing completed");
 
     eprintln!(
         "[LHM] Latest release: {}",
         release_json["tag_name"].as_str().unwrap_or("unknown")
     );
 
+    eprintln!("[LHM] Processing release assets...");
     let assets = release_json["assets"]
         .as_array()
         .ok_or("No assets in release")?;
+    eprintln!("[LHM] Found {} assets", assets.len());
+    
+    eprintln!("[LHM] Searching for LibreHardwareMonitor.zip...");
     let zip_url = assets
         .iter()
         .find(|a| a["name"].as_str() == Some("LibreHardwareMonitor.zip"))
         .ok_or("LibreHardwareMonitor.zip not found in latest release")?["browser_download_url"]
         .as_str()
         .ok_or("browser_download_url not found")?;
+    eprintln!("[LHM] Found download URL: {}", zip_url);
 
-    eprintln!("[LHM] Downloading LHM from: {}", zip_url);
-
+    eprintln!("[LHM] Starting download from: {}", zip_url);
     let zip_response = client
         .get(zip_url)
         .send()
         .await
         .map_err(|e| format!("Failed to download LHM: {}", e))?;
+    eprintln!("[LHM] Download response received");
 
+    eprintln!("[LHM] Reading response bytes...");
     let zip_bytes = zip_response
         .bytes()
         .await
         .map_err(|e| format!("Failed to read LHM ZIP: {}", e))?;
-
     eprintln!("[LHM] Downloaded {} bytes", zip_bytes.len());
 
     let install_dir = std::env::var("LOCALAPPDATA")
@@ -141,14 +154,18 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
 
     eprintln!("[LHM] Installing to: {}", lhm_dir.display());
 
+    eprintln!("[LHM] Creating installation directory...");
     fs::create_dir_all(&lhm_dir)
         .map_err(|e| format!("Failed to create install directory: {}", e))?;
+    eprintln!("[LHM] Directory created successfully");
 
+    eprintln!("[LHM] Preparing ZIP archive...");
     let zip_reader = std::io::Cursor::new(zip_bytes);
     let mut archive =
         ZipArchive::new(zip_reader).map_err(|e| format!("Failed to extract LHM ZIP: {}", e))?;
+    eprintln!("[LHM] Archive ready, {} files to extract", archive.len());
 
-    eprintln!("[LHM] Extracting {} files...", archive.len());
+    eprintln!("[LHM] Starting extraction...");
     for i in 0..archive.len() {
         let mut file = archive
             .by_index(i)
@@ -168,25 +185,37 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
                 .map_err(|e| format!("Failed to write file {}: {}", path.display(), e))?;
         }
     }
-    eprintln!("[LHM] Extraction complete");
+    eprintln!("[LHM] Extraction complete, {} files extracted", archive.len());
 
     let lhm_exe = lhm_dir.join("LibreHardwareMonitor.exe");
     if !lhm_exe.exists() {
         return Err("LibreHardwareMonitor.exe not found after extraction".to_string());
     }
 
+    eprintln!("[LHM] Verifying installation...");
+    let lhm_exe = lhm_dir.join("LibreHardwareMonitor.exe");
+    eprintln!("[LHM] LHM executable path: {}", lhm_exe.display());
+    
+    if !lhm_exe.exists() {
+        return Err("LibreHardwareMonitor.exe not found after extraction".to_string());
+    }
+    eprintln!("[LHM] Executable verified");
+
     eprintln!("[LHM] Running LHM installer (-s flag)...");
     let output = std::process::Command::new(&lhm_exe)
         .arg("-s")
         .output()
         .map_err(|e| format!("Failed to run LHM installer: {}", e))?;
+    eprintln!("[LHM] Installer command completed, success: {}", output.status.success());
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!("[LHM] Installer stderr: {}", stderr);
         return Err(format!("LHM installer failed: {}", stderr));
     }
 
     eprintln!("[LHM] LHM installer completed successfully");
+    eprintln!("[LHM] download_and_install_lhm() finished successfully");
 
     Ok(())
 }
