@@ -103,7 +103,6 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
                 #[cfg(target_os = "windows")]
                 {
                     eprintln!("[API] /api/lhm/install called");
-                    
                     match lhm::download_and_install_lhm().await {
                         Ok(()) => {
                             eprintln!("[API] LHM install succeeded");

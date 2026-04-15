@@ -95,7 +95,7 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
 
     let client = Client::new();
     eprintln!("[LHM] Created HTTP client");
-    
+
     eprintln!("[LHM] Making GitHub API request...");
     let release = client
         .get("https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest")
@@ -122,7 +122,7 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
         .as_array()
         .ok_or("No assets in release")?;
     eprintln!("[LHM] Found {} assets", assets.len());
-    
+
     eprintln!("[LHM] Searching for LibreHardwareMonitor.zip...");
     let zip_url = assets
         .iter()
@@ -185,7 +185,10 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
                 .map_err(|e| format!("Failed to write file {}: {}", path.display(), e))?;
         }
     }
-    eprintln!("[LHM] Extraction complete, {} files extracted", archive.len());
+    eprintln!(
+        "[LHM] Extraction complete, {} files extracted",
+        archive.len()
+    );
 
     let lhm_exe = lhm_dir.join("LibreHardwareMonitor.exe");
     if !lhm_exe.exists() {
@@ -195,7 +198,7 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
     eprintln!("[LHM] Verifying installation...");
     let lhm_exe = lhm_dir.join("LibreHardwareMonitor.exe");
     eprintln!("[LHM] LHM executable path: {}", lhm_exe.display());
-    
+
     if !lhm_exe.exists() {
         return Err("LibreHardwareMonitor.exe not found after extraction".to_string());
     }
@@ -206,7 +209,10 @@ pub async fn download_and_install_lhm() -> Result<(), String> {
         .arg("-s")
         .output()
         .map_err(|e| format!("Failed to run LHM installer: {}", e))?;
-    eprintln!("[LHM] Installer command completed, success: {}", output.status.success());
+    eprintln!(
+        "[LHM] Installer command completed, success: {}",
+        output.status.success()
+    );
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
