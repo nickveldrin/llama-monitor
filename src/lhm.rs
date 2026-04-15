@@ -134,7 +134,7 @@ pub fn is_lhm_running() -> bool {
     use std::process::Command;
 
     match Command::new("powershell")
-        .args(["-Command", "Get-Process | Where-Object { $_.ProcessName -eq 'LibreHardwareMonitor' -or $_.Path -like '*LibreHardwareMonitor*' } | Select-Object -First 1 | Format-List | Out-String"])
+        .args(["-WindowStyle", "Hidden", "-Command", "Get-Process | Where-Object { $_.ProcessName -eq 'LibreHardwareMonitor' -or $_.Path -like '*LibreHardwareMonitor*' } | Select-Object -First 1 | Format-List | Out-String"])
         .output()
     {
         Ok(output) => {
@@ -160,7 +160,7 @@ pub fn minimize_lhm() -> Result<(), String> {
     "#;
 
     match Command::new("powershell")
-        .args(["-Command", powershell_script])
+        .args(["-WindowStyle", "Hidden", "-Command", powershell_script])
         .output()
     {
         Ok(output) => {
@@ -193,7 +193,7 @@ pub fn configure_lhm_auto_minimize() -> Result<(), String> {
     "#;
 
     match Command::new("powershell")
-        .args(["-Command", powershell_script])
+        .args(["-WindowStyle", "Hidden", "-Command", powershell_script])
         .output()
     {
         Ok(output) => {
@@ -424,7 +424,7 @@ pub fn uninstall_lhm() -> Result<(), String> {
     "#;
 
     match Command::new("powershell")
-        .args(["-Command", powershell_stop])
+        .args(["-WindowStyle", "Hidden", "-Command", powershell_stop])
         .output()
     {
         Ok(output) => {
@@ -445,7 +445,7 @@ pub fn uninstall_lhm() -> Result<(), String> {
     "#;
 
     match Command::new("powershell")
-        .args(["-Command", powershell_registry])
+        .args(["-WindowStyle", "Hidden", "-Command", powershell_registry])
         .output()
     {
         Ok(output) => {
