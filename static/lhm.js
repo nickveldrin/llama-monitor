@@ -1,5 +1,5 @@
-// DEPRECATED: LHM integration moved to app.js
-// This file will be removed in a future version
+// DEPRECATED: LHM integration moved to app.js (v0.4.0)
+
 
 
 
