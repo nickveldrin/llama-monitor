@@ -2182,7 +2182,10 @@ if ('serviceWorker' in navigator) {
 // Show the LHM notification (triggered by user clicking the LHM button or first load)
 async function showLHMNotification() {
     return new Promise(async (resolve) => {
+        // Store resolve in window for inline onclick handlers
+        window.lhmResolve = resolve;
         const overlay = document.createElement('div');
+        overlay.className = 'notification-container';
         overlay.style.cssText = `
             position: fixed;
             top: 20px;
@@ -2201,7 +2204,7 @@ async function showLHMNotification() {
         overlay.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:center;">
                 <h3 style="margin:0 0 10px 0;color:#ebcb8b;">LibreHardwareMonitor Status</h3>
-                <button onclick="this.closest('.notification-container').remove(); resolve('cancel');" style="background:none;border:none;color:#d8dee9;cursor:pointer;font-size:20px;">&times;</button>
+                <button onclick="this.closest('.notification-container').remove(); window.lhmResolve('cancel');" style="background:none;border:none;color:#d8dee9;cursor:pointer;font-size:20px;">&times;</button>
             </div>
             <p id="lhm-status-text" style="margin:0 0 15px 0;line-height:1.5;">Checking status...</p>
             <div id="lhm-buttons" style="display:flex;gap:10px;flex-direction:column;"></div>
@@ -2441,21 +2444,26 @@ async function showLHMNotification() {
                                 }
                             };
                             
-                   setTimeout(checkProgress, 1000);
-                 } else {
-                     const data = await response.json();
-                     console.error('[LHM UI] /api/lhm/install failed:', data);
-                     if (progressOverlay) progressOverlay.remove();
-                     showToast(`Installation failed: ${data.error || 'Unknown error'}`, 'error');
-                 }
+                           setTimeout(checkProgress, 1000);
+                        } else {
+                            const data = await response.json();
+                            console.error('[LHM UI] /api/lhm/install failed:', data);
+                            if (progressOverlay) progressOverlay.remove();
+                            showToast(`Installation failed: ${data.error || 'Unknown error'}`, 'error');
+                        }
              } catch (err) {
                  console.error('[LHM UI] /api/lhm/install error:', err);
                  if (progressOverlay) progressOverlay.remove();
                  showToast(`Installation error: ${err.message}`, 'error');
              }
          };
-         
-         const btnCancel = overlay.querySelector('#btn-lhm-cancel');
+        }
+        } catch (err) {
+            console.error('[LHM UI] Error checking LHM status:', err);
+            lhmStatusEl.textContent = 'Error checking LHM status. Please try again.';
+        }
+        
+        const btnCancel = overlay.querySelector('#btn-lhm-cancel');
          if (btnCancel) {
              btnCancel.onclick = () => {
                  overlay.remove();
@@ -2592,5 +2600,8 @@ async function checkLHMAndPrompt() {
        }
     }
 }
+
+// Clean up LHM resolve function
+window.lhmResolve = null;
 
 
