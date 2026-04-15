@@ -101,6 +101,11 @@ fn get_cpu_temp(sys: &System) -> (f32, bool) {
 
     #[cfg(target_os = "windows")]
     {
+        use crate::lhm;
+
+        if lhm::is_lhm_available() {
+            return lhm::get_lhm_cpu_temp();
+        }
         (0.0, false)
     }
 
