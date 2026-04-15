@@ -2125,7 +2125,133 @@ async function sendChat() {
 
                             document.getElementById('chat-messages').insertBefore(thinkEl, msgEl);
 
-  }
+                        }
+
+                        thinkEl.querySelector('span').textContent = thinkContent;
+
+                    }
+
+
+
+                    // Regular content
+
+                    const c = delta.content || '';
+
+                    if (c) {
+
+                        msgContent += c;
+
+                        msgEl.innerHTML = renderMd(msgContent);
+
+                    }
+
+                } catch (_) {}
+
+            }
+
+            chatScroll();
+
+        }
+
+    } catch (err) {
+
+        msgEl.textContent = '[error] ' + err.message;
+
+        msgEl.style.color = '#bf616a';
+
+    }
+
+
+
+    if (msgContent) {
+
+        chatHistory.push({ role: 'assistant', content: msgContent });
+
+    }
+
+    chatBusy = false;
+
+    document.getElementById('btn-send').disabled = false;
+
+}
+
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+// Show the LHM notification (triggered by user clicking the LHM button or first load)
+async function showLHMNotification() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            background: #2e3440;
+            border: 2px solid #ebcb8b;
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 9999;
+            padding: 20px;
+            color: #d8dee9;
+            animation: fadeIn 0.3s ease-out;
+        `;
+        
+        overlay.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <h3 style="margin:0 0 10px 0;color:#ebcb8b;">LibreHardwareMonitor Required</h3>
+                <button onclick="this.closest('.notification-container').remove(); resolve('cancel');" style="background:none;border:none;color:#d8dee9;cursor:pointer;font-size:20px;">&times;</button>
+            </div>
+            <p style="margin:0 0 15px 0;line-height:1.5;">
+                CPU temperature monitoring requires LibreHardwareMonitor.
+            </p>
+            <div style="display:flex;gap:10px;">
+                <button id="btn-lhm-install" style="flex:1;padding:10px;background:#a3be8c;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Install Automatically</button>
+                <button id="btn-lhm-cancel" style="flex:1;padding:10px;background:#bf616a;border:none;border-radius:4px;cursor:pointer;">Disable</button>
+            </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        overlay.querySelector('#btn-lhm-install').onclick = async () => {
+            console.log('[LHM UI] Install button clicked');
+            overlay.remove();
+            resolve('install');
+            
+            console.log('[LHM UI] Calling /api/lhm/install...');
+            try {
+                const response = await fetch('/api/lhm/install', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                console.log('[LHM UI] /api/lhm/install response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('[LHM UI] /api/lhm/install response:', data);
+                    showToast('LHM installed successfully! Reloading...', 'success');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    const data = await response.json();
+                    console.error('[LHM UI] /api/lhm/install failed:', data);
+                    showToast(`Installation failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (err) {
+                console.error('[LHM UI] /api/lhm/install error:', err);
+                showToast(`Installation error: ${err.message}`, 'error');
+            }
+        };
+        
+        overlay.querySelector('#btn-lhm-cancel').onclick = () => {
+            overlay.remove();
+            resolve('cancel');
+        };
+    });
 }
 
 // LHM (LibreHardwareMonitor) integration - runs once on page load
@@ -2186,132 +2312,5 @@ async function checkLHMAndPrompt() {
        }
     }
 }
-
-                        thinkEl.querySelector('span').textContent = thinkContent;
-
-                    }
-
-
-
-                    // Regular content
-
-                    const c = delta.content || '';
-
-                    if (c) {
-
-                        msgContent += c;
-
-                        msgEl.innerHTML = renderMd(msgContent);
-
-                    }
-
-                } catch (_) {}
-
-            }
-
-            chatScroll();
-
-        }
-
-    } catch (err) {
-
-        msgEl.textContent = '[error] ' + err.message;
-
-        msgEl.style.color = '#bf616a';
-
-    }
-
-
-
-    if (msgContent) {
-
-        chatHistory.push({ role: 'assistant', content: msgContent });
-
-    }
-
-    chatBusy = false;
-
-    document.getElementById('btn-send').disabled = false;
-
- if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
-
-// Show the LHM notification (triggered by user clicking the LHM button or first load)
-async function showLHMNotification() {
-    return new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 400px;
-            background: #2e3440;
-            border: 2px solid #ebcb8b;
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            z-index: 9999;
-            padding: 20px;
-            color: #d8dee9;
-            animation: fadeIn 0.3s ease-out;
-        `;
-        
-        overlay.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <h3 style="margin:0 0 10px 0;color:#ebcb8b;">LibreHardwareMonitor Required</h3>
-                <button onclick="this.closest('.notification-container').remove(); resolve('cancel');" style="background:none;border:none;color:#d8dee9;cursor:pointer;font-size:20px;">&times;</button>
-            </div>
-            <p style="margin:0 0 15px 0;line-height:1.5;">
-                CPU temperature monitoring requires LibreHardwareMonitor.
-            </p>
-            <div style="display:flex;gap:10px;">
-                <button id="btn-lhm-install" style="flex:1;padding:10px;background:#a3be8c;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Install Automatically</button>
-                <button id="btn-lhm-cancel" style="flex:1;padding:10px;background:#bf616a;border:none;border-radius:4px;cursor:pointer;">Disable</button>
-            </div>
-        `;
-        
-     document.body.appendChild(overlay);
-        
-      overlay.querySelector('#btn-lhm-install').onclick = () => {
-            console.log('[LHM UI] Install button clicked');
-            overlay.remove();
-            resolve('install');
-            
-            console.log('[LHM UI] Calling /api/lhm/install...');
-            try {
-                const response = await fetch('/api/lhm/install', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                console.log('[LHM UI] /api/lhm/install response status:', response.status);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('[LHM UI] /api/lhm/install response:', data);
-                    showToast('LHM installed successfully! Reloading...', 'success');
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 2000);
-                } else {
-                    const data = await response.json();
-                    console.error('[LHM UI] /api/lhm/install failed:', data);
-                    showToast(`Installation failed: ${data.error || 'Unknown error'}`, 'error');
-                }
-            } catch (err) {
-                console.error('[LHM UI] /api/lhm/install error:', err);
-                showToast(`Installation error: ${err.message}`, 'error');
-            }
-        };
-        
-        overlay.querySelector('#btn-lhm-cancel').onclick = () => {
-            overlay.remove();
-            resolve('cancel');
-        };
-    });
-}
-
-
 
 
