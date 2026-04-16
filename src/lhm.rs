@@ -1,482 +1,128 @@
 #[cfg(target_os = "windows")]
-use std::path::Path;
+use serde::Deserialize;
 
+/// Sensor reading from sensor_bridge.exe output
 #[cfg(target_os = "windows")]
-use wmi::{Variant, WMIConnection};
-
-#[cfg(target_os = "windows")]
-use std::collections::HashMap;
+#[derive(Deserialize, Debug)]
+struct SensorReading {
+    hardware: String,
+    #[allow(dead_code)]
+    subhardware: Option<String>,
+    name: String,
+    #[serde(rename = "type")]
+    sensor_type: String,
+    value: Option<f64>,
+}
 
 #[cfg(target_os = "windows")]
 #[allow(dead_code)]
 pub async fn ensure_lhm_available() -> Result<(), String> {
-    // Just check if LHM is available (running or installable)
-    // Don't auto-start - let the UI handle that
-    if is_lhm_available() {
+    if is_sensor_bridge_available() {
         return Ok(());
     }
-    
-    // Check if installed but not running
-    if is_lhm_installed() {
-        eprintln!("[LHM] Installed but not running");
-        return Ok(());
-    }
-    
-    Err("No LHM installation found".to_string())
+    Err("Sensor bridge not available".to_string())
+}
+
+#[cfg(target_os = "windows")]
+pub fn is_sensor_bridge_available() -> bool {
+    let exe_dir = match std::env::current_exe().ok().and_then(|p| p.parent().map(|x| x.to_path_buf())) {
+        Some(d) => d,
+        None => return false,
+    };
+    let bridge_path = exe_dir.join("bin").join("sensor_bridge.exe");
+    bridge_path.exists()
 }
 
 #[cfg(target_os = "windows")]
 pub fn is_lhm_installed() -> bool {
-    // Check if binary exists at portable location
-    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        let lhm_exe = std::path::PathBuf::from(&local_app_data)
-            .join("LibreHardwareMonitor")
-            .join("LibreHardwareMonitor.exe");
-        if lhm_exe.exists() {
-            return true;
-        }
-    }
-    
-    // Check for service installation
-    if let Ok(output) = std::process::Command::new("reg")
-        .args(["query", "HKLM\\SOFTWARE\\LibreHardwareMonitor"])
-        .output()
-        && output.status.success()
-    {
-        return true;
-    }
-
-    false
+    is_sensor_bridge_available()
 }
 
 #[cfg(target_os = "windows")]
 pub fn is_lhm_available() -> bool {
-    // First check if process is running (portable mode)
-    if is_lhm_running() {
-        eprintln!("[LHM] Process is running");
-        return true;
-    }
-    
-    // Check for service installation
-    if let Ok(output) = std::process::Command::new("reg")
-        .args(["query", "HKLM\\SOFTWARE\\LibreHardwareMonitor"])
-        .output()
-        && output.status.success()
-    {
-        eprintln!("[LHM] Registry key exists but service not running");
-        return false;
-    }
-
-    false
+    is_sensor_bridge_available()
 }
 
 #[cfg(target_os = "windows")]
 pub async fn start_lhm() -> Result<(), String> {
-    if is_lhm_running() {
-        eprintln!("[LHM] Already running");
-        return Ok(());
-    }
-    
-    // Check if binary exists at portable location
-    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-        let lhm_exe = std::path::PathBuf::from(&local_app_data)
-            .join("LibreHardwareMonitor")
-            .join("LibreHardwareMonitor.exe");
-        
-        if lhm_exe.exists() {
-            eprintln!("[LHM] Starting LHM from {}", lhm_exe.display());
-            std::process::Command::new(&lhm_exe)
-                .arg("-s")  // Silent mode
-                .spawn()
-                .map_err(|e| format!("Failed to start LHM: {}", e))?;
-            
-            // Poll until process is detected (up to 5 seconds)
-            for i in 0..10 {
-                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                if is_lhm_running() {
-                    eprintln!("[LHM] Process detected after {}ms", (i + 1) * 500);
-                    minimize_lhm().ok();
-                    return Ok(());
-                }
-            }
-            eprintln!("[LHM] Process not detected after 5 seconds");
-            return Err("LHM failed to start".to_string());
-        }
-    }
-    
-    Err("LHM not installed".to_string())
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
 pub fn get_lhm_cpu_temp() -> (f32, bool) {
-    match WMIConnection::new() {
-        Ok(wmi) => {
-            match wmi.raw_query::<HashMap<String, Variant>>(
-                "SELECT Value FROM Sensor WHERE SensorType = 'Temperature'",
-            ) {
-                Ok(results) => {
-                    for row in &results {
-                        if let Some(Variant::R4(val)) = row.get("Value") {
-                            eprintln!("[LHM] CPU temperature from LHM: {}C", val);
-                            return (*val, true);
-                        }
-                        if let Some(Variant::R8(val)) = row.get("Value") {
-                            eprintln!("[LHM] CPU temperature from LHM: {}C", val);
-                            return (*val as f32, true);
-                        }
-                    }
-                    eprintln!("[LHM] No temperature sensor found in WMI");
-                }
-                Err(e) => eprintln!("[LHM] WMI query failed: {}", e),
-            }
+    let exe_dir = match std::env::current_exe().ok().and_then(|p| p.parent().map(|x| x.to_path_buf())) {
+        Some(d) => d,
+        None => {
+            eprintln!("[LHM] Failed to get executable directory");
+            return (0.0, false);
         }
-        Err(e) => eprintln!("[LHM] Failed to connect to WMI: {}", e),
+    };
+
+    let bridge_path = exe_dir.join("bin").join("sensor_bridge.exe");
+
+    if !bridge_path.exists() {
+        eprintln!("sensor_bridge.exe not found at {:?}", bridge_path);
+        return (0.0, false);
     }
-    (0.0, false)
+
+    let output = match std::process::Command::new(&bridge_path).output().ok() {
+        Some(o) => o,
+        None => {
+            eprintln!("[LHM] Failed to execute sensor_bridge.exe");
+            return (0.0, false);
+        }
+    };
+
+    if !output.status.success() {
+        eprintln!("sensor_bridge.exe failed: {:?}", output.status);
+        return (0.0, false);
+    }
+
+    let json_str = match String::from_utf8(output.stdout).ok() {
+        Some(s) => s,
+        None => {
+            eprintln!("[LHM] Failed to parse stdout as UTF-8");
+            return (0.0, false);
+        }
+    };
+
+    let readings: Vec<SensorReading> = match serde_json::from_str(&json_str).ok() {
+        Some(r) => r,
+        None => {
+            eprintln!("[LHM] Failed to parse sensor JSON");
+            return (0.0, false);
+        }
+    };
+
+    readings
+        .iter()
+        .find(|r| r.sensor_type == "Temperature" && r.name.contains("Package"))
+        .and_then(|r| r.value)
+        .map(|v| (v as f32, true))
+        .unwrap_or((0.0, false))
 }
 
 #[cfg(target_os = "windows")]
 pub fn is_lhm_running() -> bool {
-    use sysinfo::System;
-    
-    let sys = System::new_all();
-    
-    // Try exact match first, then partial match
-    for process in sys.processes().values() {
-        if let Some(name) = process.name().to_str() {
-            let name_lower = name.to_lowercase();
-            if name_lower.contains("librehardwaremonitor") {
-                eprintln!("[LHM] Found running process: {}", name);
-                return true;
-            }
-        }
-    }
-    false
+    true
 }
 
 #[cfg(target_os = "windows")]
 pub fn minimize_lhm() -> Result<(), String> {
-    use std::process::Command;
-
-    let powershell_script = r#"
-        $process = Get-Process | Where-Object { $_.ProcessName -eq 'LibreHardwareMonitor' -or $_.Path -like '*LibreHardwareMonitor*' } | Select-Object -First 1
-        if ($process) {
-            $window = $process.MainWindowHandle
-            if ($window -ne [IntPtr]::Zero) {
-                [user32.dll]::ShowWindow($window, 7)
-            }
-        }
-    "#;
-
-    match Command::new("powershell")
-        .args(["-WindowStyle", "Hidden", "-Command", powershell_script])
-        .output()
-    {
-        Ok(output) => {
-            if output.status.success() {
-                Ok(())
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                Err(format!("Failed to minimize LHM: {}", stderr))
-            }
-        }
-        Err(e) => Err(format!("Failed to run minimize command: {}", e)),
-    }
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
 pub fn configure_lhm_auto_minimize() -> Result<(), String> {
-    use std::process::Command;
-
-    let powershell_script = r#"
-        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        $appName = "LibreHardwareMonitor"
-        $appPath = "$env:LOCALAPPDATA\LibreHardwareMonitor\LibreHardwareMonitor.exe"
-        
-        if (Test-Path $appPath) {
-            Set-ItemProperty -Path $regPath -Name $appName -Value $appPath
-            Write-Host "Configured LHM to auto-start minimized"
-        } else {
-            Write-Host "LHM not found at $appPath"
-        }
-    "#;
-
-    match Command::new("powershell")
-        .args(["-WindowStyle", "Hidden", "-Command", powershell_script])
-        .output()
-    {
-        Ok(output) => {
-            if output.status.success() {
-                Ok(())
-            } else {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                Err(format!("Failed to configure LHM auto-start: {}", stderr))
-            }
-        }
-        Err(e) => Err(format!("Failed to run config command: {}", e)),
-    }
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
 pub async fn download_and_install_lhm() -> Result<(), String> {
-    use reqwest::Client;
-    use std::fs;
-    use zip::ZipArchive;
-
-    eprintln!("[LHM] Starting download_and_install_lhm()");
-
-    eprintln!("[LHM] Fetching latest release info from GitHub...");
-
-    let client = Client::new();
-    eprintln!("[LHM] Created HTTP client");
-
-    eprintln!("[LHM] Making GitHub API request...");
-    let release = client
-        .get("https://api.github.com/repos/LibreHardwareMonitor/LibreHardwareMonitor/releases/latest")
-        .header("User-Agent", "llama-monitor")
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch LHM release info: {}", e))?;
-    eprintln!("[LHM] GitHub API request completed");
-
-    eprintln!("[LHM] Parsing JSON response...");
-    let release_json: serde_json::Value = release
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse LHM release JSON: {}", e))?;
-    eprintln!("[LHM] JSON parsing completed");
-
-    eprintln!(
-        "[LHM] Latest release: {}",
-        release_json["tag_name"].as_str().unwrap_or("unknown")
-    );
-
-    eprintln!("[LHM] Processing release assets...");
-    let assets = release_json["assets"]
-        .as_array()
-        .ok_or("No assets in release")?;
-    eprintln!("[LHM] Found {} assets", assets.len());
-
-    eprintln!("[LHM] Searching for LibreHardwareMonitor.zip...");
-    let zip_url = assets
-        .iter()
-        .find(|a| a["name"].as_str() == Some("LibreHardwareMonitor.zip"))
-        .ok_or("LibreHardwareMonitor.zip not found in latest release")?["browser_download_url"]
-        .as_str()
-        .ok_or("browser_download_url not found")?;
-    eprintln!("[LHM] Found download URL: {}", zip_url);
-
-    eprintln!("[LHM] Starting download from: {}", zip_url);
-    let zip_response = client
-        .get(zip_url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to download LHM: {}", e))?;
-    eprintln!("[LHM] Download response received");
-
-    eprintln!("[LHM] Reading response bytes...");
-    let zip_bytes = zip_response
-        .bytes()
-        .await
-        .map_err(|e| format!("Failed to read LHM ZIP: {}", e))?;
-    eprintln!("[LHM] Downloaded {} bytes", zip_bytes.len());
-
-    let install_dir = std::env::var("LOCALAPPDATA")
-        .map_err(|_| "LOCALAPPDATA not set".to_string())?
-        .to_string();
-    let lhm_dir = Path::new(&install_dir).join("LibreHardwareMonitor");
-
-    eprintln!("[LHM] Installing to: {}", lhm_dir.display());
-
-    eprintln!("[LHM] Creating installation directory...");
-    fs::create_dir_all(&lhm_dir)
-        .map_err(|e| format!("Failed to create install directory: {}", e))?;
-    eprintln!("[LHM] Directory created successfully");
-
-    eprintln!("[LHM] Creating progress file...");
-    let progress_file = lhm_dir.join("install_progress.txt");
-    fs::write(&progress_file, "downloading: 0%")
-        .map_err(|e| format!("Failed to create progress file: {}", e))?;
-    eprintln!("[LHM] Progress file created");
-
-    eprintln!("[LHM] Preparing ZIP archive...");
-    let zip_reader = std::io::Cursor::new(zip_bytes);
-    let mut archive =
-        ZipArchive::new(zip_reader).map_err(|e| format!("Failed to extract LHM ZIP: {}", e))?;
-    eprintln!("[LHM] Archive ready, {} files to extract", archive.len());
-
-    eprintln!("[LHM] Starting extraction...");
-
-    let total_files = archive.len();
-    for i in 0..total_files {
-        let mut file = archive
-            .by_index(i)
-            .map_err(|e| format!("Failed to read ZIP entry {}: {}", i, e))?;
-        let path = lhm_dir.join(file.mangled_name());
-
-        if file.is_dir() {
-            fs::create_dir_all(&path)
-                .map_err(|e| format!("Failed to create directory {}: {}", path.display(), e))?;
-        } else {
-            let parent: &Path = path.parent().unwrap();
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory {}: {}", parent.display(), e))?;
-            let mut output = fs::File::create(&path)
-                .map_err(|e| format!("Failed to create file {}: {}", path.display(), e))?;
-            std::io::copy(&mut file, &mut output)
-                .map_err(|e| format!("Failed to write file {}: {}", path.display(), e))?;
-        }
-
-        fs::write(
-            &progress_file,
-            format!(
-                "extracting: {}%",
-                ((i + 1) as f64 / total_files as f64 * 100.0).round() as u8
-            ),
-        )
-        .map_err(|e| format!("Failed to update progress: {}", e))?;
-    }
-    eprintln!(
-        "[LHM] Extraction complete, {} files extracted",
-        archive.len()
-    );
-
-    let lhm_exe = lhm_dir.join("LibreHardwareMonitor.exe");
-    if !lhm_exe.exists() {
-        return Err("LibreHardwareMonitor.exe not found after extraction".to_string());
-    }
-
-    eprintln!("[LHM] Verifying installation...");
-    let lhm_exe = lhm_dir.join("LibreHardwareMonitor.exe");
-    eprintln!("[LHM] LHM executable path: {}", lhm_exe.display());
-
-    if !lhm_exe.exists() {
-        return Err("LibreHardwareMonitor.exe not found after extraction".to_string());
-    }
-    eprintln!("[LHM] Executable verified");
-
-    eprintln!("[LHM] Running LHM installer (-s flag) with UAC elevation...");
-    let lhm_exe_str = lhm_exe.to_string_lossy().replace("\\", "\\\\");
-    let powershell_cmd = format!(
-        "Start-Process '{}' -ArgumentList '-s' -Verb RunAs -Wait",
-        lhm_exe_str
-    );
-    eprintln!("[LHM] PowerShell command: {}", powershell_cmd);
-
-    let output = std::process::Command::new("powershell")
-        .arg("-Command")
-        .arg(&powershell_cmd)
-        .output()
-        .map_err(|e| format!("Failed to run LHM installer: {}", e))?;
-    eprintln!(
-        "[LHM] Installer command completed, success: {}",
-        output.status.success()
-    );
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("[LHM] Installer stderr: {}", stderr);
-        fs::write(&progress_file, "failed")
-            .map_err(|e| format!("Failed to update progress: {}", e))?;
-        return Err(format!("LHM installer failed: {}", stderr));
-    }
-
-    fs::write(&progress_file, "completed")
-        .map_err(|e| format!("Failed to update progress: {}", e))?;
-
-    eprintln!("[LHM] Verifying LHM is running...");
-    if is_lhm_running() {
-        eprintln!("[LHM] LHM is running, minimizing window...");
-        match minimize_lhm() {
-            Ok(()) => eprintln!("[LHM] LHM window minimized successfully"),
-            Err(e) => eprintln!("[LHM] Failed to minimize LHM: {}", e),
-        }
-
-        eprintln!("[LHM] Configuring auto-start with Windows...");
-        match configure_lhm_auto_minimize() {
-            Ok(()) => eprintln!("[LHM] Auto-start configured successfully"),
-            Err(e) => eprintln!("[LHM] Failed to configure auto-start: {}", e),
-        }
-    } else {
-        eprintln!("[LHM] Warning: LHM process not detected after installation");
-    }
-
-    eprintln!("[LHM] LHM installer completed successfully");
-    eprintln!("[LHM] download_and_install_lhm() finished successfully");
-
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
 pub fn uninstall_lhm() -> Result<(), String> {
-    use std::fs;
-    use std::process::Command;
-
-    let install_dir = std::env::var("LOCALAPPDATA")
-        .map_err(|_| "LOCALAPPDATA not set".to_string())?
-        .to_string();
-    let lhm_dir = Path::new(&install_dir).join("LibreHardwareMonitor");
-
-    eprintln!("[LHM] Checking installation directory: {}", lhm_dir.display());
-
-    if !lhm_dir.exists() {
-        return Err("LHM not installed".to_string());
-    }
-
-    eprintln!("[LHM] Stopping LHM process...");
-    let powershell_stop = r#"
-        $process = Get-Process | Where-Object { $_.ProcessName -eq 'LibreHardwareMonitor' -or $_.Path -like '*LibreHardwareMonitor*' } | Select-Object -First 1
-        if ($process) {
-            Stop-Process -Id $process.Id -Force
-            Start-Sleep -Seconds 2
-        }
-    "#;
-
-    match Command::new("powershell")
-        .args(["-WindowStyle", "Hidden", "-Command", powershell_stop])
-        .output()
-    {
-        Ok(output) => {
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                eprintln!("[LHM] Failed to stop LHM process: {}", stderr);
-            }
-        }
-        Err(e) => eprintln!("[LHM] Failed to run stop command: {}", e),
-    }
-
-    eprintln!("[LHM] Removing auto-start registry entry...");
-    let powershell_registry = r#"
-        $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
-        if (Test-Path $regPath) {
-            Remove-ItemProperty -Path $regPath -Name "LibreHardwareMonitor" -Force -ErrorAction SilentlyContinue
-        }
-    "#;
-
-    match Command::new("powershell")
-        .args(["-WindowStyle", "Hidden", "-Command", powershell_registry])
-        .output()
-    {
-        Ok(output) => {
-            if !output.status.success() {
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                eprintln!("[LHM] Failed to remove registry entry: {}", stderr);
-            }
-        }
-        Err(e) => eprintln!("[LHM] Failed to run registry command: {}", e),
-    }
-
-    eprintln!("[LHM] Deleting installation directory...");
-    match fs::remove_dir_all(&lhm_dir) {
-        Ok(()) => {
-            eprintln!("[LHM] Directory deleted successfully");
-        }
-        Err(e) => {
-            eprintln!("[LHM] Failed to delete directory: {}", e);
-            return Err(format!("Failed to delete LHM directory: {}", e));
-        }
-    }
-
-    eprintln!("[LHM] Uninstallation complete");
     Ok(())
 }

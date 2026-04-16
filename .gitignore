@@ -25,3 +25,12 @@ node_modules/
 
 # Special artifact files
 $null
+
+# C# sidecar build artifacts
+sensor_bridge/bin/
+sensor_bridge/obj/
+sensor_bridge/publish/
+*.csproj.user
+
+# Test scripts
+test-*.ps1
