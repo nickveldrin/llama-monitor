@@ -4,9 +4,9 @@ use serde::Deserialize;
 /// Sensor reading from sensor_bridge.exe output
 #[cfg(target_os = "windows")]
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 struct SensorReading {
     hardware: String,
-    #[allow(dead_code)]
     subhardware: Option<String>,
     name: String,
     #[serde(rename = "type")]
@@ -65,12 +65,21 @@ pub fn get_lhm_cpu_temp() -> (f32, bool) {
         return (0.0, false);
     }
 
-    let output = match std::process::Command::new(&bridge_path).output().ok() {
-        Some(o) => o,
-        None => {
-            eprintln!("[LHM] Failed to execute sensor_bridge.exe");
-            return (0.0, false);
-        }
+    let bridge_str = bridge_path.to_string_lossy().to_string();
+    let temp_file = std::env::temp_dir().join("sensor_bridge_output.json");
+
+    let result = std::process::Command::new("powershell.exe")
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-WindowStyle")
+        .arg("Hidden")
+        .arg("-Command")
+        .arg(format!(r#"Start-Process "{}" -Verb RunAs -Wait"#, bridge_str))
+        .output();
+
+    let Ok(output) = result else {
+        eprintln!("[LHM] Failed to spawn sensor_bridge.exe");
+        return (0.0, false);
     };
 
     if !output.status.success() {
@@ -78,13 +87,15 @@ pub fn get_lhm_cpu_temp() -> (f32, bool) {
         return (0.0, false);
     }
 
-    let json_str = match String::from_utf8(output.stdout).ok() {
+    let json_str = match std::fs::read_to_string(&temp_file).ok() {
         Some(s) => s,
         None => {
-            eprintln!("[LHM] Failed to parse stdout as UTF-8");
+            eprintln!("[LHM] Failed to read temp file");
             return (0.0, false);
         }
     };
+
+    let _ = std::fs::remove_file(&temp_file);
 
     let readings: Vec<SensorReading> = match serde_json::from_str(&json_str).ok() {
         Some(r) => r,
@@ -108,11 +119,13 @@ pub fn is_lhm_running() -> bool {
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn minimize_lhm() -> Result<(), String> {
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
+#[allow(dead_code)]
 pub fn configure_lhm_auto_minimize() -> Result<(), String> {
     Ok(())
 }

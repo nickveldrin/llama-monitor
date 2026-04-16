@@ -1,5 +1,6 @@
 using LibreHardwareMonitor.Hardware;
 using System.Text.Json;
+using System.IO;
 
 class UpdateVisitor : IVisitor
 {
@@ -66,6 +67,8 @@ class Program
 
         computer.Close();
 
-        Console.WriteLine(JsonSerializer.Serialize(sensors));
+        var json = JsonSerializer.Serialize(sensors);
+        var tempFile = Path.Combine(Path.GetTempPath(), "sensor_bridge_output.json");
+        File.WriteAllText(tempFile, json);
     }
 }
