@@ -131,18 +131,11 @@ pub fn get_lhm_cpu_temp() -> (f32, bool) {
 
 #[cfg(target_os = "windows")]
 pub fn is_lhm_running() -> bool {
-    use std::process::Command;
-
-    match Command::new("powershell")
-        .args(["-WindowStyle", "Hidden", "-Command", "Get-Process | Where-Object { $_.ProcessName -eq 'LibreHardwareMonitor' -or $_.Path -like '*LibreHardwareMonitor*' } | Select-Object -First 1 | Format-List | Out-String"])
-        .output()
-    {
-        Ok(output) => {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            !stdout.trim().is_empty()
-        }
-        Err(_) => false,
-    }
+    use std::ffi::OsStr;
+    use sysinfo::System;
+    
+    let sys = System::new_all();
+    !sys.processes_by_name(OsStr::new("LibreHardwareMonitor")).next().is_none()
 }
 
 #[cfg(target_os = "windows")]
