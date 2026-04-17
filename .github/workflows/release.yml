@@ -41,8 +41,14 @@ EOF
           cargo build --release --target x86_64-unknown-linux-gnu
           cargo build --release --target aarch64-unknown-linux-gnu
           cargo build --release --target x86_64-pc-windows-gnu
-          cargo build --release --target x86_64-apple-darwin
-          cargo build --release --target aarch64-apple-darwin
+          CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=/opt/osxcross/target/bin/aarch64-apple-darwin25.1-clang \
+          CARGO_TARGET_AARCH64_APPLE_DARWIN_AR=/opt/osxcross/target/bin/aarch64-apple-darwin25.1-ar \
+          cargo build --release --target aarch64-apple-darwin \
+          --config 'target.aarch64-apple-darwin.rustflags=["-C","link-arg=-isysroot/opt/osxcross/target/SDK/MacOSX26.1.sdk"]'
+          CARGO_TARGET_X86_64_APPLE_DARWIN_LINKER=/opt/osxcross/target/bin/x86_64-apple-darwin25.1-clang \
+          CARGO_TARGET_X86_64_APPLE_DARWIN_AR=/opt/osxcross/target/bin/x86_64-apple-darwin25.1-ar \
+          cargo build --release --target x86_64-apple-darwin \
+          --config 'target.x86_64-apple-darwin.rustflags=["-C","link-arg=-isysroot/opt/osxcross/target/SDK/MacOSX26.1.sdk"]'
 
       - name: Copy binaries
         run: |
