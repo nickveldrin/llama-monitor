@@ -13,76 +13,66 @@ env:
 
 jobs:
   build:
-    runs-on: [self-hosted, linux, proxmox]
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: llama-monitor-linux-x86_64
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: llama-monitor-linux-aarch64
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: llama-monitor-macos-arm64
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: llama-monitor-windows-x86_64.exe
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: Swatinem/rust-cache@v2
-
-      - name: Install cargo-zigbuild
-        run: |
-          source ~/.cargo/env || true
-          cargo install cargo-zigbuild --locked
-
-      - name: Build Linux x86_64
-        run: |
-          source ~/.cargo/env
-          cargo zigbuild --release --target x86_64-unknown-linux-gnu
-          cp target/x86_64-unknown-linux-gnu/release/llama-monitor ./llama-monitor-linux-x86_64
-          chmod +x ./llama-monitor-linux-x86_64
-
-      - name: Build Linux ARM64
-        run: |
-          source ~/.cargo/env
-          cargo zigbuild --release --target aarch64-unknown-linux-gnu
-          cp target/aarch64-unknown-linux-gnu/release/llama-monitor ./llama-monitor-linux-aarch64
-          chmod +x ./llama-monitor-linux-aarch64
-
-      - name: Build macOS ARM64
-        run: |
-          source ~/.cargo/env
-          cargo zigbuild --release --target aarch64-apple-darwin
-          cp target/aarch64-apple-darwin/release/llama-monitor ./llama-monitor-macos-arm64
-          chmod +x ./llama-monitor-macos-arm64
-
-      - name: Build Windows x86_64
-        run: |
-          source ~/.cargo/env
-          cargo zigbuild --release --target x86_64-pc-windows-gnu
-          cp target/x86_64-pc-windows-gnu/release/llama-monitor.exe ./llama-monitor-windows-x86_64.exe
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          name: release-binaries
-          path: |
-            llama-monitor-linux-x86_64
-            llama-monitor-linux-aarch64
-            llama-monitor-macos-arm64
-            llama-monitor-windows-x86_64.exe
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cross-compilation tools
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            cp target/${{ matrix.target }}/release/llama-monitor.exe ${{ matrix.artifact }}
+          else
+            cp target/${{ matrix.target }}/release/llama-monitor ${{ matrix.artifact }}
+            chmod +x ${{ matrix.artifact }}
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
 
   release:
     needs: build
-    runs-on: [self-hosted, linux, proxmox]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
-          name: release-binaries
-          path: .
+          path: artifacts
 
       - name: Create release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
-          files: |
-            llama-monitor-linux-x86_64
-            llama-monitor-linux-aarch64
-            llama-monitor-macos-arm64
-            llama-monitor-windows-x86_64.exe
+          files: artifacts/**/*
