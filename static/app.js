@@ -2291,20 +2291,84 @@ async function showLHMNotification() {
                 
                 lhmButtonsEl.querySelector('#btn-lhm-start').onclick = async () => {
                     overlay.remove();
-                    try {
-                        const startResp = await fetch('/api/lhm/start', {
-                            method: 'POST'
-                        });
-                        if (startResp.ok) {
-                            showToast('LHM started successfully', 'success');
-                            setTimeout(() => location.reload(), 2000);
-                        } else {
-                            const data = await startResp.json();
-                            showToast('Failed to start LHM: ' + (data.error || 'Unknown error'), 'error');
+                    
+                    // Show UAC warning modal
+                    const warningOverlay = document.createElement('div');
+                    warningOverlay.style.cssText = `
+                        position: fixed;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        width: 450px;
+                        background: #2e3440;
+                        border: 2px solid #ebcb8b;
+                        border-radius: 12px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+                        z-index: 99999;
+                        padding: 25px;
+                        color: #d8dee9;
+                    `;
+                    
+                    warningOverlay.innerHTML = `
+                        <div style="display:flex;justify-content:center;align-items:center;margin-bottom:20px;">
+                            <div style="width:48px;height:48px;background:#3b4252;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-right:20px;">
+                                <span style="font-size:24px;">⚠️</span>
+                            </div>
+                            <div>
+                                <h2 style="margin:0 0 5px 0;color:#ebcb8b;">Administrator Access Required</h2>
+                                <p style="margin:0;font-size:0.85rem;color:#a3be8c;">A Windows security prompt will appear</p>
+                            </div>
+                        </div>
+                        
+                        <div style="background:#3b4252;border-radius:8px;padding:15px;margin-bottom:20px;line-height:1.6;font-size:0.9rem;">
+                            <p style="margin:0 0 10px 0;"><strong>What will happen:</strong></p>
+                            <ul style="margin:0 0 10px 0;padding-left:20px;">
+                                <li>Windows will show a UAC prompt asking for admin permission</li>
+                                <li>Click "Yes" to allow LibreHardwareMonitor to start</li>
+                                <li>LHM will run in the background (may briefly flash on screen)</li>
+                                <li>After starting, the window will refresh automatically</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="display:flex;gap:10px;">
+                            <button id="btn-uac-yes" style="flex:1;padding:12px;background:#a3be8c;border:none;border-radius:6px;cursor:pointer;font-weight:bold;font-size:1rem;">Yes, Continue</button>
+                            <button id="btn-uac-no" style="flex:1;padding:12px;background:#bf616a;border:none;border-radius:6px;cursor:pointer;font-size:1rem;">Cancel</button>
+                        </div>
+                        
+                        <p style="margin-top:20px;font-size:0.75rem;color:#616e88;text-align:center;">
+                            LibreHardwareMonitor needs admin access to read hardware sensors.
+                        </p>
+                    `;
+                    
+                    document.body.appendChild(warningOverlay);
+                    
+                    return new Promise((resolve) => {
+                        warningOverlay.querySelector('#btn-uac-yes').onclick = () => {
+                            warningOverlay.remove();
+                            resolve(true);
+                        };
+                        warningOverlay.querySelector('#btn-uac-no').onclick = () => {
+                            warningOverlay.remove();
+                            resolve(false);
+                        };
+                    }).then(async (proceed) => {
+                        if (!proceed) return;
+                        
+                        try {
+                            const startResp = await fetch('/api/lhm/start', {
+                                method: 'POST'
+                            });
+                            if (startResp.ok) {
+                                showToast('LHM started successfully', 'success');
+                                setTimeout(() => location.reload(), 2000);
+                            } else {
+                                const data = await startResp.json();
+                                showToast('Failed to start LHM: ' + (data.error || 'Unknown error'), 'error');
+                            }
+                        } catch (err) {
+                            showToast('Failed to start LHM: ' + err.message, 'error');
                         }
-                    } catch (err) {
-                        showToast('Failed to start LHM: ' + err.message, 'error');
-                    }
+                    });
                 };
                 
                 lhmButtonsEl.querySelector('#btn-lhm-uninstall').onclick = async () => {
