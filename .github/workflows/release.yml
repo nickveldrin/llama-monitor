@@ -60,6 +60,13 @@ jobs:
     needs: build
     runs-on: [self-hosted, linux, proxmox]
     steps:
+      - name: Generate GitHub App token
+        uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
         with:
@@ -75,3 +82,5 @@ jobs:
             llama-monitor-linux-aarch64
             llama-monitor-windows-x86_64.exe
             llama-monitor-macos-aarch64
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
