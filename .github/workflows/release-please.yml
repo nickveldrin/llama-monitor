@@ -13,7 +13,7 @@ jobs:
   release-please:
     runs-on: [self-hosted, linux, proxmox]
     steps:
-      - uses: googleapis/release-please-action@v4.4.0
+      - uses: googleapis/release-please-action@v4.4.1
         with:
           release-type: rust
           token: ${{ secrets.RELEASE_PAT }}
