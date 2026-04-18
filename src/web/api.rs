@@ -34,28 +34,51 @@ use crate::state::{self as app_state, AppState, SessionStatus, UiSettings};
 fn api_check_lhm() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "lhm" / "check")
         .and(warp::get())
+        .and_then(move || async move {
+            #[cfg(target_os = "windows")]
+            {
+                let running = lhm::is_lhm_running();
+                let installed = lhm::is_lhm_installed();
+                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                    "running": running,
+                    "installed": installed,
+                    "available": running
+                })))
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                    "running": false,
+                    "installed": false,
+                    "available": false,
+                    "error": "Not supported on this platform"
+                })))
+            }
+        })
+}
+
+fn api_lhm_start() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "lhm" / "start")
+        .and(warp::post())
         .and_then(move || {
             async move {
                 #[cfg(target_os = "windows")]
                 {
-                    match lhm::ensure_lhm_available().await {
-                        Ok(()) => {
-                            Ok::<_, warp::Rejection>(warp::reply::json(
-                                &serde_json::json!({"available": true}),
-                            ))
-                        }
-                        Err(_) => {
-                            Ok::<_, warp::Rejection>(warp::reply::json(
-                                &serde_json::json!({"available": false}),
-                            ))
-                        }
+                    match lhm::start_lhm().await {
+                        Ok(()) => Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"success": true}),
+                        )),
+                        Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"success": false, "error": e}),
+                        )),
                     }
                 }
 
                 #[cfg(not(target_os = "windows"))]
                 {
                     Ok::<_, warp::Rejection>(warp::reply::json(
-                        &serde_json::json!({"available": false, "error": "Not supported on this platform"}),
+                        &serde_json::json!({"success": false, "error": "Not supported on this platform"}),
                     ))
                 }
             }
@@ -94,6 +117,49 @@ fn api_lhm_status(
         })
 }
 
+fn api_lhm_progress() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+{
+    warp::path!("api" / "lhm" / "progress")
+        .and(warp::get())
+        .and_then(move || {
+            #[cfg(target_os = "windows")]
+            {
+                async move {
+                    use std::fs;
+
+                    let local_app_data = match std::env::var("LOCALAPPDATA") {
+                        Ok(val) => val,
+                        Err(_) => {
+                            return Ok::<_, warp::Rejection>(warp::reply::json(
+                                &serde_json::json!({"progress": "error: LOCALAPPDATA not set"}),
+                            ));
+                        }
+                    };
+                    let progress_file = std::path::Path::new(&local_app_data)
+                        .join("LibreHardwareMonitor")
+                        .join("install_progress.txt");
+
+                    let progress = fs::read_to_string(&progress_file)
+                        .map(|s| s.trim().to_string())
+                        .unwrap_or_else(|_| "not_started".to_string());
+
+                    Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"progress": progress}),
+                    ))
+                }
+            }
+
+            #[cfg(not(target_os = "windows"))]
+            {
+                async move {
+                    Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"progress": "not_supported"}),
+                    ))
+                }
+            }
+        })
+}
+
 fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
 {
     warp::path!("api" / "lhm" / "install")
@@ -102,13 +168,16 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
             async move {
                 #[cfg(target_os = "windows")]
                 {
+                    eprintln!("[API] /api/lhm/install called");
                     match lhm::download_and_install_lhm().await {
                         Ok(()) => {
+                            eprintln!("[API] LHM install succeeded");
                             Ok::<_, warp::Rejection>(warp::reply::json(
                                 &serde_json::json!({"success": true}),
                             ))
                         }
                         Err(e) => {
+                            eprintln!("[API] LHM install failed: {}", e);
                             Ok::<_, warp::Rejection>(warp::reply::json(
                                 &serde_json::json!({"success": false, "error": e}),
                             ))
@@ -118,6 +187,43 @@ fn api_lhm_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp:
 
                 #[cfg(not(target_os = "windows"))]
                 {
+                    eprintln!("[API] /api/lhm/install called (non-Windows, not supported)");
+                    Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"success": false, "error": "Not supported on this platform"}),
+                    ))
+                }
+            }
+        })
+}
+
+fn api_lhm_uninstall() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+{
+    warp::path!("api" / "lhm" / "uninstall")
+        .and(warp::post())
+        .and_then(move || {
+            async move {
+                #[cfg(target_os = "windows")]
+                {
+                    eprintln!("[API] /api/lhm/uninstall called");
+                    match lhm::uninstall_lhm() {
+                        Ok(()) => {
+                            eprintln!("[API] LHM uninstall succeeded");
+                            Ok::<_, warp::Rejection>(warp::reply::json(
+                                &serde_json::json!({"success": true}),
+                            ))
+                        }
+                        Err(e) => {
+                            eprintln!("[API] LHM uninstall failed: {}", e);
+                            Ok::<_, warp::Rejection>(warp::reply::json(
+                                &serde_json::json!({"success": false, "error": e}),
+                            ))
+                        }
+                    }
+                }
+
+                #[cfg(not(target_os = "windows"))]
+                {
+                    eprintln!("[API] /api/lhm/uninstall called (non-Windows, not supported)");
                     Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"success": false, "error": "Not supported on this platform"}),
                     ))
@@ -177,7 +283,10 @@ pub fn api_routes(
         api_spawn_session_with_preset(state.clone(), app_config.clone());
     let attach = api_attach(state.clone());
     let check_lhm = api_check_lhm();
+    let start_lhm = api_lhm_start();
     let install_lhm = api_lhm_install();
+    let uninstall_lhm = api_lhm_uninstall();
+    let progress_lhm = api_lhm_progress();
     let status_lhm = api_lhm_status(app_config.clone());
     let disable_lhm = api_disable_lhm(app_config.clone());
 
@@ -205,8 +314,11 @@ pub fn api_routes(
         .or(spawn_session_with_preset)
         .or(attach)
         .or(check_lhm)
+        .or(start_lhm)
+        .or(progress_lhm)
         .or(status_lhm)
         .or(install_lhm)
+        .or(uninstall_lhm)
         .or(disable_lhm)
 }
 

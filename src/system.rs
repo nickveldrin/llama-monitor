@@ -78,17 +78,13 @@ fn get_cpu_name() -> String {
 fn get_cpu_name() -> String {
     use std::process::Command;
 
-    match Command::new("sysctl")
+    if let Ok(output) = Command::new("sysctl")
         .arg("-n")
         .arg("machdep.cpu.brand_string")
         .output()
+        && output.status.success()
     {
-        Ok(output) => {
-            if output.status.success() {
-                return String::from_utf8_lossy(&output.stdout).trim().to_string();
-            }
-        }
-        Err(_) => {}
+        return String::from_utf8_lossy(&output.stdout).trim().to_string();
     }
 
     "Unknown CPU".to_string()
@@ -101,6 +97,11 @@ fn get_cpu_temp(sys: &System) -> (f32, bool) {
 
     #[cfg(target_os = "windows")]
     {
+        use crate::lhm;
+
+        if lhm::is_lhm_available() {
+            return lhm::get_lhm_cpu_temp();
+        }
         (0.0, false)
     }
 
@@ -144,13 +145,11 @@ fn get_cpu_temp(sys: &System) -> (f32, bool) {
         for sensor in sensors {
             if let Ok(output) = Command::new("sysctl").arg("-n").arg(sensor).output()
                 && output.status.success()
-            {
-                if let Ok(temp) = String::from_utf8_lossy(&output.stdout)
+                && let Ok(temp) = String::from_utf8_lossy(&output.stdout)
                     .trim()
                     .parse::<f32>()
-                {
-                    return (temp, true);
-                }
+            {
+                return (temp, true);
             }
         }
 
@@ -231,16 +230,13 @@ fn get_motherboard() -> String {
 fn get_motherboard() -> String {
     use std::process::Command;
 
-    match Command::new("sysctl").arg("-n").arg("hw.model").output() {
-        Ok(output) => {
-            if output.status.success() {
-                let model = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !model.is_empty() {
-                    return model;
-                }
-            }
+    if let Ok(output) = Command::new("sysctl").arg("-n").arg("hw.model").output()
+        && output.status.success()
+    {
+        let model = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !model.is_empty() {
+            return model;
         }
-        Err(_) => {}
     }
 
     "Unknown Motherboard".to_string()

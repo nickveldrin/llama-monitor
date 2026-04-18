@@ -2,13 +2,15 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ready-to-test')
+    runs-on: [self-hosted, linux, proxmox]
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable

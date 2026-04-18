@@ -13,66 +13,65 @@ env:
 
 jobs:
   build:
-    strategy:
-      matrix:
-        include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            artifact: llama-monitor-linux-x86_64
-          - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
-            artifact: llama-monitor-linux-aarch64
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            artifact: llama-monitor-macos-arm64
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            artifact: llama-monitor-windows-x86_64.exe
-
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, linux, proxmox]
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-pc-windows-gnu,aarch64-apple-darwin
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        shell: bash
+      - name: Setup osxcross
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          mkdir -p ~/.cargo
+          cat > ~/.cargo/config.toml << 'EOF'
+          [target.aarch64-apple-darwin]
+          linker = "/opt/osxcross/target/bin/aarch64-apple-darwin25.1-clang"
+          ar = "/opt/osxcross/target/bin/aarch64-apple-darwin25.1-ar"
+          rustflags = ["-C", "link-arg=-isysroot /opt/osxcross/target/SDK/MacOSX26.1.sdk"]
+          EOF
 
-      - run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Package
-        shell: bash
+      - name: Build all targets
         run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            cp target/${{ matrix.target }}/release/llama-monitor.exe ${{ matrix.artifact }}
-          else
-            cp target/${{ matrix.target }}/release/llama-monitor ${{ matrix.artifact }}
-            chmod +x ${{ matrix.artifact }}
-          fi
+          cargo build --release --target x86_64-unknown-linux-gnu
+          cargo build --release --target aarch64-unknown-linux-gnu
+          cargo build --release --target x86_64-pc-windows-gnu
+          cargo build --release --target aarch64-apple-darwin
 
-      - uses: actions/upload-artifact@v7
+      - name: Copy binaries
+        run: |
+          cp target/x86_64-unknown-linux-gnu/release/llama-monitor ./llama-monitor-linux-x86_64
+          cp target/aarch64-unknown-linux-gnu/release/llama-monitor ./llama-monitor-linux-aarch64
+          cp target/x86_64-pc-windows-gnu/release/llama-monitor.exe ./llama-monitor-windows-x86_64.exe
+          cp target/aarch64-apple-darwin/release/llama-monitor ./llama-monitor-macos-aarch64
+          chmod +x ./llama-monitor-linux-x86_64 ./llama-monitor-linux-aarch64 ./llama-monitor-macos-aarch64
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          name: release-binaries
+          path: |
+            llama-monitor-linux-x86_64
+            llama-monitor-linux-aarch64
+            llama-monitor-windows-x86_64.exe
+            llama-monitor-macos-aarch64
 
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, proxmox]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: release-binaries
+          path: .
 
       - name: Create release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v1
         with:
           generate_release_notes: true
-          files: artifacts/**/*
+          files: |
+            llama-monitor-linux-x86_64
+            llama-monitor-linux-aarch64
+            llama-monitor-windows-x86_64.exe
+            llama-monitor-macos-aarch64
