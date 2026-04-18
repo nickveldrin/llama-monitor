@@ -34,32 +34,26 @@ use crate::state::{self as app_state, AppState, SessionStatus, UiSettings};
 fn api_check_lhm() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "lhm" / "check")
         .and(warp::get())
-        .and_then(move || {
-            async move {
-                #[cfg(target_os = "windows")]
-                {
-                    let running = lhm::is_lhm_running();
-                    let installed = lhm::is_lhm_installed();
-                    Ok::<_, warp::Rejection>(warp::reply::json(
-                        &serde_json::json!({
-                            "running": running,
-                            "installed": installed,
-                            "available": running
-                        }),
-                    ))
-                }
+        .and_then(move || async move {
+            #[cfg(target_os = "windows")]
+            {
+                let running = lhm::is_lhm_running();
+                let installed = lhm::is_lhm_installed();
+                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                    "running": running,
+                    "installed": installed,
+                    "available": running
+                })))
+            }
 
-                #[cfg(not(target_os = "windows"))]
-                {
-                    Ok::<_, warp::Rejection>(warp::reply::json(
-                        &serde_json::json!({
-                            "running": false,
-                            "installed": false,
-                            "available": false,
-                            "error": "Not supported on this platform"
-                        }),
-                    ))
-                }
+            #[cfg(not(target_os = "windows"))]
+            {
+                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                    "running": false,
+                    "installed": false,
+                    "available": false,
+                    "error": "Not supported on this platform"
+                })))
             }
         })
 }
@@ -323,7 +317,7 @@ pub fn api_routes(
         .or(start_lhm)
         .or(progress_lhm)
         .or(status_lhm)
-       .or(install_lhm)
+        .or(install_lhm)
         .or(uninstall_lhm)
         .or(disable_lhm)
 }

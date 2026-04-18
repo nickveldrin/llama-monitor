@@ -25,7 +25,10 @@ pub async fn ensure_lhm_available() -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 pub fn is_sensor_bridge_available() -> bool {
-    let exe_dir = match std::env::current_exe().ok().and_then(|p| p.parent().map(|x| x.to_path_buf())) {
+    let exe_dir = match std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|x| x.to_path_buf()))
+    {
         Some(d) => d,
         None => return false,
     };
@@ -50,7 +53,10 @@ pub async fn start_lhm() -> Result<(), String> {
 
 #[cfg(target_os = "windows")]
 pub fn get_lhm_cpu_temp() -> (f32, bool) {
-    let exe_dir = match std::env::current_exe().ok().and_then(|p| p.parent().map(|x| x.to_path_buf())) {
+    let exe_dir = match std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|x| x.to_path_buf()))
+    {
         Some(d) => d,
         None => {
             eprintln!("[LHM] Failed to get executable directory");
@@ -74,7 +80,10 @@ pub fn get_lhm_cpu_temp() -> (f32, bool) {
         .arg("-WindowStyle")
         .arg("Hidden")
         .arg("-Command")
-        .arg(format!(r#"Start-Process "{}" -Verb RunAs -Wait"#, bridge_str))
+        .arg(format!(
+            r#"Start-Process "{}" -Verb RunAs -Wait"#,
+            bridge_str
+        ))
         .output();
 
     let Ok(output) = result else {
