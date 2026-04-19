@@ -2,29 +2,31 @@
 <html>
 <head>
 <meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1'>
 <title>Llama Monitor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+    width: 240px;
+    overflow: hidden;
+}
 body {
     font-family: system-ui, -apple-system, sans-serif;
     background: #2e3440;
     color: #d8dee9;
-    width: 320px;
-    overflow-x: hidden;
-    font-size: 0.75rem;
-    padding: 0;
+    font-size: 11px;
+    padding: 4px;
 }
 .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 10px;
+    padding: 2px 4px;
     background: #3b4252;
-    border-bottom: 1px solid #4c566a;
+    border-radius: 4px 4px 0 0;
 }
 .header h1 {
-    font-size: 0.82rem;
+    font-size: 12px;
     color: #88c0d1;
     font-weight: 600;
 }
@@ -32,29 +34,28 @@ body {
     background: none;
     border: none;
     color: #6a7585;
-    font-size: 1rem;
+    font-size: 14px;
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0;
     line-height: 1;
 }
 .close-btn:hover { color: #d8dee9; }
 .status-bar {
-    padding: 4px 10px;
-    font-size: 0.68rem;
+    padding: 3px 4px;
+    font-size: 10px;
     color: #6a7585;
-    border-bottom: 1px solid #4c566a;
 }
 .status-bar .running { color: #a3be8c; }
 .status-bar .stopped { color: #bf616a; }
 .section {
-    padding: 6px 10px;
-    border-bottom: 1px solid #4c566a;
+    padding: 3px 4px;
+    border-top: 1px solid #4c566a;
 }
 .section-title {
-    font-size: 0.7rem;
+    font-size: 10px;
     color: #81a1c1;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
@@ -62,24 +63,24 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
 }
+.metric-row:last-child { margin-bottom: 0; }
 .metric-label {
-    width: 60px;
-    flex-shrink: 0;
+    width: 35px;
     color: #8899aa;
-    font-size: 0.68rem;
+    font-size: 10px;
 }
 .metric-bar-wrap {
     flex: 1;
-    height: 8px;
+    height: 4px;
     background: #3b4252;
-    border-radius: 4px;
+    border-radius: 2px;
     overflow: hidden;
 }
 .metric-bar {
     height: 100%;
-    border-radius: 4px;
+    border-radius: 2px;
     transition: width 0.3s ease;
 }
 .metric-bar.cpu { background: #81a1c1; }
@@ -87,41 +88,40 @@ body {
 .metric-bar.gpu-load { background: #88c0d1; }
 .metric-bar.gpu-temp { background: #ebcb8b; }
 .metric-bar.gpu-vram { background: #a3be8c; }
-.metric-bar.prompt { background: #a3be8c; }
-.metric-bar.gen { background: #88c0d1; }
-.metric-bar.ctx { background: #b48ead; }
 .metric-value {
-    width: 70px;
+    width: 45px;
     text-align: right;
     font-family: monospace;
-    font-size: 0.68rem;
-    flex-shrink: 0;
-}
-.gpu-section {
-    padding: 6px 10px;
-    border-bottom: 1px solid #4c566a;
-}
-.gpu-name {
-    font-size: 0.7rem;
-    color: #88c0d1;
-    font-weight: 600;
-    margin-bottom: 3px;
+    font-size: 10px;
 }
 .inference-section {
-    padding: 6px 10px;
+    padding: 3px 4px;
+    border-top: 1px solid #4c566a;
 }
 .inference-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 2px 0;
-    font-size: 0.68rem;
+    padding: 1px 0;
+    font-size: 10px;
 }
 .inference-label { color: #8899aa; }
 .inference-value { font-family: monospace; color: #d8dee9; }
 .dash-line {
     color: #4c566a;
     font-family: monospace;
+}
+#gpu-sections { display: none; }
+#gpu-sections:not(:empty) { display: block; }
+.gpu-section {
+    padding: 3px 4px;
+    border-top: 1px solid #4c566a;
+}
+.gpu-name {
+    font-size: 10px;
+    color: #88c0d1;
+    font-weight: 600;
+    margin-bottom: 2px;
 }
 </style>
 </head>
@@ -174,7 +174,36 @@ body {
 
 <script>
 const PORT = __PORT__;
-const ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws');
+let ws = null;
+let reconnectTimer = null;
+
+function connectWebSocket() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        return;
+    }
+    try {
+        ws = new WebSocket('ws://127.0.0.1:' + PORT + '/ws');
+        ws.onopen = function() {
+            console.log('WebSocket connected');
+            document.getElementById('status-bar').innerHTML = '<span class="running">● Connected</span>';
+        };
+        ws.onerror = function(e) {
+            console.error('WebSocket error:', e);
+        };
+        ws.onclose = function() {
+            console.log('WebSocket closed, reconnecting in 2s...');
+            document.getElementById('status-bar').innerHTML = '<span class="stopped">● Disconnected</span>';
+            if (reconnectTimer) clearTimeout(reconnectTimer);
+            reconnectTimer = setTimeout(connectWebSocket, 2000);
+        };
+    } catch(e) {
+        console.error('Failed to create WebSocket:', e);
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(connectWebSocket, 2000);
+    }
+}
+
+connectWebSocket();
 
 function setBar(id, pct, maxVal) {
     const bar = document.getElementById(id);
@@ -226,14 +255,28 @@ function renderGPUs(gpuEntries) {
     }
 }
 
+// Expose function to get content dimensions for native resize
+window.getContentDimensions = function() {
+    const body = document.body;
+    const rect = body.getBoundingClientRect();
+    const width = Math.ceil(Math.max(rect.width, body.scrollWidth));
+    const height = Math.ceil(Math.max(rect.height, body.scrollHeight));
+    return { width, height };
+};
+
+// Signal ready when content is loaded
+window.addEventListener('load', function() {
+    window.__popoverReady = true;
+});
+
 ws.onmessage = function(e) {
+    let d;
     try {
-        const d = JSON.parse(e.data);
+        d = JSON.parse(e.data);
     } catch(err) { return; }
 
     updateStatus(d.server_running);
 
-    // CPU
     const sys = d.system || {};
     const cpuLoad = sys.cpu_load || 0;
     setBar('cpu-load-bar', cpuLoad, 100);
@@ -247,7 +290,6 @@ ws.onmessage = function(e) {
         document.getElementById('cpu-temp').textContent = '—';
     }
 
-    // RAM
     if (sys.ram_total_gb > 0) {
         const ramPct = (sys.ram_used_gb / sys.ram_total_gb) * 100;
         setBar('ram-bar', ramPct, 100);
@@ -257,11 +299,9 @@ ws.onmessage = function(e) {
         document.getElementById('ram').textContent = '—';
     }
 
-    // GPUs
     const gpuEntries = Object.entries(d.gpu || {});
     renderGPUs(gpuEntries);
 
-    // Inference
     const l = d.llama || {};
     if (l.prompt_tokens_per_sec > 0) {
         document.querySelector('.inference-row:nth-child(1) .inference-value').innerHTML = l.prompt_tokens_per_sec.toFixed(1) + ' tok/s';
@@ -273,11 +313,6 @@ ws.onmessage = function(e) {
         const ctxPct = ((l.kv_cache_tokens / l.kv_cache_max) * 100).toFixed(0);
         document.querySelector('.inference-row:nth-child(3) .inference-value').innerHTML = ctxPct + '%';
     }
-};
-
-ws.onerror = function() {};
-ws.onclose = function() {
-    document.getElementById('status-bar').innerHTML = '<span class="stopped">● Disconnected</span>';
 };
 </script>
 </body>

@@ -22,8 +22,10 @@ tray-popover = ["dep:wry"]
     notify-rust = "4"
     webbrowser = "1"
     tray-icon = "0.22"
-    winit = { version = "0.31", default-features = false, features = ["rwh_06", "x11", "wayland"] }
-    wry = { version = "0.48", optional = true, default-features = false, features = ["os-webview"] }
+    winit = { version = "0.30", default-features = false }
+    core-foundation = "0.9"
+    mac-notification-sys = "0.6"
+    objc2-foundation = "0.2"
 
 [target.'cfg(windows)'.dependencies]
     wmi = { version = "0.18.4", features = ["default"] }

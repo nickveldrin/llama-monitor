@@ -92,30 +92,42 @@ pub fn run_tray(state: AppState, port: u16) {
         notified_errors: StdMutex::new(0u32),
     };
 
-    let tray_menu = Menu::new();
-
-    let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", true, None);
-    let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", true, None);
-    let sep1 = PredefinedMenuItem::separator();
-    let open_item = MenuItem::with_id(MenuId::new("open"), "Open Web UI", true, None);
-    let sep2 = PredefinedMenuItem::separator();
-    let quit_item = MenuItem::with_id(MenuId::new("quit"), "Quit", true, None);
-
-    tray_menu.append(&cpu_item).unwrap();
-    tray_menu.append(&gpu_item).unwrap();
-    tray_menu.append(&sep1).unwrap();
-    tray_menu.append(&open_item).unwrap();
-    tray_menu.append(&sep2).unwrap();
-    tray_menu.append(&quit_item).unwrap();
-
     let icon = create_tray_icon();
 
-    let mut app = TrayApp {
+    #[cfg(not(feature = "tray-popover"))]
+    let tray_menu = {
+        let menu = Menu::new();
+        let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", true, None);
+        let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", true, None);
+        let sep1 = PredefinedMenuItem::separator();
+        let open_item = MenuItem::with_id(MenuId::new("open"), "Open Web UI", true, None);
+        let sep2 = PredefinedMenuItem::separator();
+        let quit_item = MenuItem::with_id(MenuId::new("quit"), "Quit", true, None);
+
+        menu.append(&cpu_item).unwrap();
+        menu.append(&gpu_item).unwrap();
+        menu.append(&sep1).unwrap();
+        menu.append(&open_item).unwrap();
+        menu.append(&sep2).unwrap();
+        menu.append(&quit_item).unwrap();
+        Box::new(menu)
+    };
+
+    #[cfg(not(feature = "tray-popover"))]
+    let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", true, None);
+
+    #[cfg(not(feature = "tray-popover"))]
+    let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", true, None);
+
+    let app: Box<dyn winit::application::ApplicationHandler + 'static> = Box::new(TrayApp {
         tray_state,
         tray: None,
+        #[cfg(not(feature = "tray-popover"))]
         tray_menu: Box::new(tray_menu),
         icon,
+        #[cfg(not(feature = "tray-popover"))]
         cpu_item,
+        #[cfg(not(feature = "tray-popover"))]
         gpu_item,
         port,
         last_poll: Instant::now(),
@@ -124,17 +136,20 @@ pub fn run_tray(state: AppState, port: u16) {
         status_check_interval: Duration::from_secs(10),
         #[cfg(feature = "tray-popover")]
         popover: None,
-    };
+    });
 
-    event_loop.run_app(&mut app).expect("Event loop error");
+    event_loop.run_app(app).expect("Event loop error");
 }
 
 struct TrayApp {
     tray_state: TrayState,
     tray: Option<TrayIcon>,
+    #[cfg(not(feature = "tray-popover"))]
     tray_menu: Box<dyn tray_icon::menu::ContextMenu>,
     icon: Icon,
+    #[cfg(not(feature = "tray-popover"))]
     cpu_item: MenuItem,
+    #[cfg(not(feature = "tray-popover"))]
     gpu_item: MenuItem,
     port: u16,
     last_poll: Instant,
@@ -142,58 +157,72 @@ struct TrayApp {
     last_status_check: Instant,
     status_check_interval: Duration,
     #[cfg(feature = "tray-popover")]
-    popover: Option<(winit::window::Window, wry::WebView)>,
+    popover: Option<(std::sync::Arc<dyn winit::window::Window>, wry::WebView)>,
 }
 
 impl ApplicationHandler for TrayApp {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let builder = TrayIconBuilder::new()
-            .with_menu(std::mem::replace(
-                &mut self.tray_menu,
-                Box::new(Menu::new()),
-            ))
-            .with_tooltip("Llama Monitor")
-            .with_icon(std::mem::replace(
-                &mut self.icon,
-                Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap(),
-            ));
+    fn can_create_surfaces(&mut self, _event_loop: &dyn ActiveEventLoop) {}
 
-        #[cfg(target_os = "macos")]
-        let builder = builder.with_icon_as_template(true);
-
-        let tray = builder.build();
-        self.tray = tray.ok();
-        if self.tray.is_some() {
-            eprintln!("[tray] tray icon created successfully");
-        } else {
-            eprintln!("[tray] FAILED to create tray icon");
-        }
-
-        self.tray_state
-            .show_notification("Llama Monitor", "Started");
-
-        let initial_metrics = self.tray_state.get_metrics();
-        if let Some(ref tooltip) = initial_metrics.3
-            && let Some(ref tray) = self.tray
-        {
-            let _ = tray.set_tooltip(Some(tooltip));
-        }
-
-        event_loop.set_control_flow(ControlFlow::WaitUntil(
-            Instant::now() + Duration::from_millis(500),
-        ));
+    fn resumed(&mut self, _event_loop: &dyn ActiveEventLoop) {
+        // Tray icon is created in new_events() on first event
+        // This method may not be called on macOS with Accessory activation policy
     }
 
-    fn window_event(&mut self, _event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
-        #[cfg(feature = "tray-popover")]
-        if let WindowEvent::Focused(false) = event {
-            if self.popover.is_some() {
-                self.close_popover();
+    fn window_event(&mut self, _event_loop: &dyn ActiveEventLoop, _id: WindowId, _event: WindowEvent) {
+        // Focus loss handler removed - popover stays open until toggled
+    }
+
+    fn new_events(&mut self, event_loop: &dyn ActiveEventLoop, _cause: winit::event::StartCause) {
+        // Create tray icon on first event if not already created
+        if self.tray.is_none() {
+            #[cfg(not(feature = "tray-popover"))]
+            let builder = TrayIconBuilder::new()
+                .with_menu(std::mem::replace(
+                    &mut self.tray_menu,
+                    Box::new(Menu::new()),
+                ))
+                .with_tooltip("Llama Monitor")
+                .with_icon(std::mem::replace(
+                    &mut self.icon,
+                    Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap(),
+                ));
+
+            #[cfg(feature = "tray-popover")]
+            let builder = TrayIconBuilder::new()
+                .with_tooltip("Llama Monitor")
+                .with_icon(std::mem::replace(
+                    &mut self.icon,
+                    Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap(),
+                ));
+
+            #[cfg(target_os = "macos")]
+            let builder = builder.with_icon_as_template(true);
+
+            let tray = builder.build();
+            self.tray = tray.ok();
+            if self.tray.is_some() {
+                eprintln!("[tray] tray icon created successfully");
+                if let Some(rect) = self.tray.as_ref().unwrap().rect() {
+                    eprintln!("[tray] tray icon rect: {:?}", rect);
+                }
+            } else {
+                eprintln!("[tray] FAILED to create tray icon");
             }
-        }
-    }
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, _cause: winit::event::StartCause) {
+            self.tray_state.show_notification("Llama Monitor", "Started");
+
+            let initial_metrics = self.tray_state.get_metrics();
+            if let Some(ref tooltip) = initial_metrics.3
+                && let Some(ref tray) = self.tray
+            {
+                let _ = tray.set_tooltip(Some(tooltip));
+            }
+
+            event_loop.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + Duration::from_millis(500),
+            ));
+        }
+
         while let Ok(event) = MenuEvent::receiver().try_recv() {
             match event.id.0.as_str() {
                 "open" | "stat_cpu" | "stat_gpu" => {
@@ -210,12 +239,18 @@ impl ApplicationHandler for TrayApp {
         #[cfg(feature = "tray-popover")]
         {
             while let Ok(tray_event) = TrayIconEvent::receiver().try_recv() {
+                eprintln!("[tray] received tray event: {:?}", tray_event);
                 match &tray_event {
-                    TrayIconEvent::Click { button, rect, .. } if *button == tray_icon::MouseButton::Left => {
+                    TrayIconEvent::Click { button, button_state, rect, .. } 
+                        if *button == tray_icon::MouseButton::Left 
+                        && *button_state == tray_icon::MouseButtonState::Down => {
+                        eprintln!("[tray] left click detected, rect: {:?}", rect);
                         if self.popover.is_some() {
+                            eprintln!("[tray] closing existing popover");
                             self.close_popover();
                         } else if let Some(ref tray) = self.tray {
                             if let Some(rect) = tray.rect() {
+                                eprintln!("[tray] opening popover at rect: {:?}", rect);
                                 self.open_popover(event_loop, rect);
                             }
                         }
@@ -226,53 +261,60 @@ impl ApplicationHandler for TrayApp {
         }
 
         if let Some(ref tray) = self.tray {
-            if self.last_poll.elapsed() >= self.poll_interval {
-                self.last_poll = Instant::now();
-                let metrics = self.tray_state.get_metrics();
+            #[cfg(not(feature = "tray-popover"))]
+            {
+                if self.last_poll.elapsed() >= self.poll_interval {
+                    self.last_poll = Instant::now();
+                    let metrics = self.tray_state.get_metrics();
 
-                self.cpu_item.set_text(self.tray_state.build_cpu_line(&metrics.0));
-                self.gpu_item.set_text(self.tray_state.build_gpu_line(&metrics.1));
+                    self.cpu_item.set_text(self.tray_state.build_cpu_line(&metrics.0));
+                    self.gpu_item.set_text(self.tray_state.build_gpu_line(&metrics.1));
 
-                if let Some(ref tooltip) = metrics.3 {
-                    let _ = tray.set_tooltip(Some(tooltip));
+                    if let Some(ref tooltip) = metrics.3 {
+                        let _ = tray.set_tooltip(Some(tooltip));
+                    }
+                    self.tray_state.check_gpu_thresholds(&metrics.1);
                 }
-                self.tray_state.check_gpu_thresholds(&metrics.1);
-            }
 
-            if self.last_status_check.elapsed() >= self.status_check_interval {
-                self.last_status_check = Instant::now();
-                self.tray_state.check_session_status();
+                if self.last_status_check.elapsed() >= self.status_check_interval {
+                    self.last_status_check = Instant::now();
+                    self.tray_state.check_session_status();
+                }
             }
         }
     }
 
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+    fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             Instant::now() + Duration::from_millis(500),
         ));
     }
 }
 
-#[cfg(feature = "tray-popover")]
+ #[cfg(feature = "tray-popover")]
 impl TrayApp {
-    fn open_popover(&mut self, event_loop: &ActiveEventLoop, icon_rect: tray_icon::Rect) {
-        let width = 320u32;
-        let height = 400u32;
-
+    fn open_popover(&mut self, event_loop: &dyn ActiveEventLoop, icon_rect: tray_icon::Rect) {
         let pos = icon_rect.position;
-        let x = pos.x + (icon_rect.size.width as f64 / 2.0) - (width as f64 / 2.0);
+        // Width matches compact.html (240px). Center horizontally under icon.
+        let width = 240.0_f64;
+        let height = 280.0_f64;
+        let x = pos.x + (icon_rect.size.width as f64 / 2.0) - (width / 2.0);
         let y = pos.y + icon_rect.size.height as f64 + 4.0;
 
+        // Use LogicalSize so dimensions are DPI-aware (correct on Retina displays).
         let attrs = WindowAttributes::default()
-            .with_inner_size(winit::dpi::PhysicalSize::new(width, height))
-            .with_position(PhysicalPosition::new(x as i32, y as i32))
+            .with_surface_size(winit::dpi::LogicalSize::new(width, height))
+            .with_position(winit::dpi::LogicalPosition::new(x, y))
             .with_decorations(false)
             .with_resizable(false)
             .with_window_level(WindowLevel::AlwaysOnTop)
             .with_visible(true);
 
-        let window = match event_loop.create_window(attrs) {
-            Ok(w) => w,
+        let window: std::sync::Arc<dyn winit::window::Window> = match event_loop.create_window(attrs) {
+            Ok(w) => {
+                eprintln!("[tray] window created successfully");
+                std::sync::Arc::from(w)
+            }
             Err(e) => {
                 eprintln!("[tray] Failed to create popover window: {}", e);
                 return;
@@ -280,23 +322,21 @@ impl TrayApp {
         };
 
         let webview = match wry::WebViewBuilder::new()
-            .with_url(format!("http://127.0.0.1:{}/compact", self.port))
+            .with_url(format!("http://127.0.0.1:{}/compact?t={}", self.port, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()))
             .build(&window)
         {
-            Ok(wv) => wv,
+            Ok(wv) => {
+                eprintln!("[tray] webview created successfully");
+                wv
+            }
             Err(e) => {
                 eprintln!("[tray] Failed to create webview: {}", e);
                 return;
             }
         };
 
-        #[cfg(target_os = "macos")]
-        {
-            use winit::platform::macos::WindowExtMacOS;
-            window.set_accepts_mouse_moved_events(true);
-        }
-
         self.popover = Some((window, webview));
+        eprintln!("[tray] popover opened!");
     }
 
     fn close_popover(&mut self) {
