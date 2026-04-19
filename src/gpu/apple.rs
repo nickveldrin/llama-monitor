@@ -20,6 +20,7 @@ struct SocMetrics {
     gpu_freq_mhz: f64,
     #[serde(default)]
     gpu_temp: f64,
+    #[serde(default)]
     gpu_active: f64,
     #[serde(default)]
     dram_read_bw_gbs: f64,
