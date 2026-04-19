@@ -55,8 +55,11 @@ impl GpuBackend for AppleBackend {
             ));
         }
 
-        let mactop_output: MactopOutput = serde_json::from_slice(&output.stdout)
+        let mut mactop_vec: Vec<MactopOutput> = serde_json::from_slice(&output.stdout)
             .map_err(|e| anyhow::anyhow!("Failed to parse mactop JSON: {}", e))?;
+        let mactop_output = mactop_vec
+            .pop()
+            .ok_or_else(|| anyhow::anyhow!("mactop returned empty JSON array"))?;
 
         // Convert bytes to MB
         let vram_total_mb = mactop_output.memory.total / (1024 * 1024);
