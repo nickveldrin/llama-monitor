@@ -1,27 +1,19 @@
-use std::sync::{Arc, Mutex as StdMutex};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
-use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
-use tray_icon::menu::MenuId;
+use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use winit::application::ApplicationHandler;
+use winit::dpi::PhysicalPosition;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::WindowId;
+use winit::window::{WindowAttributes, WindowId, WindowLevel};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, EventLoopBuilderExtMacOS};
 
-#[cfg(feature = "tray-popover")]
-use tray_icon::TrayIconEvent;
-#[cfg(feature = "tray-popover")]
-use winit::window::{WindowAttributes, WindowLevel};
-#[cfg(feature = "tray-popover")]
-use winit::dpi::PhysicalPosition;
-
 use crate::gpu::GpuMetrics;
 use crate::llama::metrics::LlamaMetrics;
-use crate::state::{AppState, SessionStatus};
+use crate::state::AppState;
 use crate::system::SystemMetrics;
 
 type TrayMetrics = (
@@ -53,20 +45,17 @@ fn create_tray_icon() -> Icon {
         set(18, y);
         set(19, y);
     }
-
     for y in 14..=16 {
         set(10, y);
         set(11, y);
     }
-
     for x in 7..=14 {
         set(x, 17);
         set(x, 18);
     }
 
-    Icon::from_rgba(rgba, size, size).unwrap_or_else(|_| {
-        Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap()
-    })
+    Icon::from_rgba(rgba, size, size)
+        .unwrap_or_else(|_| Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap())
 }
 
 pub fn run_tray(state: AppState, port: u16) {
@@ -86,55 +75,13 @@ pub fn run_tray(state: AppState, port: u16) {
         .build()
         .expect("Failed to create event loop");
 
-    let tray_state = TrayState {
-        app_state: Arc::new(state),
-        last_status: StdMutex::new(0u8),
-        notified_errors: StdMutex::new(0u32),
-    };
-
-    let icon = create_tray_icon();
-
-    #[cfg(not(feature = "tray-popover"))]
-    let tray_menu = {
-        let menu = Menu::new();
-        let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", true, None);
-        let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", true, None);
-        let sep1 = PredefinedMenuItem::separator();
-        let open_item = MenuItem::with_id(MenuId::new("open"), "Open Web UI", true, None);
-        let sep2 = PredefinedMenuItem::separator();
-        let quit_item = MenuItem::with_id(MenuId::new("quit"), "Quit", true, None);
-
-        menu.append(&cpu_item).unwrap();
-        menu.append(&gpu_item).unwrap();
-        menu.append(&sep1).unwrap();
-        menu.append(&open_item).unwrap();
-        menu.append(&sep2).unwrap();
-        menu.append(&quit_item).unwrap();
-        Box::new(menu)
-    };
-
-    #[cfg(not(feature = "tray-popover"))]
-    let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", true, None);
-
-    #[cfg(not(feature = "tray-popover"))]
-    let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", true, None);
-
     let app: Box<dyn winit::application::ApplicationHandler + 'static> = Box::new(TrayApp {
-        tray_state,
+        tray_state: TrayState {
+            app_state: Arc::new(state),
+        },
         tray: None,
-        #[cfg(not(feature = "tray-popover"))]
-        tray_menu: Box::new(tray_menu),
-        icon,
-        #[cfg(not(feature = "tray-popover"))]
-        cpu_item,
-        #[cfg(not(feature = "tray-popover"))]
-        gpu_item,
+        icon: create_tray_icon(),
         port,
-        last_poll: Instant::now(),
-        poll_interval: Duration::from_secs(3),
-        last_status_check: Instant::now(),
-        status_check_interval: Duration::from_secs(10),
-        #[cfg(feature = "tray-popover")]
         popover: None,
     });
 
@@ -144,50 +91,26 @@ pub fn run_tray(state: AppState, port: u16) {
 struct TrayApp {
     tray_state: TrayState,
     tray: Option<TrayIcon>,
-    #[cfg(not(feature = "tray-popover"))]
-    tray_menu: Box<dyn tray_icon::menu::ContextMenu>,
     icon: Icon,
-    #[cfg(not(feature = "tray-popover"))]
-    cpu_item: MenuItem,
-    #[cfg(not(feature = "tray-popover"))]
-    gpu_item: MenuItem,
     port: u16,
-    last_poll: Instant,
-    poll_interval: Duration,
-    last_status_check: Instant,
-    status_check_interval: Duration,
-    #[cfg(feature = "tray-popover")]
     popover: Option<(std::sync::Arc<dyn winit::window::Window>, wry::WebView)>,
 }
 
 impl ApplicationHandler for TrayApp {
     fn can_create_surfaces(&mut self, _event_loop: &dyn ActiveEventLoop) {}
 
-    fn resumed(&mut self, _event_loop: &dyn ActiveEventLoop) {
-        // Tray icon is created in new_events() on first event
-        // This method may not be called on macOS with Accessory activation policy
-    }
+    fn resumed(&mut self, _event_loop: &dyn ActiveEventLoop) {}
 
-    fn window_event(&mut self, _event_loop: &dyn ActiveEventLoop, _id: WindowId, _event: WindowEvent) {
-        // Focus loss handler removed - popover stays open until toggled
+    fn window_event(
+        &mut self,
+        _event_loop: &dyn ActiveEventLoop,
+        _id: WindowId,
+        _event: WindowEvent,
+    ) {
     }
 
     fn new_events(&mut self, event_loop: &dyn ActiveEventLoop, _cause: winit::event::StartCause) {
-        // Create tray icon on first event if not already created
         if self.tray.is_none() {
-            #[cfg(not(feature = "tray-popover"))]
-            let builder = TrayIconBuilder::new()
-                .with_menu(std::mem::replace(
-                    &mut self.tray_menu,
-                    Box::new(Menu::new()),
-                ))
-                .with_tooltip("Llama Monitor")
-                .with_icon(std::mem::replace(
-                    &mut self.icon,
-                    Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap(),
-                ));
-
-            #[cfg(feature = "tray-popover")]
             let builder = TrayIconBuilder::new()
                 .with_tooltip("Llama Monitor")
                 .with_icon(std::mem::replace(
@@ -198,18 +121,7 @@ impl ApplicationHandler for TrayApp {
             #[cfg(target_os = "macos")]
             let builder = builder.with_icon_as_template(true);
 
-            let tray = builder.build();
-            self.tray = tray.ok();
-            if self.tray.is_some() {
-                eprintln!("[tray] tray icon created successfully");
-                if let Some(rect) = self.tray.as_ref().unwrap().rect() {
-                    eprintln!("[tray] tray icon rect: {:?}", rect);
-                }
-            } else {
-                eprintln!("[tray] FAILED to create tray icon");
-            }
-
-            self.tray_state.show_notification("Llama Monitor", "Started");
+            self.tray = builder.build().ok();
 
             let initial_metrics = self.tray_state.get_metrics();
             if let Some(ref tooltip) = initial_metrics.3
@@ -223,63 +135,24 @@ impl ApplicationHandler for TrayApp {
             ));
         }
 
-        while let Ok(event) = MenuEvent::receiver().try_recv() {
-            match event.id.0.as_str() {
-                "open" | "stat_cpu" | "stat_gpu" => {
-                    let url = format!("http://127.0.0.1:{}", self.port);
-                    let _ = webbrowser::open(&url);
-                }
-                "quit" => {
-                    std::process::exit(0);
-                }
-                _ => {}
-            }
-        }
-
-        #[cfg(feature = "tray-popover")]
-        {
-            while let Ok(tray_event) = TrayIconEvent::receiver().try_recv() {
-                eprintln!("[tray] received tray event: {:?}", tray_event);
-                match &tray_event {
-                    TrayIconEvent::Click { button, button_state, rect, .. } 
-                        if *button == tray_icon::MouseButton::Left 
-                        && *button_state == tray_icon::MouseButtonState::Down => {
-                        eprintln!("[tray] left click detected, rect: {:?}", rect);
-                        if self.popover.is_some() {
-                            eprintln!("[tray] closing existing popover");
-                            self.close_popover();
-                        } else if let Some(ref tray) = self.tray {
-                            if let Some(rect) = tray.rect() {
-                                eprintln!("[tray] opening popover at rect: {:?}", rect);
-                                self.open_popover(event_loop, rect);
-                            }
+        while let Ok(tray_event) = TrayIconEvent::receiver().try_recv() {
+            match &tray_event {
+                TrayIconEvent::Click {
+                    button,
+                    button_state,
+                    ..
+                } if *button == tray_icon::MouseButton::Left
+                    && *button_state == tray_icon::MouseButtonState::Down =>
+                {
+                    if self.popover.is_some() {
+                        self.close_popover();
+                    } else if let Some(ref tray) = self.tray {
+                        if let Some(rect) = tray.rect() {
+                            self.open_popover(event_loop, rect);
                         }
                     }
-                    _ => {}
                 }
-            }
-        }
-
-        if let Some(ref tray) = self.tray {
-            #[cfg(not(feature = "tray-popover"))]
-            {
-                if self.last_poll.elapsed() >= self.poll_interval {
-                    self.last_poll = Instant::now();
-                    let metrics = self.tray_state.get_metrics();
-
-                    self.cpu_item.set_text(self.tray_state.build_cpu_line(&metrics.0));
-                    self.gpu_item.set_text(self.tray_state.build_gpu_line(&metrics.1));
-
-                    if let Some(ref tooltip) = metrics.3 {
-                        let _ = tray.set_tooltip(Some(tooltip));
-                    }
-                    self.tray_state.check_gpu_thresholds(&metrics.1);
-                }
-
-                if self.last_status_check.elapsed() >= self.status_check_interval {
-                    self.last_status_check = Instant::now();
-                    self.tray_state.check_session_status();
-                }
+                _ => {}
             }
         }
     }
@@ -291,52 +164,49 @@ impl ApplicationHandler for TrayApp {
     }
 }
 
- #[cfg(feature = "tray-popover")]
 impl TrayApp {
     fn open_popover(&mut self, event_loop: &dyn ActiveEventLoop, icon_rect: tray_icon::Rect) {
         let pos = icon_rect.position;
-        // Width matches compact.html (240px). Center horizontally under icon.
         let width = 240.0_f64;
         let height = 280.0_f64;
         let x = pos.x + (icon_rect.size.width as f64 / 2.0) - (width / 2.0);
         let y = pos.y + icon_rect.size.height as f64 + 4.0;
 
-        // Use LogicalSize so dimensions are DPI-aware (correct on Retina displays).
         let attrs = WindowAttributes::default()
             .with_surface_size(winit::dpi::LogicalSize::new(width, height))
-            .with_position(winit::dpi::LogicalPosition::new(x, y))
+            .with_position(PhysicalPosition::new(x as i32, y as i32))
             .with_decorations(false)
             .with_resizable(false)
             .with_window_level(WindowLevel::AlwaysOnTop)
             .with_visible(true);
 
-        let window: std::sync::Arc<dyn winit::window::Window> = match event_loop.create_window(attrs) {
-            Ok(w) => {
-                eprintln!("[tray] window created successfully");
-                std::sync::Arc::from(w)
-            }
-            Err(e) => {
-                eprintln!("[tray] Failed to create popover window: {}", e);
-                return;
-            }
-        };
+        let window: std::sync::Arc<dyn winit::window::Window> =
+            match event_loop.create_window(attrs) {
+                Ok(w) => std::sync::Arc::from(w),
+                Err(_) => return,
+            };
 
+        let url = format!(
+            "http://127.0.0.1:{}/compact?t={}",
+            self.port,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        );
         let webview = match wry::WebViewBuilder::new()
-            .with_url(format!("http://127.0.0.1:{}/compact?t={}", self.port, std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()))
-            .build(&window)
+            .with_url(url)
+            .with_bounds(wry::Rect {
+                position: wry::dpi::LogicalPosition::new(0.0, 0.0).into(),
+                size: wry::dpi::LogicalSize::new(width, height).into(),
+            })
+            .build_as_child(&window)
         {
-            Ok(wv) => {
-                eprintln!("[tray] webview created successfully");
-                wv
-            }
-            Err(e) => {
-                eprintln!("[tray] Failed to create webview: {}", e);
-                return;
-            }
+            Ok(wv) => wv,
+            Err(_) => return,
         };
 
         self.popover = Some((window, webview));
-        eprintln!("[tray] popover opened!");
     }
 
     fn close_popover(&mut self) {
@@ -346,46 +216,25 @@ impl TrayApp {
 
 struct TrayState {
     app_state: Arc<AppState>,
-    last_status: StdMutex<u8>,
-    notified_errors: StdMutex<u32>,
 }
 
 impl TrayState {
     fn get_metrics(&self) -> TrayMetrics {
+        let local_metrics_available = self.app_state.active_session_uses_local_metrics();
         let sys = self.app_state.system_metrics.lock().unwrap().clone();
-        let gpu = self.app_state.gpu_metrics.lock().unwrap().clone();
+        let gpu = if local_metrics_available {
+            self.app_state.gpu_metrics.lock().unwrap().clone()
+        } else {
+            Default::default()
+        };
         let llama = self.app_state.llama_metrics.lock().unwrap().clone();
         let gpu_entries = if gpu.is_empty() {
             None
         } else {
             Some(gpu.into_iter().collect())
         };
-        let tooltip = self.build_tooltip(&sys, &gpu_entries, &llama);
+        let tooltip = self.build_tooltip(&sys, &gpu_entries, &llama, local_metrics_available);
         (sys, gpu_entries, llama, Some(tooltip))
-    }
-
-    fn build_cpu_line(&self, sys: &SystemMetrics) -> String {
-        let load = sys.cpu_load as f32 / 10.0;
-        if sys.cpu_temp_available {
-            format!("CPU: {:.0}% · {:.0}°C", load, sys.cpu_temp)
-        } else {
-            format!("CPU: {:.0}%", load)
-        }
-    }
-
-    fn build_gpu_line(&self, gpu: &Option<Vec<(String, GpuMetrics)>>) -> String {
-        match gpu {
-            Some(entries) if !entries.is_empty() => {
-                let (_, m) = &entries[0];
-                let vram_pct = if m.vram_total > 0 {
-                    m.vram_used * 100 / m.vram_total
-                } else {
-                    0
-                };
-                format!("GPU: {:.0}°C · {}% VRAM", m.temp, vram_pct)
-            }
-            _ => "GPU: —".to_string(),
-        }
     }
 
     fn build_tooltip(
@@ -393,23 +242,26 @@ impl TrayState {
         sys: &SystemMetrics,
         gpu: &Option<Vec<(String, GpuMetrics)>>,
         llama: &LlamaMetrics,
+        local_metrics_available: bool,
     ) -> String {
         let mut lines = Vec::new();
 
-        lines.push(format!("CPU: {}%", sys.cpu_load as f32 / 10.0));
+        if local_metrics_available {
+            lines.push(format!("CPU: {}%", sys.cpu_load as f32 / 10.0));
 
-        if sys.cpu_temp_available {
-            lines.push(format!("Temp: {:.0}C", sys.cpu_temp));
-        }
+            if sys.cpu_temp_available {
+                lines.push(format!("Temp: {:.0}C", sys.cpu_temp));
+            }
 
-        if let Some(g) = gpu {
-            for (name, m) in g.iter() {
-                let vram_pct = if m.vram_total > 0 {
-                    (m.vram_used as f64 / m.vram_total as f64 * 100.0) as u32
-                } else {
-                    0
-                };
-                lines.push(format!("{}: {:.0}C / {}% VRAM", name, m.temp, vram_pct));
+            if let Some(g) = gpu {
+                for (name, m) in g.iter() {
+                    let vram_pct = if m.vram_total > 0 {
+                        (m.vram_used as f64 / m.vram_total as f64 * 100.0) as u32
+                    } else {
+                        0
+                    };
+                    lines.push(format!("{}: {:.0}C / {}% VRAM", name, m.temp, vram_pct));
+                }
             }
         }
 
@@ -418,87 +270,5 @@ impl TrayState {
         }
 
         lines.join("\n")
-    }
-
-    fn check_gpu_thresholds(&self, gpu: &Option<Vec<(String, GpuMetrics)>>) {
-        if let Some(g) = gpu {
-            let mut error_count = *self.notified_errors.lock().unwrap();
-
-            for (name, m) in g.iter() {
-                if m.temp > 85.0 {
-                    let title = "GPU Thermal Warning";
-                    let body = format!("{} is at {:.0}C", name, m.temp);
-                    self.show_notification(title, &body);
-                    error_count += 1;
-                }
-            }
-
-            let mut ec = self.notified_errors.lock().unwrap();
-            *ec = error_count;
-        }
-    }
-
-    fn check_session_status(&self) {
-        let sessions = self.app_state.sessions.lock().unwrap();
-        let active_id = self.app_state.active_session_id.lock().unwrap();
-
-        if let Some(active_session) = sessions.iter().find(|s| s.id == *active_id) {
-            let current_status = active_session.status.clone();
-            let mut prev_status = self.last_status.lock().unwrap();
-
-            let status_changed = matches!(
-                (*prev_status, &current_status),
-                (0, SessionStatus::Running)
-                    | (1, SessionStatus::Disconnected)
-                    | (1, SessionStatus::Error(_))
-            );
-
-            if status_changed {
-                match &current_status {
-                    SessionStatus::Running => {
-                        self.show_notification(
-                            "Session Started",
-                            &format!("{} is running", active_session.name),
-                        );
-                    }
-                    SessionStatus::Disconnected => {
-                        self.show_notification(
-                            "Session Disconnected",
-                            &format!("{} disconnected", active_session.name),
-                        );
-                    }
-                    SessionStatus::Error(msg) => {
-                        self.show_notification(
-                            "Session Error",
-                            &format!("{}: {}", active_session.name, msg),
-                        );
-                    }
-                    _ => {}
-                }
-
-                *prev_status = match &current_status {
-                    SessionStatus::Running => 1,
-                    SessionStatus::Disconnected => 2,
-                    SessionStatus::Error(_) => 3,
-                    _ => 0,
-                };
-            }
-        }
-    }
-
-    fn show_notification(&self, title: &str, body: &str) {
-        #[cfg(target_os = "macos")]
-        {
-            let _ = mac_notification_sys::set_application("com.apple.Finder");
-        }
-        let mut b = notify_rust::Notification::new();
-        let _ = b.appname("llama-monitor").summary(title).body(body);
-
-        #[cfg(target_os = "linux")]
-        {
-            let _ = b.icon("system-devices-panel");
-        }
-
-        let _ = b.show();
     }
 }

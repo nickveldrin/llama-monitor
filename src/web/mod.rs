@@ -26,7 +26,11 @@ fn compact_route(
     let port = app_config.port;
     warp::path("compact").and(warp::get()).map(move || {
         let html = static_assets::COMPACT_HTML.replace("__PORT__", &port.to_string());
-        warp::reply::with_header(html, "content-type", "text/html")
+        warp::reply::with_header(
+            warp::reply::with_header(html, "content-type", "text/html"),
+            "cache-control",
+            "no-cache, no-store, must-revalidate",
+        )
     })
 }
 

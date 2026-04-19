@@ -132,7 +132,7 @@ body {
 </div>
 <div class="status-bar" id="status-bar">Connecting...</div>
 
-<div class="section">
+<div class="section" id="cpu-section">
     <div class="section-title">CPU</div>
     <div class="metric-row">
         <span class="metric-label">Load</span>
@@ -146,7 +146,7 @@ body {
     </div>
 </div>
 
-<div class="section">
+<div class="section" id="ram-section">
     <div class="metric-row">
         <span class="metric-label">RAM</span>
         <div class="metric-bar-wrap"><div class="metric-bar ram" id="ram-bar" style="width:0%"></div></div>
@@ -160,15 +160,15 @@ body {
     <div class="section-title">Inference</div>
     <div class="inference-row">
         <span class="inference-label">Prompt</span>
-        <span class="inference-value"><span class="dash-line">—</span> tok/s</span>
+        <span class="inference-value" id="inf-prompt"><span class="dash-line">—</span> tok/s</span>
     </div>
     <div class="inference-row">
         <span class="inference-label">Generate</span>
-        <span class="inference-value"><span class="dash-line">—</span> tok/s</span>
+        <span class="inference-value" id="inf-generate"><span class="dash-line">—</span> tok/s</span>
     </div>
     <div class="inference-row">
         <span class="inference-label">Context</span>
-        <span class="inference-value"><span class="dash-line">—</span> %</span>
+        <span class="inference-value" id="inf-context"><span class="dash-line">—</span> %</span>
     </div>
 </div>
 
@@ -269,6 +269,27 @@ window.addEventListener('load', function() {
     window.__popoverReady = true;
 });
 
+function clearMetrics() {
+    document.getElementById('cpu-section').style.display = '';
+    document.getElementById('ram-section').style.display = '';
+    setBar('cpu-load-bar', 0, 100);
+    document.getElementById('cpu-load').textContent = '—';
+    setBar('cpu-temp-bar', 0, 120);
+    document.getElementById('cpu-temp').textContent = '—';
+    setBar('ram-bar', 0, 100);
+    document.getElementById('ram').textContent = '—';
+    document.getElementById('gpu-sections').innerHTML = '';
+    document.getElementById('inf-prompt').innerHTML = '<span class="dash-line">—</span> tok/s';
+    document.getElementById('inf-generate').innerHTML = '<span class="dash-line">—</span> tok/s';
+    document.getElementById('inf-context').innerHTML = '<span class="dash-line">—</span> %';
+}
+
+function clearLocalMetrics() {
+    document.getElementById('cpu-section').style.display = 'none';
+    document.getElementById('ram-section').style.display = 'none';
+    document.getElementById('gpu-sections').innerHTML = '';
+}
+
 ws.onmessage = function(e) {
     let d;
     try {
@@ -276,6 +297,17 @@ ws.onmessage = function(e) {
     } catch(err) { return; }
 
     updateStatus(d.server_running);
+
+    if (!d.server_running) {
+        clearMetrics();
+        return;
+    }
+
+    if (d.local_metrics_available === false) {
+        clearLocalMetrics();
+    } else {
+        document.getElementById('cpu-section').style.display = '';
+        document.getElementById('ram-section').style.display = '';
 
     const sys = d.system || {};
     const cpuLoad = sys.cpu_load || 0;
@@ -301,17 +333,24 @@ ws.onmessage = function(e) {
 
     const gpuEntries = Object.entries(d.gpu || {});
     renderGPUs(gpuEntries);
+    }
 
     const l = d.llama || {};
     if (l.prompt_tokens_per_sec > 0) {
-        document.querySelector('.inference-row:nth-child(1) .inference-value').innerHTML = l.prompt_tokens_per_sec.toFixed(1) + ' tok/s';
+        document.getElementById('inf-prompt').innerHTML = l.prompt_tokens_per_sec.toFixed(1) + ' tok/s';
+    } else {
+        document.getElementById('inf-prompt').innerHTML = '<span class="dash-line">—</span> tok/s';
     }
     if (l.generation_tokens_per_sec > 0) {
-        document.querySelector('.inference-row:nth-child(2) .inference-value').innerHTML = l.generation_tokens_per_sec.toFixed(1) + ' tok/s';
+        document.getElementById('inf-generate').innerHTML = l.generation_tokens_per_sec.toFixed(1) + ' tok/s';
+    } else {
+        document.getElementById('inf-generate').innerHTML = '<span class="dash-line">—</span> tok/s';
     }
     if (l.kv_cache_max > 0) {
         const ctxPct = ((l.kv_cache_tokens / l.kv_cache_max) * 100).toFixed(0);
-        document.querySelector('.inference-row:nth-child(3) .inference-value').innerHTML = ctxPct + '%';
+        document.getElementById('inf-context').innerHTML = ctxPct + '%';
+    } else {
+        document.getElementById('inf-context').innerHTML = '<span class="dash-line">—</span> %';
     }
 };
 </script>
