@@ -45,8 +45,7 @@ pub fn run_tray(state: AppState, port: u16) {
         None,
     );
     let sep2 = PredefinedMenuItem::separator();
-    let quit_item =
-        MenuItem::with_id(tray_icon::menu::MenuId::new("quit"), "Quit", true, None);
+    let quit_item = MenuItem::with_id(tray_icon::menu::MenuId::new("quit"), "Quit", true, None);
 
     tray_menu.append(&open_item).unwrap();
     tray_menu.append(&sep1).unwrap();
@@ -60,23 +59,11 @@ pub fn run_tray(state: AppState, port: u16) {
         Icon::from_rgba(default.to_vec(), 1, 1).unwrap()
     });
 
-    let tray = TrayIconBuilder::new()
-        .with_menu(Box::new(tray_menu))
-        .with_tooltip("Llama Monitor")
-        .with_icon(icon)
-        .build()
-        .expect("Failed to build tray icon");
-
-    tray_state.show_notification("Llama Monitor", "Started");
-
-    let initial_metrics = tray_state.get_metrics();
-    if let Some(ref tooltip) = initial_metrics.3 {
-        let _ = tray.set_tooltip(Some(tooltip));
-    }
-
     let mut app = TrayApp {
         tray_state,
-        tray,
+        tray: None,
+        tray_menu: Box::new(tray_menu),
+        icon,
         port,
         last_poll: Instant::now(),
         poll_interval: Duration::from_secs(3),
@@ -89,7 +76,9 @@ pub fn run_tray(state: AppState, port: u16) {
 
 struct TrayApp {
     tray_state: TrayState,
-    tray: TrayIcon,
+    tray: Option<TrayIcon>,
+    tray_menu: Box<dyn tray_icon::menu::ContextMenu>,
+    icon: Icon,
     port: u16,
     last_poll: Instant,
     poll_interval: Duration,
@@ -99,6 +88,34 @@ struct TrayApp {
 
 impl ApplicationHandler for TrayApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        #[cfg(target_os = "macos")]
+        event_loop.set_activation_policy(winit::application::ActivationPolicy::Regular);
+
+        let tray = TrayIconBuilder::new()
+            .with_menu(std::mem::replace(
+                &mut self.tray_menu,
+                Box::new(Menu::new()),
+            ))
+            .with_tooltip("Llama Monitor")
+            .with_icon(std::mem::replace(
+                &mut self.icon,
+                Icon::from_rgba(vec![0xFF, 0xFF, 0xFF, 0xFF], 1, 1).unwrap(),
+            ))
+            .build()
+            .expect("Failed to build tray icon");
+
+        self.tray = Some(tray);
+
+        self.tray_state
+            .show_notification("Llama Monitor", "Started");
+
+        let initial_metrics = self.tray_state.get_metrics();
+        if let Some(ref tooltip) = initial_metrics.3
+            && let Some(ref tray) = self.tray
+        {
+            let _ = tray.set_tooltip(Some(tooltip));
+        }
+
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             Instant::now() + Duration::from_millis(500),
         ));
@@ -120,18 +137,20 @@ impl ApplicationHandler for TrayApp {
             }
         }
 
-        if self.last_poll.elapsed() >= self.poll_interval {
-            self.last_poll = Instant::now();
-            let metrics = self.tray_state.get_metrics();
-            if let Some(ref tooltip) = metrics.3 {
-                let _ = self.tray.set_tooltip(Some(tooltip));
+        if let Some(ref tray) = self.tray {
+            if self.last_poll.elapsed() >= self.poll_interval {
+                self.last_poll = Instant::now();
+                let metrics = self.tray_state.get_metrics();
+                if let Some(ref tooltip) = metrics.3 {
+                    let _ = tray.set_tooltip(Some(tooltip));
+                }
+                self.tray_state.check_gpu_thresholds(&metrics.1);
             }
-            self.tray_state.check_gpu_thresholds(&metrics.1);
-        }
 
-        if self.last_status_check.elapsed() >= self.status_check_interval {
-            self.last_status_check = Instant::now();
-            self.tray_state.check_session_status();
+            if self.last_status_check.elapsed() >= self.status_check_interval {
+                self.last_status_check = Instant::now();
+                self.tray_state.check_session_status();
+            }
         }
     }
 
