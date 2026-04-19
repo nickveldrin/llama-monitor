@@ -92,8 +92,8 @@ pub fn run_tray(state: AppState, port: u16) {
 
     let tray_menu = Menu::new();
 
-    let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", false, None);
-    let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", false, None);
+    let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", true, None);
+    let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", true, None);
     let sep1 = PredefinedMenuItem::separator();
     let open_item = MenuItem::with_id(MenuId::new("open"), "Open Web UI", true, None);
     let sep2 = PredefinedMenuItem::separator();

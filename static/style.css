@@ -1,5 +1,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+html { height: 100%; }
+body { min-height: 100%; }
 body { font-family: system-ui, -apple-system, sans-serif; background: #2e3440; color: #d8dee9; padding: 0 16px; display: flex; flex-direction: column; }
 h1 { font-size: 1.4rem; color: #88c0d1; margin-bottom: 16px; }
 h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
@@ -123,7 +124,8 @@ h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
 .temp-badge { font-family: monospace; font-size: 0.7rem; color: #bf616a; margin-left: 6px; font-weight: 400; }
 .page { display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; padding-bottom: 16px; }
 .page.active { display: flex; }
-#page-server { overflow-y: auto; }
+#page-server { flex: none; overflow: visible; }
+#page-server.active { display: block; }
 
 .title {
     display: flex;
