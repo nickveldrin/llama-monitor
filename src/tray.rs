@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
+use tray_icon::menu::MenuId;
 use winit::application::ApplicationHandler;
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
@@ -91,25 +92,17 @@ pub fn run_tray(state: AppState, port: u16) {
 
     let tray_menu = Menu::new();
 
-    let open_item = MenuItem::with_id(
-        tray_icon::menu::MenuId::new("open"),
-        "Open Web UI",
-        true,
-        None,
-    );
+    let cpu_item = MenuItem::with_id(MenuId::new("stat_cpu"), "CPU: —", false, None);
+    let gpu_item = MenuItem::with_id(MenuId::new("stat_gpu"), "GPU: —", false, None);
     let sep1 = PredefinedMenuItem::separator();
-    let metrics_item = MenuItem::with_id(
-        tray_icon::menu::MenuId::new("metrics"),
-        "Show Metrics",
-        true,
-        None,
-    );
+    let open_item = MenuItem::with_id(MenuId::new("open"), "Open Web UI", true, None);
     let sep2 = PredefinedMenuItem::separator();
-    let quit_item = MenuItem::with_id(tray_icon::menu::MenuId::new("quit"), "Quit", true, None);
+    let quit_item = MenuItem::with_id(MenuId::new("quit"), "Quit", true, None);
 
-    tray_menu.append(&open_item).unwrap();
+    tray_menu.append(&cpu_item).unwrap();
+    tray_menu.append(&gpu_item).unwrap();
     tray_menu.append(&sep1).unwrap();
-    tray_menu.append(&metrics_item).unwrap();
+    tray_menu.append(&open_item).unwrap();
     tray_menu.append(&sep2).unwrap();
     tray_menu.append(&quit_item).unwrap();
 
@@ -120,6 +113,8 @@ pub fn run_tray(state: AppState, port: u16) {
         tray: None,
         tray_menu: Box::new(tray_menu),
         icon,
+        cpu_item,
+        gpu_item,
         port,
         last_poll: Instant::now(),
         poll_interval: Duration::from_secs(3),
@@ -135,6 +130,8 @@ struct TrayApp {
     tray: Option<TrayIcon>,
     tray_menu: Box<dyn tray_icon::menu::ContextMenu>,
     icon: Icon,
+    cpu_item: MenuItem,
+    gpu_item: MenuItem,
     port: u16,
     last_poll: Instant,
     poll_interval: Duration,
@@ -201,6 +198,12 @@ impl ApplicationHandler for TrayApp {
             if self.last_poll.elapsed() >= self.poll_interval {
                 self.last_poll = Instant::now();
                 let metrics = self.tray_state.get_metrics();
+
+                // Update menu stat lines
+                self.cpu_item.set_text(self.tray_state.build_cpu_line(&metrics.0));
+                self.gpu_item.set_text(self.tray_state.build_gpu_line(&metrics.1));
+
+                // Update tooltip
                 if let Some(ref tooltip) = metrics.3 {
                     let _ = tray.set_tooltip(Some(tooltip));
                 }
@@ -239,6 +242,30 @@ impl TrayState {
         };
         let tooltip = self.build_tooltip(&sys, &gpu_entries, &llama);
         (sys, gpu_entries, llama, Some(tooltip))
+    }
+
+    fn build_cpu_line(&self, sys: &SystemMetrics) -> String {
+        let load = sys.cpu_load as f32 / 10.0;
+        if sys.cpu_temp_available {
+            format!("CPU: {:.0}% · {:.0}°C", load, sys.cpu_temp)
+        } else {
+            format!("CPU: {:.0}%", load)
+        }
+    }
+
+    fn build_gpu_line(&self, gpu: &Option<Vec<(String, GpuMetrics)>>) -> String {
+        match gpu {
+            Some(entries) if !entries.is_empty() => {
+                let (_, m) = &entries[0];
+                let vram_pct = if m.vram_total > 0 {
+                    m.vram_used * 100 / m.vram_total
+                } else {
+                    0
+                };
+                format!("GPU: {:.0}°C · {}% VRAM", m.temp, vram_pct)
+            }
+            _ => "GPU: —".to_string(),
+        }
     }
 
     fn build_tooltip(

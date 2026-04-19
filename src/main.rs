@@ -102,6 +102,7 @@ fn main() -> Result<()> {
     let backend = gpu::detect_backend(&app_config.gpu_backend);
     {
         let gpu = state.gpu_metrics.clone();
+        let sys = state.system_metrics.clone();
         thread::spawn(move || {
             loop {
                 match backend.read_metrics() {
@@ -110,6 +111,13 @@ fn main() -> Result<()> {
                             *gpu_lock = m;
                         } else {
                             eprintln!("[error] Failed to acquire gpu lock");
+                        }
+                        // Feed CPU/SoC temp from GPU backend (Apple only)
+                        if let Some(t) = backend.cpu_temp() {
+                            if let Ok(mut sys_lock) = sys.lock() {
+                                sys_lock.cpu_temp = t;
+                                sys_lock.cpu_temp_available = true;
+                            }
                         }
                     }
                     Err(e) => eprintln!("[error] GPU metrics: {e}"),
