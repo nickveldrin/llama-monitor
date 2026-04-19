@@ -22,9 +22,9 @@ type TrayMetrics = (
 );
 
 fn create_tray_icon() -> Icon {
-    // 22x22 white circle on transparent background.
-    // White is the macOS convention for menu bar icons — the system renders it
-    // as white on dark mode and black on light mode automatically.
+    // 22x22 black circle on transparent background.
+    // Used as a template image: macOS renders template icons black on light
+    // mode and white on dark mode automatically.
     let size = 22u32;
     let mut rgba = vec![0u8; (size * size * 4) as usize];
     let cx = size as f32 / 2.0;
@@ -36,18 +36,15 @@ fn create_tray_icon() -> Icon {
             let idx = ((y * size + x) * 4) as usize;
             let dx = x as f32 - cx;
             let dy = y as f32 - cy;
-            let dist = (dx * dx + dy * dy).sqrt();
-            if dist <= r {
-                rgba[idx] = 255;
-                rgba[idx + 1] = 255;
-                rgba[idx + 2] = 255;
+            if (dx * dx + dy * dy).sqrt() <= r {
+                // black, fully opaque
                 rgba[idx + 3] = 255;
             }
         }
     }
 
     Icon::from_rgba(rgba, size, size).unwrap_or_else(|_| {
-        Icon::from_rgba(vec![255, 255, 255, 255], 1, 1).unwrap()
+        Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap()
     })
 }
 
@@ -123,7 +120,7 @@ struct TrayApp {
 
 impl ApplicationHandler for TrayApp {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let tray = TrayIconBuilder::new()
+        let builder = TrayIconBuilder::new()
             .with_menu(std::mem::replace(
                 &mut self.tray_menu,
                 Box::new(Menu::new()),
@@ -131,9 +128,13 @@ impl ApplicationHandler for TrayApp {
             .with_tooltip("Llama Monitor")
             .with_icon(std::mem::replace(
                 &mut self.icon,
-                Icon::from_rgba(vec![0xFF, 0xFF, 0xFF, 0xFF], 1, 1).unwrap(),
-            ))
-            .build();
+                Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap(),
+            ));
+
+        #[cfg(target_os = "macos")]
+        let builder = builder.with_icon_as_template(true);
+
+        let tray = builder.build();
         self.tray = tray.ok();
         if self.tray.is_some() {
             eprintln!("[tray] tray icon created successfully");
