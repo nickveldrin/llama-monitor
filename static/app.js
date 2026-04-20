@@ -2030,12 +2030,9 @@ async function savePreset(event) {
 
         showToast('Save failed: ' + err.message, 'error');
 
- } finally {
-  }
+    } finally {
+    }
 }
-
-}
-
 
 
 async function copyPreset() {
@@ -2739,7 +2736,7 @@ ws.onmessage = e => {
         if (d.remote_agent_connected && !d.remote_agent_health_reachable) {
             setRemoteAgentStatus('Agent connected but HTTP is not reachable (firewall blocked)', 'warning');
         }
-        }
+        
         if (agentLatencyEl) {
             agentLatencyEl.textContent = d.remote_agent_url ? d.remote_agent_url : '';
         }
