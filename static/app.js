@@ -3824,3 +3824,30 @@ async function checkLHMAndPrompt() {
 
 // Clean up LHM resolve function
 window.lhmResolve = null;
+
+// ============================================
+// Keyboard Shortcuts Modal
+// ============================================
+
+function openKeyboardShortcutsModal() {
+    document.getElementById('keyboard-shortcuts-modal').classList.add('open');
+}
+
+function closeKeyboardShortcutsModal() {
+    document.getElementById('keyboard-shortcuts-modal').classList.remove('open');
+}
+
+// Show modal on ? key
+document.addEventListener('keydown', e => {
+    if (e.key === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        openKeyboardShortcutsModal();
+    }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('keyboard-shortcuts-modal').classList.contains('open')) {
+        closeKeyboardShortcutsModal();
+    }
+});

@@ -1819,11 +1819,15 @@ h6 { font-size: var(--text-xs); font-weight: var(--font-medium); color: var(--co
     background: rgba(0, 0, 0, 0.7);
     backdrop-filter: blur(20px);
     z-index: 2000;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     padding: 24px;
     animation: fade-in var(--duration-medium) ease;
+}
+
+.keyboard-shortcut-overlay.open {
+    display: flex;
 }
 
 .shortcuts-modal {
@@ -1933,9 +1937,27 @@ h6 { font-size: var(--text-xs); font-weight: var(--font-medium); color: var(--co
 }
 
 /* ============================================
-    ADVANCED FEATURES - Phase 5
+    KEYBOARD SHORTCUTS - Phase 5
     ============================================ */
-/* Analytics Dashboard */
+.keyboard-shortcut-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(20px);
+    z-index: 2000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: fade-in var(--duration-medium) ease;
+}
+
+.keyboard-shortcut-overlay.open {
+    display: flex;
+}
 .analytics-dashboard {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
