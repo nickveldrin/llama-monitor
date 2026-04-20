@@ -929,8 +929,8 @@ h6 { font-size: var(--text-xs); font-weight: var(--font-medium); color: var(--co
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     z-index: 1000;
     display: flex;
     align-items: center;
@@ -1817,7 +1817,7 @@ h6 { font-size: var(--text-xs); font-weight: var(--font-medium); color: var(--co
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(20px);
     z-index: 2000;
     display: flex;
     align-items: center;
