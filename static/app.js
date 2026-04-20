@@ -1666,6 +1666,54 @@ ws.onmessage = e => {
 
     const d = JSON.parse(e.data);
 
+    // Update endpoint health strip
+    const endpointModeEl = document.getElementById('endpoint-mode');
+    const endpointUrlEl = document.getElementById('endpoint-url');
+    const endpointStatusEl = document.getElementById('endpoint-status');
+
+    if (d.capabilities && d.endpoint_kind) {
+        let modeClass = 'unknown';
+        let modeText = 'Unknown';
+        let statusClass = 'ok';
+        let statusText = 'OK';
+
+        if (d.endpoint_kind === 'Local') {
+            modeClass = 'local';
+            modeText = 'Local';
+            if (!d.capabilities.system || !d.capabilities.gpu) {
+                statusClass = 'warning';
+                statusText = 'Limited';
+            }
+        } else if (d.endpoint_kind === 'Remote') {
+            modeClass = 'remote';
+            modeText = 'Remote';
+            if (!d.capabilities.inference) {
+                statusClass = 'error';
+                statusText = 'Error';
+            } else {
+                statusClass = 'warning';
+                statusText = 'Inference only';
+            }
+        }
+
+        if (endpointModeEl) {
+            endpointModeEl.textContent = modeText;
+            endpointModeEl.className = 'endpoint-mode ' + modeClass;
+        }
+        if (endpointUrlEl) {
+            endpointUrlEl.textContent = d.active_session_id || 'No session';
+        }
+        if (endpointStatusEl) {
+            endpointStatusEl.innerHTML = '<span class="status-dot ' + statusClass + '"></span>' + statusText;
+        }
+    }
+
+    // Update session mode in dashboard header
+    const modeBadge = document.getElementById('mode-badge');
+    if (modeBadge && d.session_mode) {
+        modeBadge.textContent = d.session_mode.charAt(0).toUpperCase() + d.session_mode.slice(1);
+    }
+
 
 
     // Server state
@@ -1782,6 +1830,34 @@ ws.onmessage = e => {
     let sys = lastSystemMetrics;
 
     const sysRowsEl = document.getElementById('system-rows');
+
+    // Hide/unhide sections based on capabilities
+    const gpuSection = document.querySelector('.gpu-section, .gpu-table').closest('div');
+    const systemSection = document.querySelector('.system-section, h2:nth-of-type(1)').nextElementSibling;
+
+    if (d.capabilities) {
+        // Hide GPU section if GPU not available
+        const gpuTable = document.getElementById('gpu-rows');
+        const gpuSectionTitle = gpuTable ? gpuTable.closest('h2') : null;
+        if (gpuSectionTitle) {
+            gpuSectionTitle.style.display = d.capabilities.gpu ? 'block' : 'none';
+            const gpuTableWrap = gpuTable ? gpuTable.closest('.table-wrap') : null;
+            if (gpuTableWrap) {
+                gpuTableWrap.style.display = d.capabilities.gpu ? 'block' : 'none';
+            }
+        }
+
+        // Hide System section if system metrics not available
+        const systemTable = document.getElementById('system-rows');
+        const systemSectionTitle = systemTable ? systemTable.closest('h2') : null;
+        if (systemSectionTitle) {
+            systemSectionTitle.style.display = d.capabilities.system ? 'block' : 'none';
+            const systemTableWrap = systemTable ? systemTable.closest('.table-wrap') : null;
+            if (systemTableWrap) {
+                systemTableWrap.style.display = d.capabilities.system ? 'block' : 'none';
+            }
+        }
+    }
 
     if (sysRowsEl && (!serverRunning || d.local_metrics_available === false)) {
         sysRowsEl.innerHTML = '';
