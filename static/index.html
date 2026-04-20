@@ -18,6 +18,11 @@
         <span class="endpoint-mode" id="endpoint-mode">Loading...</span>
         <span class="endpoint-url" id="endpoint-url">...</span>
         <span class="endpoint-status" id="endpoint-status">...</span>
+        <span class="agent-status" id="agent-status" style="display:none;">
+            <span class="agent-indicator">●</span>
+            <span class="agent-text">Remote Agent</span>
+            <span class="agent-latency" id="agent-latency"></span>
+        </span>
     </div>
     <div class="title">
         <h1>Llama Monitor</h1>
@@ -162,6 +167,38 @@
         <div class="modal-buttons">
             <button type="button" class="btn btn-modal-cancel" onclick="closeConfigModal()">Cancel</button>
             <button type="button" class="btn btn-modal-save" onclick="saveConfig()">Save</button>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeConfigModal()">Cancel</button>
+            <button type="button" class="btn btn-modal-save" onclick="saveConfig()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Connect Agent Modal -->
+<div class="modal-overlay" id="connect-agent-modal">
+    <div class="modal" style="width:540px;">
+        <div class="modal-header">
+            <h2>Connect Remote Agent</h2>
+            <button type="button" class="modal-close" onclick="closeConnectAgentModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <label class="modal-field" title="URL of the remote agent endpoint">
+                Agent URL
+                <input type="text" id="agent-url" placeholder="http://127.0.0.1:7779" style="width:100%;box-sizing:border-box;">
+            </label>
+            <label class="modal-field" title="Authentication token for the agent">
+                Authentication Token
+                <input type="text" id="agent-token" placeholder="Enter token" style="width:100%;box-sizing:border-box;">
+            </label>
+            <p style="font-size:0.72rem;color:#6a7585;margin-top:8px;">
+                The remote agent must be running and accessible at the specified URL.
+                Token is required for authentication.
+            </p>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeConnectAgentModal()">Cancel</button>
+            <button type="button" class="btn btn-modal-save" onclick="connectAgent()">Connect</button>
         </div>
     </div>
 </div>

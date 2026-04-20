@@ -52,6 +52,40 @@ h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
     align-items: center;
     gap: 6px;
 }
+.agent-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+    background: #4c566a;
+    color: #d8dee9;
+    font-size: 0.8rem;
+}
+.agent-status.connected {
+    background: #a3be8c;
+    color: #2e3440;
+}
+.agent-status.connecting {
+    background: #ebcb8b;
+    color: #2e3440;
+}
+.agent-status.disconnected {
+    background: #bf616a;
+    color: #eceff4;
+}
+.agent-indicator {
+    font-size: 0.85rem;
+}
+.agent-text {
+    font-family: monospace;
+    font-size: 0.72rem;
+}
+.agent-latency {
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
 .status-dot {
     display: inline-block;
     width: 10px;
