@@ -68,6 +68,16 @@ h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
     background: #bf616a;
 }
 
+.mode-badge {
+    font-family: monospace;
+    font-size: 0.72rem;
+    color: #6a7585;
+    background: #272c35;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+}
+
 /* Server endpoint area (separate from control bar) */
 .server-endpoint-area { margin-bottom: 12px; }
 .server-endpoint-area .num-sm { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #8899aa; }

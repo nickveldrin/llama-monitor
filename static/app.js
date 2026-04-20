@@ -1772,11 +1772,17 @@ ws.onmessage = e => {
 
     if (l && l.kv_cache_max > 0) {
 
-        const pct = ((l.kv_cache_tokens / l.kv_cache_max) * 100).toFixed(1);
+        const pct = ((l.kv_cache_tokens / l.kv_cache_max) * 100);
 
-        document.getElementById('m-ctx').textContent = l.kv_cache_tokens + ' / ' + l.kv_cache_max + ' (' + pct + '%)';
+        const severityClass = pct >= 95 ? 'severity-critical' : pct >= 80 ? 'severity-warning' : 'severity-normal';
+
+        document.getElementById('m-ctx').className = 'metric-value ctx ' + severityClass;
+
+        document.getElementById('m-ctx').textContent = l.kv_cache_tokens + ' / ' + l.kv_cache_max + ' (' + pct.toFixed(1) + '%)';
 
     } else {
+
+        document.getElementById('m-ctx').className = 'metric-value ctx';
 
         document.getElementById('m-ctx').textContent = getEmptyStateMessage(systemReason, '\u2014');
 
