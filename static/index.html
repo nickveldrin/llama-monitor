@@ -26,21 +26,79 @@
             <button type="button" class="btn-firewall-fix" onclick="openFirewallHelp()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:0.7rem;margin-left:4px;">Fix</button>
         </span>
     </div>
-    <div class="title">
-        <h1>Llama Monitor</h1>
-        <div style="display:flex;align-items:center;gap:8px;padding-bottom:4px;">
-            <span class="status-dot stopped" id="status-dot"></span>
-            <span class="status-text" id="status-text">Stopped</span>
-            <span class="mode-badge" id="mode-badge" style="font-size:0.72rem;color:#6a7585;background:#272c35;padding:2px 8px;border-radius:12px;">Spawn</span>
-            <button class="btn-config" onclick="openConfigModal()" title="Configuration">&#9881;</button>
+    <div class="top-nav-bar">
+        <div class="nav-left">
+            <a href="#" class="nav-logo" onclick="event.preventDefault();">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M16 2C8.268 2 2 8.268 2 16C2 23.732 8.268 30 16 30C23.732 30 30 23.732 30 16C30 8.268 23.732 2 16 2ZM16 26C10.477 26 6 21.523 6 16C6 10.477 10.477 6 16 6C21.523 6 26 10.477 26 16C26 21.523 21.523 26 16 26Z" fill="var(--theme-primary)"/>
+                    <path d="M16 12C14.6739 12 13.4021 12.5268 12.4645 13.4645C11.5268 14.4021 11 15.6739 11 17C11 18.3261 11.5268 19.5979 12.4645 20.5355C13.4021 21.4732 14.6739 22 16 22C17.3261 22 18.5979 21.4732 19.5355 20.5355C20.4732 19.5979 21 18.3261 21 17C21 15.6739 20.4732 14.4021 19.5355 13.4645C18.5979 12.5268 17.3261 12 16 12ZM16 20C14.9391 20 13.9217 19.5786 13.1716 18.8284C12.4214 18.0783 12 17.0609 12 16C12 14.9391 12.4214 13.9217 13.1716 13.1716C13.9217 12.4214 14.9391 12 16 12C17.0609 12 18.0783 12.4214 18.8284 13.1716C19.5786 13.9217 20 14.9391 20 16C20 17.0609 19.5786 18.0783 18.8284 18.8284C18.0783 19.5786 17.0609 20 16 20Z" fill="white"/>
+                </svg>
+            </a>
+            <h1 class="nav-title">Llama Monitor</h1>
+        </div>
+        <div class="nav-center">
+            <div class="nav-search">
+                <input type="text" placeholder="Search sessions, presets, settings...">
+                <button class="nav-search-btn">🔍</button>
+            </div>
+        </div>
+        <div class="nav-right">
+            <button class="nav-btn" onclick="openSessionModal()" title="New Session">+ New Session</button>
+            <button class="nav-btn" onclick="openSettingsModal()" title="Settings">⚙️ Settings</button>
+            <div class="nav-user">
+                <button class="nav-user-btn">👤 User</button>
+                <div class="nav-user-menu">
+                    <a href="#" class="nav-user-menu-item">Profile</a>
+                    <a href="#" class="nav-user-menu-item">Preferences</a>
+                    <a href="#" class="nav-user-menu-item" onclick="toggleTheme()">Toggle Theme</a>
+                    <a href="#" class="nav-user-menu-item">Help</a>
+                    <a href="#" class="nav-user-menu-item">Logout</a>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('server')" id="tab-server">Server<span class="tab-badge" id="badge-server"></span></button>
-        <button class="tab-btn" onclick="switchTab('chat')" id="tab-chat">Chat<span class="tab-badge" id="badge-chat"></span></button>
-        <button class="tab-btn" onclick="switchTab('logs')" id="tab-logs">Logs<span class="tab-badge" id="badge-logs"></span></button>
+    <div class="sidebar-nav">
+        <button class="sidebar-btn active" onclick="switchTab('server')">
+            <span class="sidebar-icon">📊</span>
+            <span class="sidebar-label">Server</span>
+        </button>
+        <button class="sidebar-btn" onclick="switchTab('chat')">
+            <span class="sidebar-icon">💬</span>
+            <span class="sidebar-label">Chat</span>
+            <span class="sidebar-badge" id="sidebar-badge-chat"></span>
+        </button>
+        <button class="sidebar-btn" onclick="switchTab('logs')">
+            <span class="sidebar-icon">📋</span>
+            <span class="sidebar-label">Logs</span>
+            <span class="sidebar-badge" id="sidebar-badge-logs"></span>
+        </button>
+        <button class="sidebar-btn" onclick="openSessionsModal()">
+            <span class="sidebar-icon">📂</span>
+            <span class="sidebar-label">Sessions</span>
+        </button>
+        <button class="sidebar-btn" onclick="openModelsModal()">
+            <span class="sidebar-icon">🤖</span>
+            <span class="sidebar-label">Models</span>
+        </button>
+        <button class="sidebar-btn" onclick="openSettingsModal()">
+            <span class="sidebar-icon">⚙️</span>
+            <span class="sidebar-label">Settings</span>
+        </button>
     </div>
+
+    <div class="content-area">
+        <div class="page active" id="page-server">
+            <div class="dashboard-header">
+                <h2>Server Endpoint</h2>
+                <div class="dashboard-header-actions">
+                    <label class="num-sm">Server Endpoint (for attach)
+                        <input id="server-endpoint" type="text" value="http://127.0.0.1:8001" style="width:240px;">
+                    </label>
+                    <button class="btn btn-attach" id="btn-attach" onclick="doAttach()">Attach</button>
+                    <button class="btn btn-kill" id="btn-kill" onclick="doKillLlama()">Kill llama-server</button>
+                </div>
+            </div>
 
     <!-- Page: Server (control + monitor) -->
     <div class="page active" id="page-server">
@@ -578,6 +636,488 @@
                 <button type="submit" class="btn btn-modal-save" id="btn-modal-save">Save</button>
             </div>
         </form>
+    </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+ </div>
+
+<!-- Sessions Management Panel -->
+<div class="page" id="page-sessions">
+    <div class="dashboard-header">
+        <h2>Session Management</h2>
+        <button class="btn btn-primary" onclick="openSessionModal()">
+            <span class="btn-icon">+</span>
+            New Session
+        </button>
+    </div>
+    
+    <div class="sessions-container" id="sessions-container">
+        <!-- Session cards will be rendered here -->
+    </div>
+</div>
+
+<!-- Settings Modal with Tabbed Navigation -->
+<div class="modal-overlay" id="settings-modal">
+    <div class="modal" style="width:720px;">
+        <div class="modal-header">
+            <h2>Settings</h2>
+            <button type="button" class="modal-close" onclick="closeSettingsModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="settings-modal-body">
+            <div class="settings-tabs">
+                <button class="settings-tab active" data-tab="general">General</button>
+                <button class="settings-tab" data-tab="appearance">Appearance</button>
+                <button class="settings-tab" data-tab="gpu">GPU</button>
+                <button class="settings-tab" data-tab="network">Network</button>
+            </div>
+            <div class="settings-content">
+                <div class="settings-pane active" id="settings-general">
+                    <h3>General Settings</h3>
+                    <label class="modal-field">
+                        Auto-update Check
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="settings-auto-update" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label">Enable automatic updates</span>
+                        </div>
+                    </label>
+                    <label class="modal-field">
+                        Data Collection
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="settings-data-collection">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label">Send anonymous usage data</span>
+                        </div>
+                    </label>
+                </div>
+                <div class="settings-pane" id="settings-appearance">
+                    <h3>Appearance</h3>
+                    <label class="modal-field">
+                        Theme
+                        <select id="settings-theme">
+                            <option value="auto">Auto (System)</option>
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </label>
+                    <label class="modal-field">
+                        Font Size
+                        <select id="settings-font-size">
+                            <option value="small">Small (14px)</option>
+                            <option value="medium" selected>Medium (16px)</option>
+                            <option value="large">Large (18px)</option>
+                        </select>
+                    </label>
+                    <label class="modal-field">
+                        Dashboard Widgets
+                        <div class="modal-row">
+                            <label class="chk"><input type="checkbox" id="settings-widget-cpu" checked> CPU Usage</label>
+                            <label class="chk"><input type="checkbox" id="settings-widget-gpu" checked> GPU Usage</label>
+                            <label class="chk"><input type="checkbox" id="settings-widget-memory" checked> Memory</label>
+                        </div>
+                    </label>
+                </div>
+                <div class="settings-pane" id="settings-gpu">
+                    <h3>GPU Configuration</h3>
+                    <label class="modal-field">
+                        Default GPU Layers
+                        <input type="number" id="settings-default-gpu-layers" value="99">
+                    </label>
+                    <label class="modal-field">
+                        GPU Memory Target
+                        <input type="number" id="settings-gpu-memory-target" placeholder="GB">
+                    </label>
+                </div>
+                <div class="settings-pane" id="settings-network">
+                    <h3>Network Settings</h3>
+                    <label class="modal-field">
+                        Server Port
+                        <input type="number" id="settings-server-port" value="8001">
+                    </label>
+                    <label class="modal-field">
+                        Agent Port
+                        <input type="number" id="settings-agent-port" value="7779">
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeSettingsModal()">Cancel</button>
+            <button type="button" class="btn btn-modal-save" onclick="saveSettings()">Save Settings</button>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Dashboard Modal -->
+<div class="modal-overlay" id="analytics-modal">
+    <div class="modal" style="width:960px;">
+        <div class="modal-header">
+            <h2>Analytics Dashboard</h2>
+            <button type="button" class="modal-close" onclick="closeAnalyticsModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="analytics-dashboard">
+                <div class="analytics-charts">
+                    <div class="widget-card">
+                        <h3>Inference Performance</h3>
+                        <div class="chart-container">
+                            <canvas id="analytics-chart-performance"></canvas>
+                        </div>
+                    </div>
+                    <div class="widget-card">
+                        <h3>GPU Utilization</h3>
+                        <div class="chart-container">
+                            <canvas id="analytics-chart-gpu"></canvas>
+                        </div>
+                    </div>
+                    <div class="widget-card">
+                        <h3>Memory Usage</h3>
+                        <div class="chart-container">
+                            <canvas id="analytics-chart-memory"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="analytics-sidebar">
+                    <div class="widget-card">
+                        <h3>Key Metrics</h3>
+                        <div class="analytics-metrics">
+                            <div class="analytics-metric">
+                                <span class="analytics-metric-label">Total Inferences</span>
+                                <span class="analytics-metric-value" id="analytics-total-inferences">0</span>
+                            </div>
+                            <div class="analytics-metric">
+                                <span class="analytics-metric-label">Avg Prompt Speed</span>
+                                <span class="analytics-metric-value" id="analytics-avg-prompt-speed">0</span>
+                            </div>
+                            <div class="analytics-metric">
+                                <span class="analytics-metric-label">Avg Gen Speed</span>
+                                <span class="analytics-metric-value" id="analytics-avg-gen-speed">0</span>
+                            </div>
+                            <div class="analytics-metric">
+                                <span class="analytics-metric-label">Total Tokens</span>
+                                <span class="analytics-metric-value" id="analytics-total-tokens">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="widget-card">
+                        <h3>Session Statistics</h3>
+                        <div class="analytics-stats">
+                            <div class="analytics-stat-item">
+                                <span class="analytics-stat-label">Active Sessions</span>
+                                <span class="analytics-stat-value" id="analytics-active-sessions">0</span>
+                            </div>
+                            <div class="analytics-stat-item">
+                                <span class="analytics-stat-label">Total Sessions</span>
+                                <span class="analytics-stat-value" id="analytics-total-sessions">0</span>
+                            </div>
+                            <div class="analytics-stat-item">
+                                <span class="analytics-stat-label">Uptime</span>
+                                <span class="analytics-stat-value" id="analytics-uptime">0h</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="export-modal">
+    <div class="modal" style="width:560px;">
+        <div class="modal-header">
+            <h2>Export Data</h2>
+            <button type="button" class="modal-close" onclick="closeExportModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="export-panel">
+                <h3 class="export-section-title">What to Export</h3>
+                <div class="export-options">
+                    <label class="export-option">
+                        <input type="radio" name="export-type" value="sessions" checked>
+                        <div class="export-option-content">
+                            <div class="export-option-title">Session Configurations</div>
+                            <div class="export-option-description">Export all session definitions (spawn/attach mode, ports, server configs)</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="export-type" value="presets">
+                        <div class="export-option-content">
+                            <div class="export-option-title">Model Presets</div>
+                            <div class="export-option-description">Export all model presets with all llama.cpp parameters</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="export-type" value="analytics">
+                        <div class="export-option-content">
+                            <div class="export-option-title">Analytics Data</div>
+                            <div class="export-option-description">Export performance metrics and usage statistics</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="export-type" value="full">
+                        <div class="export-option-content">
+                            <div class="export-option-title">Full Backup</div>
+                            <div class="export-option-description">Export everything: sessions, presets, analytics, and settings</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="export-panel" style="margin-top:24px;">
+                <h3 class="export-section-title">Export Format</h3>
+                <div class="export-options">
+                    <label class="export-option">
+                        <input type="radio" name="export-format" value="json" checked>
+                        <div class="export-option-content">
+                            <div class="export-option-title">JSON</div>
+                            <div class="export-option-description">Structured data format (recommended)</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="export-format" value="csv">
+                        <div class="export-option-content">
+                            <div class="export-option-title">CSV</div>
+                            <div class="export-option-description">Spreadsheet-compatible format</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="export-panel" style="margin-top:24px;">
+                <h3 class="export-section-title">Export Range</h3>
+                <div class="export-options">
+                    <label class="export-option">
+                        <input type="radio" name="export-range" value="all" checked>
+                        <div class="export-option-content">
+                            <div class="export-option-title">All Data</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="export-range" value="today">
+                        <div class="export-option-content">
+                            <div class="export-option-title">Today</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="export-range" value="week">
+                        <div class="export-option-content">
+                            <div class="export-option-title">Last 7 Days</div>
+                        </div>
+                    </label>
+                    <label class="export-option">
+                        <input type="radio" name="export-range" value="month">
+                        <div class="export-option-content">
+                            <div class="export-option-title">Last 30 Days</div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeExportModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="exportData()">Export Data</button>
+        </div>
+    </div>
+</div>
+
+<!-- Keyboard Shortcuts Modal -->
+<div class="keyboard-shortcut-overlay" id="keyboard-shortcuts-modal">
+    <div class="shortcuts-modal">
+        <div class="shortcuts-header">
+            <h2 class="shortcuts-title">Keyboard Shortcuts</h2>
+            <button type="button" class="shortcuts-close" onclick="closeKeyboardShortcutsModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="shortcuts-body">
+            <div class="shortcuts-section">
+                <h3 class="shortcuts-section-title">Navigation</h3>
+                <div class="shortcuts-list">
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Switch to Server tab</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">1</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Switch to Chat tab</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">2</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Switch to Logs tab</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">3</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Open Settings</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">,</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Open Analytics</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">A</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Open Export</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">E</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="shortcuts-section">
+                <h3 class="shortcuts-section-title">Session Management</h3>
+                <div class="shortcuts-list">
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Create new session</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">N</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Save session</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">S</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Close modal</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Esc</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="shortcuts-section">
+                <h3 class="shortcuts-section-title">Quick Actions</h3>
+                <div class="shortcuts-list">
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Start server</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">Enter</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Stop server</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">.</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Clear chat</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">K</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Toggle theme</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">Ctrl</span>
+                            <span class="shortcut-key-combo">T</span>
+                        </span>
+                    </div>
+                    <div class="shortcut-item">
+                        <span class="shortcut-description">Show keyboard shortcuts</span>
+                        <span class="shortcut-keys-combination">
+                            <span class="shortcut-key-combo">?</span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Preferences Modal -->
+<div class="modal-overlay" id="user-preferences-modal">
+    <div class="modal" style="width:640px;">
+        <div class="modal-header">
+            <h2>User Preferences</h2>
+            <button type="button" class="modal-close" onclick="closeUserPreferencesModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="personalization-panel">
+                <div class="personalization-section">
+                    <h3 class="personalization-section-title">Appearance</h3>
+                    <label class="modal-field">
+                        Theme Mode
+                        <select id="pref-theme-mode">
+                            <option value="auto">Auto (System Default)</option>
+                            <option value="light">Light Mode</option>
+                            <option value="dark">Dark Mode</option>
+                        </select>
+                    </label>
+                    <label class="modal-field">
+                        Font Scale
+                        <input type="range" id="pref-font-scale" min="0.8" max="1.4" step="0.1" value="1">
+                        <div class="range-value" id="pref-font-scale-value">1.0x</div>
+                    </label>
+                    <label class="modal-field">
+                        Spacing Scale
+                        <input type="range" id="pref-spacing-scale" min="0.8" max="1.4" step="0.1" value="1">
+                        <div class="range-value" id="pref-spacing-scale-value">1.0x</div>
+                    </label>
+                </div>
+                
+                <div class="personalization-section">
+                    <h3 class="personalization-section-title">Dashboard</h3>
+                    <div class="modal-row modal-checks">
+                        <label class="chk"><input type="checkbox" id="pref-show-cpu" checked> Show CPU metrics</label>
+                        <label class="chk"><input type="checkbox" id="pref-show-gpu" checked> Show GPU metrics</label>
+                        <label class="chk"><input type="checkbox" id="pref-show-memory" checked> Show memory metrics</label>
+                        <label class="chk"><input type="checkbox" id="pref-show-network" checked> Show network metrics</label>
+                    </div>
+                </div>
+                
+                <div class="personalization-section">
+                    <h3 class="personalization-section-title">Behavior</h3>
+                    <div class="modal-row modal-checks">
+                        <label class="chk"><input type="checkbox" id="pref-auto-update" checked> Check for updates automatically</label>
+                        <label class="chk"><input type="checkbox" id="pref-data-collection"> Send anonymous usage data</label>
+                        <label class="chk"><input type="checkbox" id="pref-show-toasts" checked> Show toast notifications</label>
+                        <label class="chk"><input type="checkbox" id="pref-save-history" checked> Save chat history</label>
+                    </div>
+                </div>
+                
+                <div class="personalization-section">
+                    <h3 class="personalization-section-title">Notifications</h3>
+                    <div class="modal-row modal-checks">
+                        <label class="chk"><input type="checkbox" id="pref-notify-start"> Notify when server starts</label>
+                        <label class="chk"><input type="checkbox" id="pref-notify-stop"> Notify when server stops</label>
+                        <label class="chk"><input type="checkbox" id="pref-notify-error"> Notify on errors</label>
+                        <label class="chk"><input type="checkbox" id="pref-notify-high-temp"> Notify on high GPU temperature</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeUserPreferencesModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveUserPreferences()">Save Preferences</button>
+        </div>
     </div>
 </div>
 
