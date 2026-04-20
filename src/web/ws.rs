@@ -51,6 +51,9 @@ pub fn ws_route(
                                 })
                                 .unwrap_or("");
                             drop(sessions);
+                            let capabilities = state.capabilities.lock().unwrap().clone();
+                            let (system_reason, gpu_reason, cpu_temp_reason) =
+                                state.calculate_availability_reasons();
                             serde_json::json!({
                                 "gpu": gpu,
                                 "llama": llama,
@@ -59,7 +62,13 @@ pub fn ws_route(
                                 "server_running": running,
                                 "session_mode": session_mode,
                                 "active_session_id": active_session_id,
-                                "local_metrics_available": local_metrics_available
+                                "local_metrics_available": local_metrics_available,
+                                "capabilities": capabilities,
+                                "availability": {
+                                    "system": system_reason,
+                                    "gpu": gpu_reason,
+                                    "cpu_temp": cpu_temp_reason
+                                }
                             })
                         };
                         if ws_tx.send(Message::text(json.to_string())).await.is_err() {

@@ -22,7 +22,7 @@ pub struct MetricsCapabilities {
     pub tray: bool,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub enum EndpointKind {
     Local,
     Remote,
@@ -521,6 +521,15 @@ impl AppState {
     }
 }
 
+#[allow(dead_code)]
+pub fn endpoint_kind_from_endpoint(endpoint: &str) -> EndpointKind {
+    if endpoint_is_local(endpoint) {
+        EndpointKind::Local
+    } else {
+        EndpointKind::Remote
+    }
+}
+
 fn endpoint_is_local(endpoint: &str) -> bool {
     let url = reqwest::Url::parse(endpoint)
         .or_else(|_| reqwest::Url::parse(&format!("http://{endpoint}")));
@@ -585,6 +594,30 @@ mod tests {
         assert!(endpoint_is_local("http://localhost:8001"));
         assert!(endpoint_is_local("127.0.0.1:8001"));
         assert!(endpoint_is_local("http://[::1]:8001"));
+    }
+
+    #[test]
+    fn endpoint_kind_localizes_loopback() {
+        assert_eq!(
+            endpoint_kind_from_endpoint("http://localhost:8001"),
+            EndpointKind::Local
+        );
+        assert_eq!(
+            endpoint_kind_from_endpoint("127.0.0.1:8001"),
+            EndpointKind::Local
+        );
+        assert_eq!(
+            endpoint_kind_from_endpoint("http://[::1]:8001"),
+            EndpointKind::Local
+        );
+    }
+
+    #[test]
+    fn endpoint_kind_rejects_remote_ip() {
+        assert_eq!(
+            endpoint_kind_from_endpoint("http://203.0.113.10:8001"),
+            EndpointKind::Remote
+        );
     }
 
     #[test]

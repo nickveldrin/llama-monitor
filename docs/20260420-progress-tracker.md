@@ -2,7 +2,7 @@
 
 **Project:** Llama Monitor UI/UX and Monitoring Improvements  
 **Plan:** docs/20260420-implementation-plan.md  
-**Last Updated:** 2026-04-20 (completed Tasks 1.1-1.6)
+****Last Updated:** 2026-04-20 (completed Tasks 1.1-1.8)
 
 ---
 
@@ -16,6 +16,8 @@
 | 1.4 | Backend Capability Model | ✅ Complete | 2026-04-20 |
 | 1.5 | Backend Capability Model | ✅ Complete | 2026-04-20 |
 | 1.6 | Backend Capability Model | ✅ Complete | 2026-04-20 |
+| 1.7 | Backend Capability Model | ✅ Complete | 2026-04-20 |
+| 1.8 | Backend Capability Model | ✅ Complete | 2026-04-20 |
 
 ---
 
@@ -23,8 +25,9 @@
 
 | Task | Phase | Status | Date Started |
 |------|-------|--------|--------------|
-| 1.7 | Add availability to WebSocket | Pending | |
-| 1.8 | Add get_endpoint_kind helper | Pending | |
+| 2.1 | Add endpoint health strip to main dashboard | In Progress | 2026-04-20 |
+| 2.2 | Hide unavailable sections | Pending | |
+| 2.3 | Add empty states | Pending | |
 
 ---
 
