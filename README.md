@@ -2,6 +2,22 @@
 
 Web dashboard for managing [llama.cpp](https://github.com/ggerganov/llama.cpp) servers with real-time GPU monitoring.
 
+## Monitoring Modes
+
+Llama Monitor supports two modes of operation:
+
+### Local Mode (Spawn)
+- Runs llama-server on your local machine
+- Full hardware monitoring (CPU, RAM, GPU temp, VRAM, power, clocks)
+- GPU monitoring auto-detected: AMD ROCm, NVIDIA, Apple Silicon
+- Perfect for local development and testing
+
+### Remote Mode (Attach)
+- Connects to an existing llama-server instance
+- Inference metrics only (prompt/gen speed, KV cache, slots)
+- GPU/system sections auto-hidden when not available
+- Remote agent provides backend metrics via HTTP endpoint
+
 ## Features
 
 - **Capability-Aware Monitoring** -- Backend exposes metric capabilities and availability reasons
