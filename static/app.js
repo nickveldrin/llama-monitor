@@ -1451,9 +1451,9 @@ document.getElementById('preset-select').addEventListener('change', () => saveSe
 
 // --- Toast Notifications ---
 
+const TOAST_AUTO_DISMISS = 3500;
 
-
-function showToast(message, type = 'error') {
+function showToast(title, type = 'error', message = '') {
 
     const container = document.getElementById('toast-container');
 
@@ -1461,19 +1461,136 @@ function showToast(message, type = 'error') {
 
     toast.className = 'toast toast-' + type;
 
-    toast.textContent = message;
+    let content = '';
+
+    if (type === 'progress') {
+
+        content = '<div class="toast-content"><div class="toast-progress-bar"><div class="toast-progress-fill" style="width:0%"></div></div></div>';
+
+    } else {
+
+        const iconMap = {
+            success: 'success',
+            error: 'error',
+            warning: 'warning',
+            info: 'info'
+        };
+
+        const iconType = iconMap[type] || 'info';
+
+        content = `
+            <div class="toast-icon ${type}">${getToastIcon(iconType)}</div>
+            <div class="toast-content">
+                ${title ? '<div class="toast-title">' + escapeHtml(title) + '</div>' : ''}
+                ${message ? '<div class="toast-message">' + escapeHtml(message) + '</div>' : ''}
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()">&times;</button>
+        `;
+
+    }
+
+    toast.innerHTML = content;
 
     container.appendChild(toast);
 
     requestAnimationFrame(() => { toast.classList.add('show'); });
 
+    if (type === 'progress') {
+
+        return toast;
+
+    } else {
+
+        setTimeout(() => {
+
+            toast.classList.remove('show');
+
+            setTimeout(() => toast.remove(), 300);
+
+        }, TOAST_AUTO_DISMISS);
+
+        return null;
+
+    }
+
+}
+
+function getToastIcon(type) {
+
+    const icons = {
+        success: '✓',
+        error: '✗',
+        warning: '⚠',
+        info: 'ℹ'
+    };
+
+    return icons[type] || 'ℹ';
+
+}
+
+function updateToastProgress(toastElement, percent, message) {
+
+    if (!toastElement) return;
+
+    const fill = toastElement.querySelector('.toast-progress-fill');
+
+    const content = toastElement.querySelector('.toast-content');
+
+    if (fill) fill.style.width = percent + '%';
+
+    if (content && message) {
+
+        content.innerHTML = '<div class="toast-title">' + escapeHtml(message) + '</div>';
+
+    }
+
+}
+
+function showToastWithActions(title, type, message, actions = []) {
+
+    const toast = showToast(title, type, message);
+
+    if (!toast) return null;
+
+    const toastEl = toast;
+
     setTimeout(() => {
 
-        toast.classList.remove('show');
+        const actionsDiv = document.createElement('div');
 
-        setTimeout(() => toast.remove(), 300);
+        actionsDiv.className = 'toast-actions';
 
-    }, 3500);
+        actions.forEach(action => {
+
+            const btn = document.createElement('button');
+
+            btn.className = 'toast-action toast-action-' + (action.primary ? 'primary' : 'secondary');
+
+            btn.textContent = action.label;
+
+            btn.onclick = () => {
+
+                if (action.callback) action.callback();
+
+                toastEl.remove();
+
+            };
+
+            actionsDiv.appendChild(btn);
+
+        });
+
+        toastEl.appendChild(actionsDiv);
+
+    }, 50);
+
+    return toast;
+
+}
+
+function showToastProgress(title, type = 'info') {
+
+    return showToast(title, 'progress');
 
 }
 
