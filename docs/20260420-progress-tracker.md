@@ -13,6 +13,8 @@
 | 1.1 | Backend Capability Model | ✅ Complete | 2026-04-20 |
 | 1.2 | Backend Capability Model | ✅ Complete | 2026-04-20 |
 | 1.3 | Backend Capability Model | ✅ Complete | 2026-04-20 |
+| 1.4 | Backend Capability Model | ✅ Complete | 2026-04-20 |
+| 1.6 | Backend Capability Model | ✅ Complete | 2026-04-20 |
 
 ---
 
@@ -20,10 +22,9 @@
 
 | Task | Phase | Status | Date Started |
 |------|-------|--------|--------------|
-| 1.4 | Implement calculate_capabilities | In Progress | 2026-04-20 |
-| 1.5 | Update AppState::new() | In Progress | 2026-04-20 |
-| 1.6 | Add capability API endpoint | Pending | |
-| 1.7 | Add availability to WebSocket | Pending | |
+| 1.5 | Update AppState::new() | ✅ Complete | 2026-04-20 |
+| 1.7 | Add availability to WebSocket | In Progress | 2026-04-20 |
+| 1.8 | Add get_endpoint_kind helper | Pending | |
 
 ---
 

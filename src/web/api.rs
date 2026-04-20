@@ -279,6 +279,7 @@ pub fn api_routes(
     let delete_session = api_delete_session(state.clone());
     let get_active_session = api_get_active_session(state.clone());
     let set_active_session = api_set_active_session(state.clone());
+    let get_capabilities = api_get_capabilities(state.clone());
     let spawn_session_with_preset =
         api_spawn_session_with_preset(state.clone(), app_config.clone());
     let attach = api_attach(state.clone());
@@ -311,6 +312,7 @@ pub fn api_routes(
         .or(delete_session)
         .or(get_active_session)
         .or(set_active_session)
+        .or(get_capabilities)
         .or(spawn_session_with_preset)
         .or(attach)
         .or(check_lhm)
@@ -822,6 +824,38 @@ fn api_get_active_session(
                         &serde_json::json!({"error": "No active session"}),
                     )),
                 }
+            }
+        })
+}
+
+fn api_get_capabilities(
+    state: AppState,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "capabilities")
+        .and(warp::path::end())
+        .and(warp::get())
+        .and_then(move || {
+            let state = state.clone();
+            async move {
+                let capabilities = state.capabilities.lock().unwrap().clone();
+                let endpoint_kind = state.endpoint_kind.lock().unwrap().clone();
+                let session_kind = state.session_kind.lock().unwrap().clone();
+                let tray_mode = state.tray_mode.lock().unwrap().clone();
+                
+                let (system_reason, gpu_reason, cpu_temp_reason) = 
+                    state.calculate_availability_reasons();
+                
+                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                    "capabilities": capabilities,
+                    "endpoint_kind": endpoint_kind,
+                    "session_kind": session_kind,
+                    "tray_mode": tray_mode,
+                    "availability": {
+                        "system": system_reason,
+                        "gpu": gpu_reason,
+                        "cpu_temp": cpu_temp_reason
+                    }
+                })))
             }
         })
 }

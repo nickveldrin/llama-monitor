@@ -37,6 +37,7 @@ pub enum SessionKind {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
+#[expect(dead_code)]
 pub enum TrayMode {
     Desktop,
     Headless,
