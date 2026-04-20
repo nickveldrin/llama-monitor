@@ -391,12 +391,17 @@ ws.onmessage = function(e) {
         return;
     }
 
-    if (d.local_metrics_available === false) {
+    const gpuAvailable = d.capabilities?.gpu ?? true;
+    const systemAvailable = d.capabilities?.system ?? true;
+    
+    if (!systemAvailable && !gpuAvailable) {
         const reasons = d.availability || {};
         clearLocalMetrics(reasons);
     } else {
-        document.getElementById('cpu-section').style.display = '';
-        document.getElementById('ram-section').style.display = '';
+        if (systemAvailable) {
+            document.getElementById('cpu-section').style.display = '';
+            document.getElementById('ram-section').style.display = '';
+        }
 
     const sys = d.system || {};
     const cpuLoad = sys.cpu_load || 0;
@@ -434,7 +439,12 @@ ws.onmessage = function(e) {
     }
 
     const gpuEntries = Object.entries(d.gpu || {});
-    renderGPUs(gpuEntries);
+    
+    if (gpuAvailable) {
+        renderGPUs(gpuEntries);
+    } else {
+        document.getElementById('gpu-sections').style.display = 'none';
+    }
     }
 
     const l = d.llama || {};

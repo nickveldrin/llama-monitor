@@ -493,8 +493,27 @@ impl TrayState {
     ) -> String {
         let mut lines = Vec::new();
 
+        let active_session_id = self.app_state.active_session_id.lock().unwrap().clone();
+       let endpoint_kind = {
+            let sessions = self.app_state.sessions.lock().unwrap();
+            sessions
+                .iter()
+                .find(|s| s.id == active_session_id)
+                .map(|s| match &s.mode {
+                    crate::state::SessionMode::Spawn { .. } => crate::state::EndpointKind::Local,
+                    crate::state::SessionMode::Attach { endpoint } => {
+                        if endpoint.is_empty()
+                            || endpoint == "127.0.0.1" || endpoint == "localhost" {
+                            crate::state::EndpointKind::Local
+                        } else {
+                            crate::state::EndpointKind::Remote
+                        }
+                    }
+                })
+                .unwrap_or(crate::state::EndpointKind::Unknown)
+        };
+
         let session_mode = {
-            let active_session_id = self.app_state.active_session_id.lock().unwrap().clone();
             let sessions = self.app_state.sessions.lock().unwrap();
             sessions
                 .iter()
@@ -506,7 +525,13 @@ impl TrayState {
                 .unwrap_or("")
         };
 
-        lines.push(format!("Mode: {}", session_mode));
+        let local_label = if endpoint_kind == crate::state::EndpointKind::Local {
+            "Local"
+        } else {
+            "Remote"
+        };
+
+        lines.push(format!("{} - {}", local_label, session_mode));
 
         if local_metrics_available {
             lines.push(format!("CPU: {}%", sys.cpu_load as f32 / 10.0));
@@ -525,6 +550,8 @@ impl TrayState {
                     lines.push(format!("{}: {:.0}C / {}% VRAM", name, m.temp, vram_pct));
                 }
             }
+        } else {
+            lines.push("Host metrics unavailable".to_string());
         }
 
         if llama.generation_tokens_per_sec > 0.0 {
