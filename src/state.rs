@@ -44,7 +44,7 @@ pub enum TrayMode {
     Failed,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 pub enum AvailabilityReason {
     Available,
     RemoteEndpoint,
@@ -496,27 +496,29 @@ impl AppState {
     }
 
     #[allow(dead_code)]
-    pub fn calculate_availability_reasons(&self) -> (AvailabilityReason, AvailabilityReason, AvailabilityReason) {
+    pub fn calculate_availability_reasons(
+        &self,
+    ) -> (AvailabilityReason, AvailabilityReason, AvailabilityReason) {
         let capabilities = self.calculate_capabilities();
-        
+
         let system_reason = if capabilities.system {
             AvailabilityReason::Available
         } else {
             AvailabilityReason::RemoteEndpoint
         };
-        
+
         let gpu_reason = if capabilities.gpu {
             AvailabilityReason::Available
         } else {
             AvailabilityReason::RemoteEndpoint
         };
-        
+
         let cpu_temp_reason = if capabilities.cpu_temperature {
             AvailabilityReason::Available
         } else {
             AvailabilityReason::RemoteEndpoint
         };
-        
+
         (system_reason, gpu_reason, cpu_temp_reason)
     }
 }
@@ -656,20 +658,11 @@ mod tests {
             ui_settings_path: PathBuf::new(),
             sessions_path: PathBuf::new(),
         };
-        let state = AppState::new(
-            vec![],
-            paths,
-            GpuEnv::default(),
-            UiSettings::default(),
-        );
-        let session = Session::new_spawn(
-            "test".to_string(),
-            "Test".to_string(),
-            8001,
-        );
+        let state = AppState::new(vec![], paths, GpuEnv::default(), UiSettings::default());
+        let session = Session::new_spawn("test".to_string(), "Test".to_string(), 8001);
         state.add_session(session);
         state.set_active_session("test");
-        
+
         let caps = state.calculate_capabilities();
         assert!(caps.inference);
         assert!(caps.gpu);
@@ -685,12 +678,7 @@ mod tests {
             ui_settings_path: PathBuf::new(),
             sessions_path: PathBuf::new(),
         };
-        let state = AppState::new(
-            vec![],
-            paths,
-            GpuEnv::default(),
-            UiSettings::default(),
-        );
+        let state = AppState::new(vec![], paths, GpuEnv::default(), UiSettings::default());
         let session = Session::new_attach(
             "test".to_string(),
             "Test".to_string(),
@@ -698,10 +686,147 @@ mod tests {
         );
         state.add_session(session);
         state.set_active_session("test");
-        
+
         let caps = state.calculate_capabilities();
         assert!(caps.inference);
         assert!(!caps.gpu);
         assert!(!caps.system);
+    }
+
+    #[test]
+    fn endpoint_kind_remote_for_external_ip() {
+        assert_eq!(
+            endpoint_kind_from_endpoint("http://192.168.1.100:8001"),
+            EndpointKind::Remote
+        );
+        assert_eq!(
+            endpoint_kind_from_endpoint("http://example.com:8001"),
+            EndpointKind::Remote
+        );
+    }
+
+    #[test]
+    fn availability_reason_values() {
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::Available).unwrap(),
+            "\"Available\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::RemoteEndpoint).unwrap(),
+            "\"RemoteEndpoint\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::NoDisplay).unwrap(),
+            "\"NoDisplay\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::TrayUnavailable).unwrap(),
+            "\"TrayUnavailable\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::SensorUnavailable).unwrap(),
+            "\"SensorUnavailable\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::BackendUnavailable).unwrap(),
+            "\"BackendUnavailable\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::CommandMissing).unwrap(),
+            "\"CommandMissing\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::PermissionDenied).unwrap(),
+            "\"PermissionDenied\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::MetricsUnreachable).unwrap(),
+            "\"MetricsUnreachable\""
+        );
+        assert_eq!(
+            serde_json::to_string(&AvailabilityReason::NotApplicable).unwrap(),
+            "\"NotApplicable\""
+        );
+    }
+
+    #[test]
+    fn calculate_availability_reasons_returns_correct_values() {
+        let paths = AppPaths {
+            presets_path: PathBuf::new(),
+            models_dir: None,
+            gpu_env_path: PathBuf::new(),
+            ui_settings_path: PathBuf::new(),
+            sessions_path: PathBuf::new(),
+        };
+        let state = AppState::new(vec![], paths, GpuEnv::default(), UiSettings::default());
+        let session = Session::new_spawn("test".to_string(), "Test".to_string(), 8001);
+        state.add_session(session);
+        state.set_active_session("test");
+
+        let (system_reason, gpu_reason, cpu_temp_reason) = state.calculate_availability_reasons();
+        assert_eq!(system_reason, AvailabilityReason::Available);
+        assert_eq!(gpu_reason, AvailabilityReason::Available);
+        assert_eq!(cpu_temp_reason, AvailabilityReason::Available);
+    }
+
+    #[test]
+    fn calculate_availability_reasons_remote_endpoint() {
+        let paths = AppPaths {
+            presets_path: PathBuf::new(),
+            models_dir: None,
+            gpu_env_path: PathBuf::new(),
+            ui_settings_path: PathBuf::new(),
+            sessions_path: PathBuf::new(),
+        };
+        let state = AppState::new(vec![], paths, GpuEnv::default(), UiSettings::default());
+        let session = Session::new_attach(
+            "test".to_string(),
+            "Test".to_string(),
+            "http://remote.example.com:8001".to_string(),
+        );
+        state.add_session(session);
+        state.set_active_session("test");
+
+        let (system_reason, gpu_reason, cpu_temp_reason) = state.calculate_availability_reasons();
+        assert_eq!(system_reason, AvailabilityReason::RemoteEndpoint);
+        assert_eq!(gpu_reason, AvailabilityReason::RemoteEndpoint);
+        assert_eq!(cpu_temp_reason, AvailabilityReason::RemoteEndpoint);
+    }
+
+    #[test]
+    fn capabilities_serializes_to_json() {
+        let caps = MetricsCapabilities {
+            inference: true,
+            system: true,
+            gpu: false,
+            cpu_temperature: false,
+            memory: false,
+            host_metrics: false,
+            tray: true,
+        };
+        let json = serde_json::to_value(&caps).unwrap();
+        assert_eq!(json["inference"], true);
+        assert_eq!(json["system"], true);
+        assert_eq!(json["gpu"], false);
+    }
+
+    #[test]
+    fn metrics_capabilities_default_values() {
+        let caps = MetricsCapabilities {
+            inference: true,
+            system: false,
+            gpu: false,
+            cpu_temperature: false,
+            memory: false,
+            host_metrics: false,
+            tray: true,
+        };
+        assert!(caps.inference);
+        assert!(!caps.system);
+        assert!(!caps.gpu);
+        assert!(!caps.cpu_temperature);
+        assert!(!caps.memory);
+        assert!(!caps.host_metrics);
+        assert!(caps.tray);
     }
 }

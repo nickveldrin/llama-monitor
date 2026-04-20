@@ -1748,6 +1748,24 @@ ws.onmessage = e => {
 
     const l = lastLlamaMetrics;
 
+    // Helper for availability-aware empty state
+    function getEmptyStateMessage(reason, fallback) {
+        if (reason === 'RemoteEndpoint') {
+            return 'Host metrics unavailable for remote endpoint';
+        }
+        if (reason === 'SensorUnavailable') {
+            return 'Temperature sensor unavailable';
+        }
+        if (reason === 'BackendUnavailable') {
+            return 'GPU metrics unavailable';
+        }
+        return fallback || '\u2014';
+    }
+
+    const gpuReason = d.availability?.gpu || 'Available';
+    const cpuTempReason = d.availability?.cpu_temp || 'Available';
+    const systemReason = d.availability?.system || 'Available';
+
     document.getElementById('m-prompt').textContent = l && l.prompt_tokens_per_sec > 0 ? l.prompt_tokens_per_sec.toFixed(1) + ' t/s' : '\u2014';
 
     document.getElementById('m-gen').textContent = l && l.generation_tokens_per_sec > 0 ? l.generation_tokens_per_sec.toFixed(1) + ' t/s' : '\u2014';
@@ -1760,7 +1778,7 @@ ws.onmessage = e => {
 
     } else {
 
-        document.getElementById('m-ctx').textContent = '\u2014';
+        document.getElementById('m-ctx').textContent = getEmptyStateMessage(systemReason, '\u2014');
 
     }
 
@@ -1770,7 +1788,7 @@ ws.onmessage = e => {
 
     } else {
 
-        document.getElementById('m-slots').textContent = '\u2014';
+        document.getElementById('m-slots').textContent = getEmptyStateMessage(systemReason, '\u2014');
 
     }
 
@@ -1803,15 +1821,20 @@ ws.onmessage = e => {
 
         const vgb = m.vram_total > 0 ? (m.vram_used / 1024).toFixed(1) : 0;
 
-        return '<tr>' +
+        const temp = Math.round(m.temp);
+        const tempSeverity = temp >= 90 ? 'severity-critical' : temp >= 80 ? 'severity-warning' : 'severity-normal';
+        const loadSeverity = m.load >= 95 ? 'severity-critical' : m.load >= 80 ? 'severity-warning' : 'severity-normal';
+        const vramSeverity = vpct >= 95 ? 'severity-critical' : vpct >= 80 ? 'severity-warning' : 'severity-normal';
+
+        return '<tr class="' + tempSeverity + '">' +
 
             '<td class="card value">' + card + '</td>' +
 
-            '<td class="value temp">' + Math.round(m.temp) + 'C</td>' +
+            '<td class="value temp ' + tempSeverity + '">' + temp + 'C</td>' +
 
-            '<td class="value load">' + m.load + '%</td>' +
+            '<td class="value load ' + loadSeverity + '">' + m.load + '%</td>' +
 
-            '<td class="value vram">' + vpct + '% (' + vgb + ' GB)</td>' +
+            '<td class="value vram ' + vramSeverity + '">' + vpct + '% (' + vgb + ' GB)</td>' +
 
             '<td class="' + pcls + '">' + ptxt + '</td>' +
 

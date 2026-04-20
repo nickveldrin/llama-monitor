@@ -841,10 +841,10 @@ fn api_get_capabilities(
                 let endpoint_kind = state.endpoint_kind.lock().unwrap().clone();
                 let session_kind = state.session_kind.lock().unwrap().clone();
                 let tray_mode = state.tray_mode.lock().unwrap().clone();
-                
-                let (system_reason, gpu_reason, cpu_temp_reason) = 
+
+                let (system_reason, gpu_reason, cpu_temp_reason) =
                     state.calculate_availability_reasons();
-                
+
                 Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
                     "capabilities": capabilities,
                     "endpoint_kind": endpoint_kind,
