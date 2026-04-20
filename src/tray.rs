@@ -493,6 +493,21 @@ impl TrayState {
     ) -> String {
         let mut lines = Vec::new();
 
+        let session_mode = {
+            let active_session_id = self.app_state.active_session_id.lock().unwrap().clone();
+            let sessions = self.app_state.sessions.lock().unwrap();
+            sessions
+                .iter()
+                .find(|s| s.id == active_session_id)
+                .map(|s| match &s.mode {
+                    crate::state::SessionMode::Spawn { .. } => "Spawn",
+                    crate::state::SessionMode::Attach { .. } => "Attach",
+                })
+                .unwrap_or("")
+        };
+        
+        lines.push(format!("Mode: {}", session_mode));
+
         if local_metrics_available {
             lines.push(format!("CPU: {}%", sys.cpu_load as f32 / 10.0));
 

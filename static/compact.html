@@ -88,6 +88,9 @@ body {
 .metric-bar.gpu-load { background: #88c0d1; }
 .metric-bar.gpu-temp { background: #ebcb8b; }
 .metric-bar.gpu-vram { background: #a3be8c; }
+.metric-bar.severity-normal { background-color: #a3be8c !important; }
+.metric-bar.severity-warning { background-color: #ebcb8b !important; }
+.metric-bar.severity-critical { background-color: #bf616a !important; }
 .metric-value {
     width: 45px;
     text-align: right;
@@ -239,23 +242,27 @@ function renderGPUs(gpuEntries) {
         const vramGB = (m.vram_used / 1024).toFixed(1);
         const vramTotalGB = (m.vram_total / 1024).toFixed(1);
 
+        const loadSeverity = getSeverity(m.load, 100);
+        const tempSeverity = getSeverity(m.temp, 120);
+        const vramSeverity = getSeverity(m.vram_used, m.vram_total);
+
         const div = document.createElement('div');
         div.className = 'gpu-section';
         div.innerHTML =
             '<div class="gpu-name">' + name + '</div>' +
             '<div class="metric-row">' +
                 '<span class="metric-label">Load</span>' +
-                '<div class="metric-bar-wrap"><div class="metric-bar gpu-load" style="width:' + loadPct + '%"></div></div>' +
+                '<div class="metric-bar-wrap"><div class="metric-bar gpu-load' + (loadSeverity ? ' severity-' + loadSeverity : '') + '" style="width:' + loadPct + '%"></div></div>' +
                 '<span class="metric-value">' + m.load + '%</span>' +
             '</div>' +
             '<div class="metric-row">' +
                 '<span class="metric-label">Temp</span>' +
-                '<div class="metric-bar-wrap"><div class="metric-bar gpu-temp" style="width:' + tempPct + '%"></div></div>' +
+                '<div class="metric-bar-wrap"><div class="metric-bar gpu-temp' + (tempSeverity ? ' severity-' + tempSeverity : '') + '" style="width:' + tempPct + '%"></div></div>' +
                 '<span class="metric-value">' + Math.round(m.temp) + '°C</span>' +
             '</div>' +
             '<div class="metric-row">' +
                 '<span class="metric-label">VRAM</span>' +
-                '<div class="metric-bar-wrap"><div class="metric-bar gpu-vram" style="width:' + vramPct + '%"></div></div>' +
+                '<div class="metric-bar-wrap"><div class="metric-bar gpu-vram' + (vramSeverity ? ' severity-' + vramSeverity : '') + '" style="width:' + vramPct + '%"></div></div>' +
                 '<span class="metric-value">' + vramGB + ' / ' + vramTotalGB + ' GB</span>' +
             '</div>';
         container.appendChild(div);
@@ -307,11 +314,68 @@ function clearMetrics() {
     reportPopoverSize();
 }
 
-function clearLocalMetrics() {
+function clearLocalMetrics(reasons) {
     document.getElementById('cpu-section').style.display = 'none';
     document.getElementById('ram-section').style.display = 'none';
     document.getElementById('gpu-sections').innerHTML = '';
+    
+    if (reasons && (reasons.system || reasons.gpu || reasons.cpu_temp)) {
+        const reasonEl = document.createElement('div');
+        reasonEl.className = 'status-bar';
+        reasonEl.style.color = '#bf616a';
+        reasonEl.style.textAlign = 'center';
+        reasonEl.style.fontStyle = 'italic';
+        const reasonList = [];
+        if (reasons.system) reasonList.push(getEmptyStateMessage(reasons.system));
+        if (reasons.gpu) reasonList.push(getEmptyStateMessage(reasons.gpu));
+        if (reasons.cpu_temp) reasonList.push(getEmptyStateMessage(reasons.cpu_temp));
+        reasonEl.textContent = reasonList.join(', ');
+        document.body.appendChild(reasonEl);
+    }
+    
     reportPopoverSize();
+}
+
+function getSeverity(value, max) {
+    if (!value || value <= 0) return '';
+    const pct = (value / max) * 100;
+    if (pct >= 90) return 'critical';
+    if (pct >= 70) return 'warning';
+    return 'normal';
+}
+
+function getEmptyStateMessage(reason, fallback) {
+    if (reason === 'RemoteEndpoint') {
+        return 'Unavailable (remote)';
+    }
+    if (reason === 'NoDisplay') {
+        return 'Unavailable (no display)';
+    }
+    if (reason === 'TrayUnavailable') {
+        return 'Unavailable (tray)';
+    }
+    if (reason === 'SensorUnavailable') {
+        return 'Temp sensor unavailable';
+    }
+    if (reason === 'BackendUnavailable') {
+        return 'GPU unavailable';
+    }
+    if (reason === 'CommandMissing') {
+        return 'Command missing';
+    }
+    if (reason === 'PermissionDenied') {
+        return 'Permission denied';
+    }
+    if (reason === 'MetricsUnreachable') {
+        return 'Metrics unreachable';
+    }
+    if (reason === 'NotApplicable') {
+        return 'Not applicable';
+    }
+    if (reason === 'Unavailable') {
+        return 'Unavailable';
+    }
+    return fallback || '—';
 }
 
 ws.onmessage = function(e) {
@@ -328,31 +392,45 @@ ws.onmessage = function(e) {
     }
 
     if (d.local_metrics_available === false) {
-        clearLocalMetrics();
+        const reasons = d.availability || {};
+        clearLocalMetrics(reasons);
     } else {
         document.getElementById('cpu-section').style.display = '';
         document.getElementById('ram-section').style.display = '';
 
     const sys = d.system || {};
     const cpuLoad = sys.cpu_load || 0;
+    const cpuLoadSeverity = getSeverity(cpuLoad, 100);
+    const cpuLoadBar = document.getElementById('cpu-load-bar');
+    cpuLoadBar.className = 'metric-bar cpu' + (cpuLoadSeverity ? ' severity-' + cpuLoadSeverity : '');
     setBar('cpu-load-bar', cpuLoad, 100);
     document.getElementById('cpu-load').textContent = cpuLoad > 0 ? cpuLoad + '%' : '—';
 
     if (sys.cpu_temp_available && sys.cpu_temp > 0) {
+        const severity = getSeverity(sys.cpu_temp, 120);
+        const tempBar = document.getElementById('cpu-temp-bar');
+        tempBar.className = 'metric-bar cpu' + (severity ? ' severity-' + severity : '');
         setBar('cpu-temp-bar', sys.cpu_temp, 120);
         document.getElementById('cpu-temp').textContent = Math.round(sys.cpu_temp) + '°C';
     } else {
         setBar('cpu-temp-bar', 0, 120);
         document.getElementById('cpu-temp').textContent = '—';
+        const tempBar = document.getElementById('cpu-temp-bar');
+        tempBar.className = 'metric-bar cpu';
     }
 
     if (sys.ram_total_gb > 0) {
         const ramPct = (sys.ram_used_gb / sys.ram_total_gb) * 100;
+        const ramSeverity = getSeverity(ramPct, 100);
+        const ramBar = document.getElementById('ram-bar');
+        ramBar.className = 'metric-bar ram' + (ramSeverity ? ' severity-' + ramSeverity : '');
         setBar('ram-bar', ramPct, 100);
         document.getElementById('ram').textContent = sys.ram_used_gb.toFixed(1) + ' / ' + sys.ram_total_gb.toFixed(1) + ' GB';
     } else {
         setBar('ram-bar', 0, 100);
         document.getElementById('ram').textContent = '—';
+        const ramBar = document.getElementById('ram-bar');
+        ramBar.className = 'metric-bar ram';
     }
 
     const gpuEntries = Object.entries(d.gpu || {});
