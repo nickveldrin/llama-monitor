@@ -5,6 +5,69 @@ body { font-family: system-ui, -apple-system, sans-serif; background: #2e3440; c
 h1 { font-size: 1.4rem; color: #88c0d1; margin-bottom: 16px; }
 h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
 
+/* Endpoint health strip (top of dashboard) */
+.endpoint-health-strip {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: #3b4252;
+    border-bottom: 1px solid #4c566a;
+    font-size: 0.85rem;
+}
+.endpoint-mode {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+.endpoint-mode.local {
+    background: #a3be8c;
+    color: #2e3440;
+}
+.endpoint-mode.remote {
+    background: #ebcb8b;
+    color: #2e3440;
+}
+.endpoint-mode.unknown {
+    background: #4c566a;
+    color: #d8dee9;
+}
+.endpoint-url {
+    flex: 1;
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #8899aa;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.endpoint-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+.status-dot.ok {
+    background: #a3be8c;
+}
+.status-dot.warning {
+    background: #ebcb8b;
+}
+.status-dot.error {
+    background: #bf616a;
+}
+
 /* Server endpoint area (separate from control bar) */
 .server-endpoint-area { margin-bottom: 12px; }
 .server-endpoint-area .num-sm { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #8899aa; }
@@ -41,6 +104,15 @@ h2 { font-size: 1.1rem; color: #81a1c1; margin: 16px 0 8px 0; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(235, 203, 139, 0.4); } 50% { box-shadow: 0 0 0 10px rgba(235, 203, 139, 0); } }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Severity indicators */
+.severity-normal { border-left: 3px solid #a3be8c; }
+.severity-warning { border-left: 3px solid #ebcb8b; }
+.severity-critical { border-left: 3px solid #bf616a; }
+.status-dot-normal::before { content: "●"; color: #a3be8c; }
+.status-dot-warning::before { content: "●"; color: #ebcb8b; }
+.status-dot-critical::before { content: "●"; color: #bf616a; }
+
 /* GPU table */
 .gpu-table { width: 100%; border-collapse: collapse; table-layout: auto; }
 .gputable th:first-child, .gpu-table td:first-child { width: auto; white-space: normal; word-break: break-word; }
