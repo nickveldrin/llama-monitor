@@ -2,7 +2,7 @@
 
 **Project:** Llama Monitor UI/UX and Monitoring Improvements  
 **Plan:** docs/20260420-implementation-plan.md  
-****Last Updated:** 2026-04-20 (completed Tasks 1.1-1.8, 2.1-2.6, 3.1-3.4)
+****Last Updated:** 2026-04-20 (completed Tasks 1.1-1.8, 2.1-2.6, 3.1-3.4, 4.1-4.4)
 
 ---
 
@@ -28,6 +28,10 @@
 | 3.2 | Update compact capability handling | ✅ Complete | 2026-04-20 |
 | 3.3 | Auto-height logic | ✅ Complete | 2026-04-20 |
 | 3.4 | Tray tooltip updates | ✅ Complete | 2026-04-20 |
+| 4.1 | Add CLI flags | ✅ Complete | 2026-04-20 |
+| 4.2 | Update tray detection | ✅ Complete | 2026-04-20 |
+| 4.3 | Add log messages | ✅ Complete | 2026-04-20 |
+| 4.4 | Update failure message | ✅ Complete | 2026-04-20 |
 
 ---
 
@@ -35,7 +39,8 @@
 
 | Task | Phase | Status | Date Started |
 |------|-------|--------|--------------|
-| None | - | - | - |
+| 5.1 | Draft remote agent API spec | Pending | |
+| 5.2 | Design UI affordance for remote agent | Pending | |
 
 ---
 
