@@ -1,16 +1,24 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use winit::application::ApplicationHandler;
-use winit::dpi::PhysicalPosition;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 use winit::event::WindowEvent;
 use winit::event_loop::{ActiveEventLoop, ControlFlow, EventLoop};
-use winit::window::{WindowAttributes, WindowId, WindowLevel};
+use winit::window::WindowId;
+#[cfg(not(target_os = "linux"))]
+use winit::window::{WindowAttributes, WindowLevel};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{ActivationPolicy, EventLoopBuilderExtMacOS};
+
+#[cfg(target_os = "linux")]
+use gtk::prelude::*;
+#[cfg(target_os = "linux")]
+use wry::WebViewBuilderExtUnix;
 
 use crate::gpu::GpuMetrics;
 use crate::llama::metrics::LlamaMetrics;
@@ -64,7 +72,7 @@ fn create_tray_icon() -> Icon {
         .unwrap_or_else(|_| Icon::from_rgba(vec![0, 0, 0, 255], 1, 1).unwrap())
 }
 
-pub fn run_tray(state: AppState, port: u16) {
+pub fn run_tray(state: AppState, port: u16) -> anyhow::Result<()> {
     #[cfg(target_os = "macos")]
     {
         let _ = mac_notification_sys::set_application("com.apple.Finder");
@@ -73,15 +81,22 @@ pub fn run_tray(state: AppState, port: u16) {
     #[cfg(target_os = "macos")]
     let event_loop = EventLoop::builder()
         .with_activation_policy(ActivationPolicy::Accessory)
-        .build()
-        .expect("Failed to create event loop");
+        .build()?;
 
     #[cfg(not(target_os = "macos"))]
-    let event_loop = EventLoop::builder()
-        .build()
-        .expect("Failed to create event loop");
+    let event_loop = EventLoop::builder().build()?;
+
+    #[cfg(target_os = "linux")]
+    let gtk_ready = match gtk::init() {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("[tray] GTK init failed; tray WebView popover disabled: {e}");
+            false
+        }
+    };
 
     let (resize_tx, resize_rx) = mpsc::channel();
+    let tray_start_failed = Arc::new(AtomicBool::new(false));
 
     let app: Box<dyn winit::application::ApplicationHandler + 'static> = Box::new(TrayApp {
         tray_state: TrayState {
@@ -93,9 +108,18 @@ pub fn run_tray(state: AppState, port: u16) {
         popover: None,
         resize_tx,
         resize_rx,
+        tray_start_failed: Arc::clone(&tray_start_failed),
+        #[cfg(target_os = "linux")]
+        gtk_ready,
     });
 
-    event_loop.run_app(app).expect("Event loop error");
+    event_loop.run_app(app)?;
+
+    if tray_start_failed.load(Ordering::Relaxed) {
+        anyhow::bail!("failed to create tray icon");
+    }
+
+    Ok(())
 }
 
 struct TrayApp {
@@ -106,10 +130,16 @@ struct TrayApp {
     popover: Option<Popover>,
     resize_tx: Sender<PopoverResize>,
     resize_rx: Receiver<PopoverResize>,
+    tray_start_failed: Arc<AtomicBool>,
+    #[cfg(target_os = "linux")]
+    gtk_ready: bool,
 }
 
 struct Popover {
+    #[cfg(not(target_os = "linux"))]
     window: std::sync::Arc<dyn winit::window::Window>,
+    #[cfg(target_os = "linux")]
+    window: gtk::Window,
     webview: wry::WebView,
     width: f64,
     height: f64,
@@ -135,6 +165,8 @@ impl ApplicationHandler for TrayApp {
     }
 
     fn new_events(&mut self, event_loop: &dyn ActiveEventLoop, _cause: winit::event::StartCause) {
+        pump_gtk_events();
+
         if self.tray.is_none() {
             let builder = TrayIconBuilder::new()
                 .with_tooltip("Llama Monitor")
@@ -146,7 +178,17 @@ impl ApplicationHandler for TrayApp {
             #[cfg(target_os = "macos")]
             let builder = builder.with_icon_as_template(true);
 
-            self.tray = builder.build().ok();
+            match builder.build() {
+                Ok(tray) => {
+                    self.tray = Some(tray);
+                }
+                Err(e) => {
+                    eprintln!("[tray] Failed to create tray icon: {e}");
+                    self.tray_start_failed.store(true, Ordering::Relaxed);
+                    event_loop.exit();
+                    return;
+                }
+            }
 
             let initial_metrics = self.tray_state.get_metrics();
             if let Some(ref tooltip) = initial_metrics.3
@@ -165,15 +207,16 @@ impl ApplicationHandler for TrayApp {
                 TrayIconEvent::Click {
                     button,
                     button_state,
+                    position,
+                    rect,
                     ..
                 } if *button == tray_icon::MouseButton::Left
                     && *button_state == tray_icon::MouseButtonState::Down =>
                 {
                     if self.popover.is_some() {
                         self.close_popover();
-                    } else if let Some(ref tray) = self.tray
-                        && let Some(rect) = tray.rect()
-                    {
+                    } else {
+                        let rect = self.resolve_popover_anchor(event_loop, *rect, *position);
                         self.open_popover(event_loop, rect);
                     }
                 }
@@ -183,6 +226,7 @@ impl ApplicationHandler for TrayApp {
     }
 
     fn about_to_wait(&mut self, event_loop: &dyn ActiveEventLoop) {
+        pump_gtk_events();
         event_loop.set_control_flow(ControlFlow::WaitUntil(
             Instant::now() + Duration::from_millis(500),
         ));
@@ -208,20 +252,6 @@ impl TrayApp {
         let x = pos.x + (icon_rect.size.width as f64 / 2.0) - (width / 2.0);
         let y = pos.y + icon_rect.size.height as f64 + 4.0;
 
-        let attrs = WindowAttributes::default()
-            .with_surface_size(winit::dpi::LogicalSize::new(width, height))
-            .with_position(PhysicalPosition::new(x as i32, y as i32))
-            .with_decorations(false)
-            .with_resizable(false)
-            .with_window_level(WindowLevel::AlwaysOnTop)
-            .with_visible(true);
-
-        let window: std::sync::Arc<dyn winit::window::Window> =
-            match event_loop.create_window(attrs) {
-                Ok(w) => std::sync::Arc::from(w),
-                Err(_) => return,
-            };
-
         let url = format!(
             "http://127.0.0.1:{}/compact?t={}",
             self.port,
@@ -232,6 +262,72 @@ impl TrayApp {
         );
         let proxy = event_loop.create_proxy();
         let resize_tx = self.resize_tx.clone();
+
+        #[cfg(target_os = "linux")]
+        {
+            if !self.gtk_ready {
+                return;
+            }
+
+            let window = gtk::Window::new(gtk::WindowType::Popup);
+            window.set_decorated(false);
+            window.set_resizable(false);
+            window.set_keep_above(true);
+            window.set_default_size(width as i32, height as i32);
+            window.move_(x as i32, y as i32);
+
+            let fixed = gtk::Fixed::new();
+            fixed.set_size_request(width as i32, height as i32);
+            window.add(&fixed);
+
+            let webview = match wry::WebViewBuilder::new()
+                .with_ipc_handler(move |request| {
+                    if let Ok(resize) = serde_json::from_str::<PopoverResize>(request.body()) {
+                        let _ = resize_tx.send(resize);
+                        proxy.wake_up();
+                    }
+                })
+                .with_url(url)
+                .with_bounds(wry::Rect {
+                    position: wry::dpi::LogicalPosition::new(0.0, 0.0).into(),
+                    size: wry::dpi::LogicalSize::new(width, height).into(),
+                })
+                .build_gtk(&fixed)
+            {
+                Ok(wv) => wv,
+                Err(e) => {
+                    eprintln!("[tray] Failed to create Linux tray WebView: {e}");
+                    window.close();
+                    return;
+                }
+            };
+
+            window.show_all();
+            self.popover = Some(Popover {
+                window,
+                webview,
+                width,
+                height,
+            });
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        let attrs = WindowAttributes::default()
+            .with_surface_size(winit::dpi::LogicalSize::new(width, height))
+            .with_position(PhysicalPosition::new(x as i32, y as i32))
+            .with_decorations(false)
+            .with_resizable(false)
+            .with_window_level(WindowLevel::AlwaysOnTop)
+            .with_visible(true);
+
+        #[cfg(not(target_os = "linux"))]
+        let window: std::sync::Arc<dyn winit::window::Window> =
+            match event_loop.create_window(attrs) {
+                Ok(w) => std::sync::Arc::from(w),
+                Err(_) => return,
+            };
+
+        #[cfg(not(target_os = "linux"))]
         let webview = match wry::WebViewBuilder::new()
             .with_ipc_handler(move |request| {
                 if let Ok(resize) = serde_json::from_str::<PopoverResize>(request.body()) {
@@ -250,16 +346,27 @@ impl TrayApp {
             Err(_) => return,
         };
 
-        self.popover = Some(Popover {
-            window,
-            webview,
-            width,
-            height,
-        });
+        #[cfg(not(target_os = "linux"))]
+        {
+            self.popover = Some(Popover {
+                window,
+                webview,
+                width,
+                height,
+            });
+        }
     }
 
     fn close_popover(&mut self) {
-        self.popover.take();
+        #[cfg(target_os = "linux")]
+        if let Some(popover) = self.popover.take() {
+            popover.window.close();
+        }
+
+        #[cfg(not(target_os = "linux"))]
+        {
+            self.popover.take();
+        }
     }
 
     fn resize_popover(&mut self, _reported_width: f64, height: f64) {
@@ -273,9 +380,17 @@ impl TrayApp {
             return;
         }
 
+        #[cfg(target_os = "linux")]
+        {
+            popover.window.resize(width as i32, height as i32);
+            popover.window.set_default_size(width as i32, height as i32);
+        }
+
+        #[cfg(not(target_os = "linux"))]
         let _ = popover
             .window
             .request_surface_size(winit::dpi::LogicalSize::new(width, height).into());
+
         let _ = popover.webview.set_bounds(wry::Rect {
             position: wry::dpi::LogicalPosition::new(0.0, 0.0).into(),
             size: wry::dpi::LogicalSize::new(width, height).into(),
@@ -283,7 +398,68 @@ impl TrayApp {
         popover.width = width;
         popover.height = height;
     }
+
+    fn resolve_popover_anchor(
+        &self,
+        event_loop: &dyn ActiveEventLoop,
+        event_rect: tray_icon::Rect,
+        click_position: PhysicalPosition<f64>,
+    ) -> tray_icon::Rect {
+        if rect_has_position(event_rect) {
+            return event_rect;
+        }
+
+        if let Some(ref tray) = self.tray
+            && let Some(rect) = tray.rect()
+            && rect_has_position(rect)
+        {
+            return rect;
+        }
+
+        if click_position.x > 0.0 || click_position.y > 0.0 {
+            return tray_icon::Rect {
+                position: PhysicalPosition::new(click_position.x - 11.0, click_position.y - 11.0),
+                size: PhysicalSize::new(22, 22),
+            };
+        }
+
+        if let Some(monitor) = event_loop
+            .primary_monitor()
+            .or_else(|| event_loop.available_monitors().next())
+        {
+            let monitor_pos = monitor
+                .position()
+                .unwrap_or_else(|| PhysicalPosition::new(0, 0));
+            let monitor_size = monitor
+                .current_video_mode()
+                .map(|mode| mode.size())
+                .unwrap_or_else(|| PhysicalSize::new(1024, 768));
+            return tray_icon::Rect {
+                position: PhysicalPosition::new(
+                    monitor_pos.x as f64 + monitor_size.width as f64 - POPOVER_WIDTH - 16.0,
+                    monitor_pos.y as f64 + 32.0,
+                ),
+                size: PhysicalSize::new(22, 22),
+            };
+        }
+
+        event_rect
+    }
 }
+
+fn rect_has_position(rect: tray_icon::Rect) -> bool {
+    rect.size.width > 0 || rect.size.height > 0 || rect.position.x > 0.0 || rect.position.y > 0.0
+}
+
+#[cfg(target_os = "linux")]
+fn pump_gtk_events() {
+    while gtk::events_pending() {
+        gtk::main_iteration_do(false);
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn pump_gtk_events() {}
 
 struct TrayState {
     app_state: Arc<AppState>,

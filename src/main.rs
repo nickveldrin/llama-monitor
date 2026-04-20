@@ -188,8 +188,33 @@ fn main() -> Result<()> {
         warp::serve(routes).run(([0, 0, 0, 0], port)).await;
     });
 
-    // Run tray on the main thread (required by macOS; fine on all platforms)
-    crate::tray::run_tray(state, port);
+    // Run tray on the main thread when a desktop session is available.
+    // Headless Linux servers still keep the web UI/API running.
+    if should_start_tray() {
+        if let Err(e) = crate::tray::run_tray(state, port) {
+            eprintln!("[warn] Tray unavailable; continuing headless: {e}");
+            park_forever();
+        }
+    } else {
+        println!("[info] No graphical session detected; tray disabled");
+        park_forever();
+    }
 
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn should_start_tray() -> bool {
+    std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn should_start_tray() -> bool {
+    true
+}
+
+fn park_forever() -> ! {
+    loop {
+        std::thread::park();
+    }
 }
