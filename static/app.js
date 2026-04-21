@@ -2802,13 +2802,9 @@ async function doAttach() {
 
 async function doDetach() {
 
-    console.log('[doDetach] Starting detach...');
-
     const resp = await fetch('/api/detach', { method: 'POST' });
 
     const data = await resp.json();
-
-    console.log('[doDetach] Response:', data);
 
     if (!data.ok) {
 
@@ -2823,15 +2819,11 @@ async function doDetach() {
 
         const btnDetach = document.getElementById('btn-detach');
 
-        console.log('[doDetach] Buttons - Attach:', btnAttach, 'Detach:', btnDetach);
-
         if (btnAttach && btnDetach) {
 
             btnAttach.style.display = 'inline-block';
 
             btnDetach.style.display = 'none';
-
-            console.log('[doDetach] Button states updated');
 
         }
 

@@ -1458,6 +1458,7 @@ fn api_detach(
         .and_then(move || {
             let state = state.clone();
             async move {
+                println!("[api/detach] Starting...");
                 let active_id = state.active_session_id.lock().unwrap().clone();
                 println!("[api/detach] active_id: {}", active_id);
                 if active_id.is_empty() {
@@ -1468,20 +1469,31 @@ fn api_detach(
                 }
 
                 // Check if the active session is an attach session
+                println!("[api/detach] Locking sessions...");
                 let sessions = state.sessions.lock().unwrap();
+                println!("[api/detach] Found session");
                 let session = sessions.iter().find(|s| s.id == active_id);
                 println!("[api/detach] session: {:?}", session);
-                if session.map(|s| !matches!(s.mode, crate::state::SessionMode::Attach { .. })).unwrap_or(true) {
+                
+                let is_attach = session.map(|s| matches!(s.mode, crate::state::SessionMode::Attach { .. }));
+                println!("[api/detach] is_attach: {:?}", is_attach);
+                
+                if !is_attach.unwrap_or(false) {
                     println!("[api/detach] Not an attach session");
                     return Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": "Active session is not an attach session"}),
                     ));
                 }
 
-                // Clear the active session
+                drop(sessions);
+                println!("[api/detach] Dropping sessions lock, clearing active session...");
+                // Clear the active session and server_running state
                 state.set_active_session("");
+                println!("[api/detach] Cleared active session, clearing server_running...");
+                *state.server_running.lock().unwrap() = false;
+                println!("[api/detach] Cleared server_running, notifying pollers...");
                 state.llama_poll_notify.notify_waiters();
-                println!("[api/detach] Detached successfully");
+                println!("[api/detach] Detached successfully, returning response");
 
                 Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
             }
