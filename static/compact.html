@@ -458,19 +458,27 @@ ws.onmessage = function(e) {
     }
 
     const l = d.llama || {};
-    if (l.prompt_tokens_per_sec > 0) {
-        document.getElementById('inf-prompt').innerHTML = l.prompt_tokens_per_sec.toFixed(1) + ' tok/s';
+    const promptRate = l.prompt_tokens_per_sec > 0 ? l.prompt_tokens_per_sec : (l.last_prompt_tokens_per_sec || 0);
+    const genRate = l.generation_tokens_per_sec > 0 ? l.generation_tokens_per_sec : (l.last_generation_tokens_per_sec || 0);
+    const contextCapacity = l.context_capacity_tokens || l.kv_cache_max || 0;
+    const contextLive = l.context_live_tokens || l.kv_cache_tokens || 0;
+    const contextPeak = l.context_high_water_tokens || l.kv_cache_high_water || 0;
+    const contextLiveAvailable = l.context_live_tokens_available || l.kv_cache_tokens_available;
+    if (promptRate > 0) {
+        document.getElementById('inf-prompt').innerHTML = promptRate.toFixed(1) + ' tok/s';
     } else {
         document.getElementById('inf-prompt').innerHTML = '<span class="dash-line">—</span> tok/s';
     }
-    if (l.generation_tokens_per_sec > 0) {
-        document.getElementById('inf-generate').innerHTML = l.generation_tokens_per_sec.toFixed(1) + ' tok/s';
+    if (genRate > 0) {
+        document.getElementById('inf-generate').innerHTML = genRate.toFixed(1) + ' tok/s';
     } else {
         document.getElementById('inf-generate').innerHTML = '<span class="dash-line">—</span> tok/s';
     }
-    if (l.kv_cache_max > 0) {
-        const ctxPct = ((l.kv_cache_tokens / l.kv_cache_max) * 100).toFixed(0);
-        document.getElementById('inf-context').innerHTML = l.kv_cache_tokens + ' / ' + l.kv_cache_max + ' (' + ctxPct + '%)';
+    if (contextCapacity > 0 && contextLiveAvailable) {
+        const ctxPct = ((contextLive / contextCapacity) * 100).toFixed(0);
+        document.getElementById('inf-context').innerHTML = contextLive + ' / ' + contextCapacity + ' (' + ctxPct + '%)';
+    } else if (contextCapacity > 0) {
+        document.getElementById('inf-context').innerHTML = 'cap ' + contextCapacity + (contextPeak > 0 ? ' · peak ' + contextPeak : '');
     } else {
         document.getElementById('inf-context').innerHTML = '<span class="dash-line">—</span> %';
     }

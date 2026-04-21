@@ -19,6 +19,7 @@ function toggleSidebarCollapse() {
     const icon = document.querySelector('.sidebar-collapse-icon');
     
     sidebar.classList.toggle('collapsed');
+    document.body.classList.toggle('sidebar-collapsed');
     
     const isCollapsed = sidebar.classList.contains('collapsed');
     localStorage.setItem('sidebarCollapsed', isCollapsed.toString());
@@ -36,6 +37,7 @@ function restoreSidebarState() {
     
     if (isCollapsed) {
         sidebar.classList.add('collapsed');
+        document.body.classList.add('sidebar-collapsed');
         if (icon) icon.textContent = '▶';
     }
 }
@@ -67,11 +69,81 @@ function animateNumber(element, from, to, duration = 300, decimals = 1, suffix =
     requestAnimationFrame(update);
 }
 
+function formatMetricNumber(value) {
+    if (!Number.isFinite(value)) return '0';
+    return Math.round(value).toLocaleString();
+}
+
+function formatMetricAge(unixMs) {
+    if (!unixMs) return 'no recent activity';
+    const ageSeconds = Math.max(0, Math.floor((Date.now() - unixMs) / 1000));
+    if (ageSeconds < 2) return 'updated just now';
+    if (ageSeconds < 60) return 'updated ' + ageSeconds + 's ago';
+    const ageMinutes = Math.floor(ageSeconds / 60);
+    return 'updated ' + ageMinutes + 'm ago';
+}
+
+function setChipState(el, label, state) {
+    if (!el) return;
+    el.textContent = label;
+    el.className = 'metric-live-chip ' + (state || '');
+}
+
+function setCardState(card, state) {
+    if (!card) return;
+    card.classList.remove('is-live', 'is-idle', 'is-unavailable', 'is-dormant');
+    if (state) card.classList.add('is-' + state);
+}
+
+function pushSparklinePoint(name, value) {
+    window.metricSeries[name].push(Number.isFinite(value) ? value : 0);
+    if (window.metricSeries[name].length > 40) {
+        window.metricSeries[name].shift();
+    }
+}
+
+function renderSparkline(id, points, className) {
+    const svg = document.getElementById(id);
+    if (!svg || !points || points.length < 2) return;
+    const width = 120;
+    const height = 28;
+    const max = Math.max(...points, 1);
+    const step = width / (points.length - 1);
+    const path = points.map((value, index) => {
+        const x = index * step;
+        const y = height - ((value / max) * (height - 4)) - 2;
+        return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
+    }).join(' ');
+    svg.innerHTML = '<path class="sparkline-fill ' + className + '" d="' + path + ' L 120 28 L 0 28 Z"></path><path class="sparkline-line ' + className + '" d="' + path + '"></path>';
+}
+
+function updateMetricDelta(el, previous, current, decimals = 1) {
+    if (!el || !Number.isFinite(previous) || previous <= 0 || !Number.isFinite(current)) return;
+    const delta = current - previous;
+    if (Math.abs(delta) < 0.05) return;
+    el.textContent = (delta > 0 ? '+' : '') + delta.toFixed(decimals);
+    el.className = 'metric-delta ' + (delta > 0 ? 'positive' : 'negative') + ' show';
+    window.clearTimeout(el._hideTimer);
+    el._hideTimer = window.setTimeout(() => {
+        el.classList.remove('show');
+    }, 900);
+}
+
+function setEmptyState(el, show) {
+    if (!el) return;
+    el.classList.toggle('visible', !!show);
+}
+
 // Store previous values for animation
 window.prevValues = {
     prompt: 0,
     generation: 0,
     contextPct: 0
+};
+
+window.metricSeries = {
+    prompt: [],
+    generation: []
 };
 
 
@@ -3444,22 +3516,43 @@ ws.onmessage = e => {
     const genMaxEl = document.getElementById('m-gen-max');
     const promptBar = document.getElementById('m-prompt-bar');
     const genBar = document.getElementById('m-gen-bar');
+    const throughputState = document.getElementById('m-throughput-state');
+    const throughputAge = document.getElementById('m-throughput-age');
+    const throughputCard = document.querySelector('.widget-speed');
+    const generationCard = document.querySelector('.widget-generation');
+    const contextCard = document.querySelector('.widget-context');
+    const promptDeltaEl = document.getElementById('m-prompt-delta');
+    const genDeltaEl = document.getElementById('m-gen-delta');
+    const hasActiveEndpoint = !!d.active_session_id;
 
-    if (l && l.prompt_tokens_per_sec > 0) {
-        // Animate the number transition
-        animateNumber(promptEl, window.prevValues.prompt, l.prompt_tokens_per_sec, 300, 1, ' t/s');
-        window.prevValues.prompt = l.prompt_tokens_per_sec;
+    const promptRate = l?.prompt_tokens_per_sec || 0;
+    const genRate = l?.generation_tokens_per_sec || 0;
+    const promptDisplayRate = promptRate > 0 ? promptRate : (l?.last_prompt_tokens_per_sec || 0);
+    const genDisplayRate = genRate > 0 ? genRate : (l?.last_generation_tokens_per_sec || 0);
+    const promptAgeMs = l?.last_prompt_throughput_unix_ms || 0;
+    const genAgeMs = l?.last_generation_throughput_unix_ms || 0;
+    const latestThroughputMs = Math.max(promptAgeMs, genAgeMs);
+    const throughputActive = promptRate > 0 || genRate > 0;
+
+    setCardState(throughputCard, !hasActiveEndpoint ? 'dormant' : throughputActive ? 'live' : 'idle');
+    setEmptyState(document.getElementById('m-throughput-empty'), !hasActiveEndpoint);
+    setChipState(throughputState, throughputActive ? 'live' : 'idle', throughputActive ? 'live' : 'idle');
+    if (throughputAge) {
+        throughputAge.textContent = formatMetricAge(latestThroughputMs);
+    }
+
+    if (promptDisplayRate > 0) {
+        updateMetricDelta(promptDeltaEl, window.prevValues.prompt, promptDisplayRate, 1);
+        animateNumber(promptEl, window.prevValues.prompt, promptDisplayRate, 300, 1, ' t/s');
+        window.prevValues.prompt = promptDisplayRate;
         
-        // Update max if this is higher
-        if (l.prompt_tokens_per_sec > window.speedMax.prompt) {
-            window.speedMax.prompt = l.prompt_tokens_per_sec;
+        if (promptDisplayRate > window.speedMax.prompt) {
+            window.speedMax.prompt = promptDisplayRate;
         }
-        // Show max in small text
         if (promptMaxEl && window.speedMax.prompt > 0) {
-            promptMaxEl.textContent = '(' + window.speedMax.prompt.toFixed(0) + ')';
+            promptMaxEl.textContent = 'peak ' + window.speedMax.prompt.toFixed(0);
         }
-        // Calculate bar width as percentage of max seen (min 4% for visibility)
-        const promptPct = Math.max((l.prompt_tokens_per_sec / window.speedMax.prompt) * 100, 4);
+        const promptPct = Math.max((promptDisplayRate / window.speedMax.prompt) * 100, 4);
         if (promptBar) promptBar.style.width = promptPct + '%';
     } else {
         promptEl.textContent = '\u2014';
@@ -3467,21 +3560,18 @@ ws.onmessage = e => {
         if (promptBar) promptBar.style.width = '0%';
     }
 
-    if (l && l.generation_tokens_per_sec > 0) {
-        // Animate the number transition
-        animateNumber(genEl, window.prevValues.generation, l.generation_tokens_per_sec, 300, 1, ' t/s');
-        window.prevValues.generation = l.generation_tokens_per_sec;
+    if (genDisplayRate > 0) {
+        updateMetricDelta(genDeltaEl, window.prevValues.generation, genDisplayRate, 1);
+        animateNumber(genEl, window.prevValues.generation, genDisplayRate, 300, 1, ' t/s');
+        window.prevValues.generation = genDisplayRate;
         
-        // Update max if this is higher
-        if (l.generation_tokens_per_sec > window.speedMax.generation) {
-            window.speedMax.generation = l.generation_tokens_per_sec;
+        if (genDisplayRate > window.speedMax.generation) {
+            window.speedMax.generation = genDisplayRate;
         }
-        // Show max in small text
         if (genMaxEl && window.speedMax.generation > 0) {
-            genMaxEl.textContent = '(' + window.speedMax.generation.toFixed(0) + ')';
+            genMaxEl.textContent = 'peak ' + window.speedMax.generation.toFixed(0);
         }
-        // Calculate bar width as percentage of max seen (min 4% for visibility)
-        const genPct = Math.max((l.generation_tokens_per_sec / window.speedMax.generation) * 100, 4);
+        const genPct = Math.max((genDisplayRate / window.speedMax.generation) * 100, 4);
         if (genBar) genBar.style.width = genPct + '%';
     } else {
         genEl.textContent = '\u2014';
@@ -3489,45 +3579,109 @@ ws.onmessage = e => {
         if (genBar) genBar.style.width = '0%';
     }
 
+    pushSparklinePoint('prompt', promptDisplayRate);
+    pushSparklinePoint('generation', genDisplayRate);
+    renderSparkline('m-prompt-spark', window.metricSeries.prompt, 'prompt');
+    renderSparkline('m-gen-spark', window.metricSeries.generation, 'generation');
+
+    // Generation progress from /slots next_token metadata
+    const generationState = document.getElementById('m-generation-state');
+    const generationMain = document.getElementById('m-generation-main');
+    const generationDetails = document.getElementById('m-generation-details');
+    const generationFill = document.getElementById('m-generation-fill');
+    const generated = l?.slot_generation_tokens || 0;
+    const remaining = l?.slot_generation_remaining || 0;
+    const generationAvailable = !!l?.slot_generation_available;
+    const generationActive = !!l?.slot_generation_active || (l?.slots_processing || 0) > 0;
+    const generationTotal = generated + remaining;
+    const generationPct = generationTotal > 0 ? Math.min(100, Math.max(2, (generated / generationTotal) * 100)) : 0;
+    const taskId = generationActive ? l?.active_task_id : l?.last_task_id;
+
+    setCardState(generationCard, !hasActiveEndpoint ? 'dormant' : generationActive ? 'live' : generationAvailable ? 'idle' : 'unavailable');
+    setEmptyState(document.getElementById('m-generation-empty'), !hasActiveEndpoint);
+    setChipState(generationState, generationActive ? 'generating' : 'idle', generationActive ? 'live' : 'idle');
+    if (generationAvailable) {
+        if (generationMain) generationMain.textContent = formatMetricNumber(generated) + ' output tokens';
+        if (generationDetails) {
+            const detailParts = [];
+            if (taskId !== null && taskId !== undefined) detailParts.push('task ' + taskId);
+            detailParts.push(formatMetricNumber(remaining) + ' output tokens remaining');
+            detailParts.push((l?.slots_processing || 0) + ' busy · ' + (l?.slots_idle || 0) + ' idle');
+            generationDetails.textContent = detailParts.join(' · ');
+        }
+        if (generationFill) generationFill.style.width = generationPct + '%';
+    } else {
+        if (generationMain) generationMain.textContent = generationActive ? 'working' : '\u2014';
+        if (generationDetails) generationDetails.textContent = (l?.slots_processing || 0) + ' busy · ' + (l?.slots_idle || 0) + ' idle';
+        if (generationFill) generationFill.style.width = '0%';
+    }
+
     // Context metrics with progress bar
     const ctxFill = document.getElementById('m-ctx-fill');
     const ctxValue = document.getElementById('m-ctx');
     const ctxDetails = document.getElementById('m-ctx-details');
+    const ctxState = document.getElementById('m-context-state');
+    const ctxPeakFill = document.getElementById('m-ctx-peak-fill');
+    const ctxLiveLabel = document.getElementById('m-ctx-live-label');
+    const ctxLiveDetail = document.getElementById('m-ctx-live-detail');
+    const ctxPeakDetail = document.getElementById('m-ctx-peak-detail');
+    const contextCapacity = l?.context_capacity_tokens || l?.kv_cache_max || 0;
+    const contextLive = l?.context_live_tokens || l?.kv_cache_tokens || 0;
+    const contextPeak = l?.context_high_water_tokens || l?.kv_cache_high_water || 0;
+    const contextLiveAvailable = !!(l?.context_live_tokens_available || l?.kv_cache_tokens_available);
+    const peakPct = contextCapacity > 0 && contextPeak > 0 ? Math.min(100, Math.max(2, (contextPeak / contextCapacity) * 100)) : 0;
 
-    if (l && l.kv_cache_max > 0) {
-        const pct = ((l.kv_cache_tokens / l.kv_cache_max) * 100);
+    setEmptyState(document.getElementById('m-context-empty'), !hasActiveEndpoint);
+    if (ctxPeakFill) ctxPeakFill.style.width = peakPct + '%';
+    if (ctxPeakDetail) ctxPeakDetail.textContent = contextPeak > 0 ? formatMetricNumber(contextPeak) + ' peak' : '\u2014';
+
+    if (l && contextCapacity > 0 && contextLiveAvailable) {
+        const pct = ((contextLive / contextCapacity) * 100);
         const severity = pct >= 95 ? 'critical' : pct >= 80 ? 'warning' : '';
+        setCardState(contextCard, severity === 'critical' ? 'live' : 'idle');
+        setChipState(ctxState, 'live', severity || 'live');
+        if (ctxLiveLabel) ctxLiveLabel.textContent = 'Live usage';
+        if (ctxLiveDetail) ctxLiveDetail.textContent = formatMetricNumber(contextLive) + ' live';
 
-        // Animate percentage transition
         animateNumber(ctxValue, window.prevValues.contextPct, pct, 300, 1, '%');
         window.prevValues.contextPct = pct;
         
-        // Update progress bar
         if (ctxFill) {
             ctxFill.style.width = pct + '%';
             ctxFill.className = 'context-progress-fill ' + severity;
         }
 
-        // Show raw numbers as detail
-        if (ctxDetails) ctxDetails.textContent = l.kv_cache_tokens + ' / ' + l.kv_cache_max;
+        if (ctxDetails) ctxDetails.textContent = formatMetricNumber(contextLive) + ' / ' + formatMetricNumber(contextCapacity);
 
+    } else if (l && contextCapacity > 0) {
+        setCardState(contextCard, 'unavailable');
+        setChipState(ctxState, 'capacity', 'idle');
+        if (ctxFill) {
+            ctxFill.style.width = '0%';
+            ctxFill.className = 'context-progress-fill unavailable';
+        }
+        if (ctxLiveLabel) ctxLiveLabel.textContent = 'Live usage';
+        if (ctxLiveDetail) ctxLiveDetail.textContent = 'not exposed';
+        if (ctxValue) ctxValue.textContent = 'live usage unavailable';
+        if (ctxDetails) {
+            const detailParts = ['capacity ' + formatMetricNumber(contextCapacity)];
+            if (contextPeak > 0) {
+                detailParts.push('peak ' + formatMetricNumber(contextPeak));
+            }
+            ctxDetails.textContent = detailParts.join(' · ');
+        }
     } else {
+        setCardState(contextCard, !hasActiveEndpoint ? 'dormant' : 'unavailable');
+        setChipState(ctxState, 'unknown', 'idle');
+        if (ctxLiveDetail) ctxLiveDetail.textContent = '\u2014';
+        if (ctxPeakDetail) ctxPeakDetail.textContent = '\u2014';
         if (ctxFill) {
             ctxFill.style.width = '0%';
             ctxFill.className = 'context-progress-fill';
         }
+        if (ctxPeakFill) ctxPeakFill.style.width = '0%';
         if (ctxValue) ctxValue.textContent = getEmptyStateMessage(systemReason, '\u2014');
         if (ctxDetails) ctxDetails.textContent = '';
-    }
-
-    // Slots metrics with pill badges
-    const slotsEl = document.getElementById('m-slots');
-    if (l && ((l.slots_idle || 0) + (l.slots_processing || 0) > 0)) {
-        const idle = l.slots_idle || 0;
-        const busy = l.slots_processing || 0;
-        slotsEl.innerHTML = '<span class="slot-pill idle"><span class="slot-dot"></span>' + idle + ' idle</span><span class="slot-pill busy"><span class="slot-dot"></span>' + busy + ' busy</span>';
-    } else {
-        slotsEl.innerHTML = '<span class="slot-pill idle">&mdash;</span><span class="slot-pill busy">&mdash;</span>';
     }
 
 
@@ -3585,8 +3739,11 @@ ws.onmessage = e => {
     const sysRowsEl = document.getElementById('system-rows');
 
     if (d.capabilities) {
-        setMetricSectionVisibility('system-rows', d.capabilities.system);
-        setMetricSectionVisibility('gpu-rows', d.capabilities.gpu);
+        // Hide system/gpu sections if not available OR if local server not running
+        const systemVisible = d.capabilities.system && (d.session_mode === 'attach' || serverRunning);
+        const gpuVisible = d.capabilities.gpu && (d.session_mode === 'attach' || serverRunning);
+        setMetricSectionVisibility('system-rows', systemVisible);
+        setMetricSectionVisibility('gpu-rows', gpuVisible);
     }
 
     if (sysRowsEl && (!serverRunning || d.host_metrics_available === false)) {

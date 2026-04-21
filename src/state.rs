@@ -29,7 +29,7 @@ pub enum EndpointKind {
     Unknown,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, PartialEq)]
 pub enum SessionKind {
     Spawn,
     Attach,
@@ -254,8 +254,8 @@ pub struct AppState {
     pub llama_metrics: Arc<Mutex<LlamaMetrics>>,
     pub server_logs: Arc<Mutex<VecDeque<String>>>,
     pub server_child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
-    pub server_running: Arc<Mutex<bool>>,  // Whether active endpoint is reachable (for inference)
-    pub local_server_running: Arc<Mutex<bool>>,  // Whether a local llama-server was spawned by this app
+    pub server_running: Arc<Mutex<bool>>, // Whether active endpoint is reachable (for inference)
+    pub local_server_running: Arc<Mutex<bool>>, // Whether a local llama-server was spawned by this app
     pub server_config: Arc<Mutex<Option<ServerConfig>>>,
     pub llama_poll_notify: Arc<tokio::sync::Notify>,
     pub presets: Arc<Mutex<Vec<ModelPreset>>>,
@@ -297,38 +297,17 @@ impl AppState {
             .unwrap_or_default();
 
         let sessions = load_sessions(&sessions_path);
-        let active_session_id = sessions
-            .first()
-            .map(|session| session.id.clone())
-            .unwrap_or_default();
-
-        let (endpoint_kind, session_kind) = if sessions.is_empty() {
-            (EndpointKind::Unknown, SessionKind::None)
-        } else {
-            let first_session = &sessions[0];
-            let is_local = match &first_session.mode {
-                SessionMode::Spawn { .. } => true,
-                SessionMode::Attach { endpoint } => endpoint_is_local(endpoint),
-            };
-            let endpoint_kind = if is_local {
-                EndpointKind::Local
-            } else {
-                EndpointKind::Remote
-            };
-            let session_kind = match &first_session.mode {
-                SessionMode::Spawn { .. } => SessionKind::Spawn,
-                SessionMode::Attach { .. } => SessionKind::Attach,
-            };
-            (endpoint_kind, session_kind)
-        };
+        let active_session_id = String::new();
+        let endpoint_kind = EndpointKind::Unknown;
+        let session_kind = SessionKind::None;
 
         let initial_capabilities = MetricsCapabilities {
             inference: true,
-            system: matches!(session_kind, SessionKind::Spawn),
-            gpu: matches!(session_kind, SessionKind::Spawn),
-            cpu_temperature: matches!(session_kind, SessionKind::Spawn),
-            memory: matches!(session_kind, SessionKind::Spawn),
-            host_metrics: matches!(session_kind, SessionKind::Spawn),
+            system: false,
+            gpu: false,
+            cpu_temperature: false,
+            memory: false,
+            host_metrics: false,
             tray: true,
         };
 
@@ -395,11 +374,16 @@ impl AppState {
             let sessions = self.sessions.lock().unwrap();
             session_id.is_empty() || sessions.iter().any(|s| s.id == session_id)
         };
-        *self.active_session_id.lock().unwrap() = session_id.to_string();
-        if !session_id.is_empty() {
-            self.refresh_capability_state();
+        if !exists {
+            return false;
         }
-        exists
+
+        *self.active_session_id.lock().unwrap() = session_id.to_string();
+        self.refresh_capability_state();
+        if !session_id.is_empty() {
+            self.llama_poll_notify.notify_waiters();
+        }
+        true
     }
 
     pub fn add_session(&self, session: Session) -> bool {
@@ -427,15 +411,28 @@ impl AppState {
     }
 
     pub fn remove_session(&self, session_id: &str) -> bool {
-        let mut sessions = self.sessions.lock().unwrap();
-        let len_before = sessions.len();
-        sessions.retain(|s| s.id != session_id);
-        // Also update active session if it was removed
-        let mut active = self.active_session_id.lock().unwrap();
-        if *active == session_id && !sessions.is_empty() {
-            *active = sessions[0].id.clone();
+        let (removed, active_changed) = {
+            let mut sessions = self.sessions.lock().unwrap();
+            let len_before = sessions.len();
+            sessions.retain(|s| s.id != session_id);
+            let removed = sessions.len() < len_before;
+
+            let mut active = self.active_session_id.lock().unwrap();
+            let active_changed = if *active == session_id {
+                active.clear();
+                true
+            } else {
+                false
+            };
+
+            (removed, active_changed)
+        };
+
+        if active_changed {
+            self.refresh_capability_state();
         }
-        sessions.len() < len_before
+
+        removed
     }
 
     pub fn update_session_status(&self, session_id: &str, status: SessionStatus) -> bool {
@@ -513,7 +510,7 @@ impl AppState {
 
         match session.map(|s| s.mode) {
             Some(SessionMode::Spawn { .. }) => true,
-            Some(SessionMode::Attach { .. }) => false,  // Attach never uses local metrics - only inference stats
+            Some(SessionMode::Attach { .. }) => false, // Attach never uses local metrics - only inference stats
             None => true,
         }
     }
@@ -682,6 +679,16 @@ fn local_interface_ips() -> Vec<IpAddr> {
 mod tests {
     use super::*;
 
+    fn test_paths(sessions_path: PathBuf) -> AppPaths {
+        AppPaths {
+            presets_path: PathBuf::new(),
+            models_dir: None,
+            gpu_env_path: PathBuf::new(),
+            ui_settings_path: PathBuf::new(),
+            sessions_path,
+        }
+    }
+
     #[test]
     fn endpoint_detection_with_various_hosts() {
         let local_hosts = [
@@ -760,13 +767,7 @@ mod tests {
             exp_cpu_reason,
         ) in test_cases
         {
-            let paths = AppPaths {
-                presets_path: PathBuf::new(),
-                models_dir: None,
-                gpu_env_path: PathBuf::new(),
-                ui_settings_path: PathBuf::new(),
-                sessions_path: PathBuf::new(),
-            };
+            let paths = test_paths(PathBuf::new());
             let state = AppState::new(vec![], paths, GpuEnv::default(), UiSettings::default());
             let session = if mode == "spawn" {
                 Session::new_spawn("test".to_string(), "Test".to_string(), 8001)
@@ -794,6 +795,78 @@ mod tests {
                 "cpu_temp_reason for {mode}"
             );
         }
+    }
+
+    #[test]
+    fn startup_does_not_auto_activate_persisted_sessions() {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let sessions_path = std::env::temp_dir().join(format!(
+            "llama-monitor-state-test-{}-{suffix}-sessions.json",
+            std::process::id(),
+        ));
+        let sessions = vec![Session::new_attach(
+            "saved".to_string(),
+            "Saved".to_string(),
+            "http://remote.example.com:8001".to_string(),
+        )];
+        std::fs::write(&sessions_path, serde_json::to_string(&sessions).unwrap()).unwrap();
+
+        let state = AppState::new(
+            vec![],
+            test_paths(sessions_path.clone()),
+            GpuEnv::default(),
+            UiSettings::default(),
+        );
+
+        assert!(state.active_session_id.lock().unwrap().is_empty());
+        assert_eq!(state.current_session_kind(), SessionKind::None);
+        assert_eq!(state.current_endpoint_kind(), EndpointKind::Unknown);
+        assert!(!state.calculate_capabilities().host_metrics);
+
+        let _ = std::fs::remove_file(sessions_path);
+    }
+
+    #[test]
+    fn set_active_session_rejects_missing_session_without_mutating() {
+        let state = AppState::new(
+            vec![],
+            test_paths(PathBuf::new()),
+            GpuEnv::default(),
+            UiSettings::default(),
+        );
+        state.add_session(Session::new_spawn(
+            "existing".to_string(),
+            "Existing".to_string(),
+            8001,
+        ));
+
+        assert!(state.set_active_session("existing"));
+        assert!(!state.set_active_session("missing"));
+        assert_eq!(*state.active_session_id.lock().unwrap(), "existing");
+    }
+
+    #[test]
+    fn removing_active_session_clears_active_state() {
+        let state = AppState::new(
+            vec![],
+            test_paths(PathBuf::new()),
+            GpuEnv::default(),
+            UiSettings::default(),
+        );
+        state.add_session(Session::new_spawn(
+            "existing".to_string(),
+            "Existing".to_string(),
+            8001,
+        ));
+
+        assert!(state.set_active_session("existing"));
+        assert!(state.remove_session("existing"));
+        assert!(state.active_session_id.lock().unwrap().is_empty());
+        assert_eq!(state.current_session_kind(), SessionKind::None);
+        assert!(!state.calculate_capabilities().host_metrics);
     }
 
     #[test]

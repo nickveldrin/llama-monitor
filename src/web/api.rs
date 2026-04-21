@@ -1468,9 +1468,9 @@ fn api_detach(
                 // Check if the active session is an attach session
                 let sessions = state.sessions.lock().unwrap();
                 let session = sessions.iter().find(|s| s.id == active_id);
-                
+
                 let is_attach = session.map(|s| matches!(s.mode, crate::state::SessionMode::Attach { .. }));
-                
+
                 if !is_attach.unwrap_or(false) {
                     return Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": "Active session is not an attach session"}),

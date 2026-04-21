@@ -1,8 +1,51 @@
 use std::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::state::AppState;
 
-use super::metrics::parse_prometheus_metrics;
+use super::metrics::{PrometheusValues, parse_prometheus_metrics, parse_slot_metrics};
+
+#[derive(Debug, Clone, Default)]
+struct CounterSnapshot {
+    prompt_tokens_total: f64,
+    prompt_seconds_total: f64,
+    predicted_tokens_total: f64,
+    predicted_seconds_total: f64,
+}
+
+impl CounterSnapshot {
+    fn from_prometheus(values: &PrometheusValues) -> Self {
+        Self {
+            prompt_tokens_total: values.prompt_tokens_total,
+            prompt_seconds_total: values.prompt_seconds_total,
+            predicted_tokens_total: values.predicted_tokens_total,
+            predicted_seconds_total: values.predicted_seconds_total,
+        }
+    }
+}
+
+fn counter_rate(
+    current_tokens: f64,
+    previous_tokens: f64,
+    current_seconds: f64,
+    previous_seconds: f64,
+) -> f64 {
+    let token_delta = current_tokens - previous_tokens;
+    let second_delta = current_seconds - previous_seconds;
+
+    if token_delta > 0.0 && second_delta > 0.0 {
+        token_delta / second_delta
+    } else {
+        0.0
+    }
+}
+
+fn unix_time_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
 
 pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
     let client = match reqwest::Client::builder()
@@ -19,6 +62,8 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
     };
 
     let mut enabled = false;
+    let mut previous_counters: Option<CounterSnapshot> = None;
+    let mut previous_counter_session: Option<String> = None;
 
     loop {
         if !enabled {
@@ -29,6 +74,8 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
         let active_id = { state.active_session_id.lock().unwrap().clone() };
         if active_id.is_empty() {
             enabled = false;
+            previous_counters = None;
+            previous_counter_session = None;
             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
             continue;
         }
@@ -49,6 +96,8 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
                 }
             } else {
                 enabled = false;
+                previous_counters = None;
+                previous_counter_session = None;
                 tokio::time::sleep(Duration::from_secs(poll_interval)).await;
                 continue;
             }
@@ -93,6 +142,8 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
         if !server_reachable {
             // Don't reset metrics when server is temporarily unavailable
             // Just continue with the last known metrics
+            previous_counters = None;
+            previous_counter_session = None;
             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
             continue;
         }
@@ -103,59 +154,82 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
         {
             let prom = parse_prometheus_metrics(&body);
 
-            let prompt_tps = if prom.prompt_tokens_per_sec > 0.0 {
-                prom.prompt_tokens_per_sec
-            } else if prom.prompt_seconds_total > 0.0 {
-                prom.prompt_tokens_total / prom.prompt_seconds_total
+            let current_counters = CounterSnapshot::from_prometheus(&prom);
+            let (prompt_tps, gen_tps) = if previous_counter_session.as_deref()
+                == Some(active_id.as_str())
+                && let Some(previous) = &previous_counters
+            {
+                (
+                    counter_rate(
+                        current_counters.prompt_tokens_total,
+                        previous.prompt_tokens_total,
+                        current_counters.prompt_seconds_total,
+                        previous.prompt_seconds_total,
+                    ),
+                    counter_rate(
+                        current_counters.predicted_tokens_total,
+                        previous.predicted_tokens_total,
+                        current_counters.predicted_seconds_total,
+                        previous.predicted_seconds_total,
+                    ),
+                )
             } else {
-                0.0
+                (0.0, 0.0)
             };
 
-            let gen_tps = if prom.predicted_tokens_per_sec > 0.0 {
-                prom.predicted_tokens_per_sec
-            } else if prom.predicted_seconds_total > 0.0 {
-                prom.predicted_tokens_total / prom.predicted_seconds_total
-            } else {
-                0.0
-            };
+            previous_counters = Some(current_counters);
+            previous_counter_session = Some(active_id.clone());
 
             let mut m = state.llama_metrics.lock().unwrap();
             m.prompt_tokens_per_sec = prompt_tps;
             m.generation_tokens_per_sec = gen_tps;
+            m.throughput_source = "interval_delta".to_string();
+            m.prompt_throughput_active = prompt_tps > 0.0;
+            m.generation_throughput_active = gen_tps > 0.0;
+            let now_ms = unix_time_ms();
+            if prompt_tps > 0.0 {
+                m.last_prompt_tokens_per_sec = prompt_tps;
+                m.last_prompt_throughput_unix_ms = now_ms;
+            }
+            if gen_tps > 0.0 {
+                m.last_generation_tokens_per_sec = gen_tps;
+                m.last_generation_throughput_unix_ms = now_ms;
+            }
             m.prompt_tokens_total = prom.prompt_tokens_total as u64;
             m.predicted_tokens_total = prom.predicted_tokens_total as u64;
-            m.kv_cache_tokens = prom.n_tokens_max;
+            m.generation_tokens_total = prom.predicted_tokens_total as u64;
+            m.kv_cache_high_water = prom.n_tokens_max;
+            m.context_high_water_tokens = prom.n_tokens_max;
             m.requests_processing = prom.requests_processing;
         }
 
         // Poll /slots — get per-slot processing state + total context
         if let Ok(resp) = client.get(format!("{base}/slots")).send().await
             && let Ok(body) = resp.text().await
-            && let Ok(slots) = serde_json::from_str::<Vec<serde_json::Value>>(&body)
+            && let Some(slots) = parse_slot_metrics(&body)
         {
-            let mut idle = 0u32;
-            let mut processing = 0u32;
-            let num_slots = slots.len() as u64;
-            let mut per_slot_ctx = 0u64;
-            for slot in &slots {
-                if slot
-                    .get("is_processing")
-                    .and_then(|v| v.as_bool())
-                    .unwrap_or(false)
-                {
-                    processing += 1;
-                } else {
-                    idle += 1;
-                }
-                if let Some(n) = slot.get("n_ctx").and_then(|v| v.as_u64()) {
-                    per_slot_ctx = n;
-                }
-            }
             let mut m = state.llama_metrics.lock().unwrap();
-            m.slots_idle = idle;
-            m.slots_processing = processing;
-            if per_slot_ctx > 0 {
-                m.kv_cache_max = per_slot_ctx * num_slots;
+            m.slots_idle = slots.slots_idle;
+            m.slots_processing = slots.slots_processing;
+            m.kv_cache_max = slots.kv_cache_max;
+            m.kv_cache_tokens = slots.kv_cache_tokens;
+            m.kv_cache_tokens_available = slots.kv_cache_tokens_available;
+            m.kv_cache_tokens_source = slots.kv_cache_tokens_source;
+            m.context_capacity_tokens = slots.kv_cache_max;
+            m.context_live_tokens = slots.kv_cache_tokens;
+            m.context_live_tokens_available = slots.kv_cache_tokens_available;
+            m.context_live_tokens_source = m.kv_cache_tokens_source.clone();
+            m.active_task_id = slots.active_task_id;
+            if slots.last_task_id.is_some() {
+                m.last_task_id = slots.last_task_id;
+            }
+            m.slot_generation_tokens = slots.slot_generation_tokens;
+            m.slot_generation_remaining = slots.slot_generation_remaining;
+            m.slot_generation_active = slots.slot_generation_active;
+            m.slot_generation_available = slots.slot_generation_available;
+            if !m.kv_cache_tokens_available && m.requests_processing == 0 {
+                m.kv_cache_tokens = 0;
+                m.context_live_tokens = 0;
             }
         }
 

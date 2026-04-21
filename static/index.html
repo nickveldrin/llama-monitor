@@ -151,14 +151,19 @@
                 <section class="metric-section" id="inference-section">
                     <h2 class="dashboard-section-title">Inference Metrics <span class="metric-badge" id="inference-historic-badge" style="display:none;">Historic</span></h2>
                     <div class="inference-grid" id="inference">
-                        <!-- Speed Card -->
+                        <!-- Throughput Card -->
                         <div class="widget-card widget-metric widget-speed">
-                            <div class="widget-metric-label">SPEED</div>
+                            <div class="metric-card-topline">
+                                <div class="widget-metric-label">THROUGHPUT</div>
+                                <div class="metric-live-chip" id="m-throughput-state">idle</div>
+                            </div>
+                            <div class="inference-empty-state visible" id="m-throughput-empty">Attach an endpoint to begin telemetry</div>
                             <div class="speed-item">
                                 <div class="speed-header">
                                     <span class="speed-label">prompt</span>
                                     <span class="speed-value" id="m-prompt">&mdash;</span>
-                                    <span class="speed-max" id="m-prompt-max" title="Max seen">&mdash;</span>
+                                    <span class="speed-max" id="m-prompt-max" title="Peak seen">&mdash;</span>
+                                    <span class="metric-delta" id="m-prompt-delta"></span>
                                 </div>
                                 <div class="speed-bar-bg">
                                     <div class="speed-bar prompt-bar" id="m-prompt-bar"></div>
@@ -168,31 +173,62 @@
                                 <div class="speed-header">
                                     <span class="speed-label">generation</span>
                                     <span class="speed-value" id="m-gen">&mdash;</span>
-                                    <span class="speed-max" id="m-gen-max" title="Max seen">&mdash;</span>
+                                    <span class="speed-max" id="m-gen-max" title="Peak seen">&mdash;</span>
+                                    <span class="metric-delta" id="m-gen-delta"></span>
                                 </div>
                                 <div class="speed-bar-bg">
                                     <div class="speed-bar gen-bar" id="m-gen-bar"></div>
                                 </div>
                             </div>
+                            <div class="sparkline-pair">
+                                <svg class="metric-sparkline" id="m-prompt-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true"></svg>
+                                <svg class="metric-sparkline" id="m-gen-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true"></svg>
+                            </div>
+                            <div class="metric-footnote" id="m-throughput-age">&mdash;</div>
+                        </div>
+
+                        <!-- Generation Card -->
+                        <div class="widget-card widget-metric widget-generation">
+                            <div class="metric-card-topline">
+                                <div class="widget-metric-label">GENERATION</div>
+                                <div class="metric-live-chip" id="m-generation-state">idle</div>
+                            </div>
+                            <div class="inference-empty-state visible" id="m-generation-empty">Waiting for the next completion</div>
+                            <div class="generation-main" id="m-generation-main">&mdash;</div>
+                            <div class="token-flow" id="m-token-flow" aria-hidden="true">
+                                <span></span><span></span><span></span><span></span><span></span>
+                            </div>
+                            <div class="generation-progress-bar">
+                                <div class="generation-progress-fill" id="m-generation-fill"></div>
+                            </div>
+                            <div class="generation-details" id="m-generation-details">&mdash;</div>
                         </div>
 
                         <!-- Context Card -->
                         <div class="widget-card widget-metric widget-context">
-                            <div class="widget-metric-label">CONTEXT</div>
-                            <div class="context-progress-bar" id="m-ctx-bar">
-                                <div class="context-progress-fill" id="m-ctx-fill"></div>
+                            <div class="metric-card-topline">
+                                <div class="widget-metric-label">CONTEXT WINDOW</div>
+                                <div class="metric-live-chip" id="m-context-state">capacity</div>
+                            </div>
+                            <div class="inference-empty-state visible" id="m-context-empty">Context capacity appears after attach</div>
+                            <div class="context-rail-group">
+                                <div class="context-rail-label">
+                                    <span id="m-ctx-live-label">Live usage</span>
+                                    <span id="m-ctx-live-detail">&mdash;</span>
+                                </div>
+                                <div class="context-progress-bar context-live-bar" id="m-ctx-bar">
+                                    <div class="context-progress-fill" id="m-ctx-fill"></div>
+                                </div>
+                                <div class="context-rail-label">
+                                    <span>Peak observed</span>
+                                    <span id="m-ctx-peak-detail">&mdash;</span>
+                                </div>
+                                <div class="context-progress-bar context-peak-bar">
+                                    <div class="context-progress-fill historic" id="m-ctx-peak-fill"></div>
+                                </div>
                             </div>
                             <div class="context-value" id="m-ctx">&mdash;</div>
                             <div class="context-details" id="m-ctx-details">&mdash;</div>
-                        </div>
-
-                        <!-- Slots Card -->
-                        <div class="widget-card widget-metric widget-slots">
-                            <div class="widget-metric-label">SLOTS</div>
-                            <div class="slots-values" id="m-slots">
-                                <span class="slot-pill idle">&mdash;</span>
-                                <span class="slot-pill busy">&mdash;</span>
-                            </div>
                         </div>
                     </div>
                 </section>
