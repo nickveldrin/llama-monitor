@@ -284,6 +284,7 @@ pub fn api_routes(
     let spawn_session_with_preset =
         api_spawn_session_with_preset(state.clone(), app_config.clone());
     let attach = api_attach(state.clone());
+    let detach = api_detach(state.clone());
     let check_lhm = api_check_lhm();
     let start_lhm = api_lhm_start();
     let install_lhm = api_lhm_install();
@@ -320,6 +321,7 @@ pub fn api_routes(
         .or(get_capabilities)
         .or(spawn_session_with_preset)
         .or(attach)
+        .or(detach)
         .or(check_lhm)
         .or(start_lhm)
         .or(progress_lhm)
@@ -1443,6 +1445,40 @@ fn api_attach(
                         &serde_json::json!({"ok": false, "error": "Maximum sessions reached"}),
                     ))
                 }
+            }
+        })
+}
+
+fn api_detach(
+    state: AppState,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "detach")
+        .and(warp::path::end())
+        .and(warp::post())
+        .and_then(move || {
+            let state = state.clone();
+            async move {
+                let active_id = state.active_session_id.lock().unwrap().clone();
+                if active_id.is_empty() {
+                    return Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"ok": false, "error": "No active session to detach from"}),
+                    ));
+                }
+
+                // Check if the active session is an attach session
+                let sessions = state.sessions.lock().unwrap();
+                let session = sessions.iter().find(|s| s.id == active_id);
+                if session.map(|s| !matches!(s.mode, crate::state::SessionMode::Attach { .. })).unwrap_or(true) {
+                    return Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"ok": false, "error": "Active session is not an attach session"}),
+                    ));
+                }
+
+                // Clear the active session
+                state.set_active_session("");
+                state.llama_poll_notify.notify_waiters();
+
+                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
             }
         })
 }

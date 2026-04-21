@@ -102,14 +102,15 @@
             <div class="dashboard-grid">
                 <div class="dashboard-header">
                     <div>
-                        <h2>Server Endpoint</h2>
+                        <h2 id="server-endpoint-status">Server Endpoint</h2>
                         <span class="mode-badge" id="mode-badge">Idle</span>
                     </div>
                     <div class="dashboard-header-actions">
-                        <label class="num-sm">Server Endpoint (for attach)
+                        <label class="num-sm">Attach Endpoint
                             <input id="server-endpoint" type="text" value="http://127.0.0.1:8001">
                         </label>
                         <button class="btn btn-attach" id="btn-attach" onclick="doAttach()">Attach</button>
+                        <button class="btn btn-detach" id="btn-detach" onclick="doDetach()" style="display:none;">Detach</button>
                         <button class="btn btn-kill" id="btn-kill" onclick="doKillLlama()">Kill llama-server</button>
                     </div>
                 </div>
