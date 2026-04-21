@@ -391,10 +391,10 @@ impl AppState {
     pub fn set_active_session(&self, session_id: &str) -> bool {
         let exists = {
             let sessions = self.sessions.lock().unwrap();
-            sessions.iter().any(|s| s.id == session_id)
+            session_id.is_empty() || sessions.iter().any(|s| s.id == session_id)
         };
-        if exists {
-            *self.active_session_id.lock().unwrap() = session_id.to_string();
+        *self.active_session_id.lock().unwrap() = session_id.to_string();
+        if !session_id.is_empty() {
             self.refresh_capability_state();
         }
         exists
