@@ -3661,8 +3661,8 @@ ws.onmessage = e => {
             ctxFill.className = 'context-progress-fill unavailable';
         }
         if (ctxLiveLabel) ctxLiveLabel.textContent = 'Live usage';
-        if (ctxLiveDetail) ctxLiveDetail.textContent = 'not exposed';
-        if (ctxValue) ctxValue.textContent = 'live usage unavailable';
+        if (ctxLiveDetail) ctxLiveDetail.textContent = 'not exposed by llama-server';
+        if (ctxValue) ctxValue.textContent = 'peak observed only';
         if (ctxDetails) {
             const detailParts = ['capacity ' + formatMetricNumber(contextCapacity)];
             if (contextPeak > 0) {
@@ -3684,16 +3684,19 @@ ws.onmessage = e => {
         if (ctxDetails) ctxDetails.textContent = '';
     }
 
-
-
+    const hostMetricsVisible = d.host_metrics_available === true;
+    const systemVisible = hostMetricsVisible && !!d.capabilities?.system;
+    const gpuVisible = hostMetricsVisible && !!d.capabilities?.gpu;
+    setMetricSectionVisibility('system-rows', systemVisible);
+    setMetricSectionVisibility('gpu-rows', gpuVisible);
 
     // GPU table
 
     const tbody = document.getElementById('gpu-rows');
 
-    if (!serverRunning) {
+    if (tbody && !gpuVisible) {
         tbody.innerHTML = '';
-    } else tbody.innerHTML = Object.entries(d.gpu || {}).map(([card, m]) => {
+    } else if (tbody) tbody.innerHTML = Object.entries(d.gpu || {}).map(([card, m]) => {
 
         const capped = m.power_consumption >= m.power_limit && m.power_limit > 0;
 
@@ -3738,15 +3741,7 @@ ws.onmessage = e => {
 
     const sysRowsEl = document.getElementById('system-rows');
 
-    if (d.capabilities) {
-        // Hide system/gpu sections if not available OR if local server not running
-        const systemVisible = d.capabilities.system && (d.session_mode === 'attach' || serverRunning);
-        const gpuVisible = d.capabilities.gpu && (d.session_mode === 'attach' || serverRunning);
-        setMetricSectionVisibility('system-rows', systemVisible);
-        setMetricSectionVisibility('gpu-rows', gpuVisible);
-    }
-
-    if (sysRowsEl && (!serverRunning || d.host_metrics_available === false)) {
+    if (sysRowsEl && !systemVisible) {
         sysRowsEl.innerHTML = '';
     } else if (sysRowsEl) {
         const isWindows = navigator.platform.indexOf('Win') !== -1;
