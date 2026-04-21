@@ -1491,8 +1491,8 @@ fn api_detach(
                 state.set_active_session("");
                 println!("[api/detach] Cleared active session, clearing server_running...");
                 *state.server_running.lock().unwrap() = false;
-                println!("[api/detach] Cleared server_running, notifying pollers...");
-                state.llama_poll_notify.notify_waiters();
+                println!("[api/detach] Cleared server_running. Poller will stop on next iteration.");
+                // DON'T call notify_waiters() - that would wake the poller and cause it to re-detect!
                 println!("[api/detach] Detached successfully, returning response");
 
                 Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
