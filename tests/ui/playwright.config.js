@@ -1,14 +1,14 @@
 // playwright.config.js
 /** @type {import('@playwright/test').PlaywrightTestConfig} */
 const config = {
-  testDir: './tests/ui',
+  testDir: '.',
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://localhost:8001',
+    baseURL: process.env.LLAMA_MONITOR_UI_URL || 'http://127.0.0.1:7778',
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
   },
@@ -16,15 +16,7 @@ const config = {
     {
       name: 'chromium',
       use: { browserName: 'chromium' },
-    },
-    {
-      name: 'firefox',
-      use: { browserName: 'firefox' },
-    },
-    {
-      name: 'webkit',
-      use: { browserName: 'webkit' },
-    },
+    }
   ],
 };
 

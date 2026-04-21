@@ -287,8 +287,8 @@ pub async fn start_server(
         *cfg = Some(config);
     }
 
-    // Notify the llama poller to start
-    state.llama_poll_notify.notify_one();
+    // Notify user-gated pollers to start after an explicit UI start action.
+    state.llama_poll_notify.notify_waiters();
 
     Ok(())
 }

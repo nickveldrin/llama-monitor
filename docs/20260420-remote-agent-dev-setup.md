@@ -5,13 +5,13 @@ This is the current practical setup for testing remote host metrics from a Mac d
 ## Network Layout
 
 - MacBook: runs the full llama-monitor dashboard on port `7778`.
-- Windows 11 machine: runs `llama-server` on `192.168.2.16:8001`.
+- Windows 11 machine: runs `llama-server` on `192.0.2.16:8001`.
 - Windows 11 machine: runs `llama-monitor --agent` on port `7779`.
 
-When the dashboard is attached to `http://192.168.2.16:8001`, it automatically tries to poll:
+When the dashboard is attached to `http://192.0.2.16:8001`, it automatically tries to poll:
 
 ```text
-http://192.168.2.16:7779/metrics
+http://192.0.2.16:7779/metrics
 ```
 
 ## Start The Windows Agent
@@ -42,7 +42,7 @@ In Configuration -> Remote Agent:
 
 ```text
 Start over SSH if unreachable: checked
-SSH Target: nick@ryne
+SSH Target: user@example-host
 SSH Start Command:
 ```
 
@@ -82,7 +82,7 @@ cargo run -- --remote-agent-token "replace-with-a-long-random-token"
 In the dashboard, attach to:
 
 ```text
-http://192.168.2.16:8001
+http://192.0.2.16:8001
 ```
 
 If the agent is reachable, the top strip shows `Remote Agent` and System/GPU sections are populated from the Windows host. If it is not reachable, the dashboard remains inference-only.

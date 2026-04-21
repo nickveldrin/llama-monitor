@@ -17,6 +17,7 @@ pub struct AppConfig {
     pub gpu_devices_override: Option<String>,
     pub ui_settings_file: PathBuf,
     pub sessions_file: PathBuf,
+    pub ssh_known_hosts_file: PathBuf,
     pub lhm_disabled_file: PathBuf,
     pub agent_host: String,
     pub agent_port: u16,
@@ -55,6 +56,7 @@ impl AppConfig {
             sessions_file: args
                 .sessions_file
                 .unwrap_or_else(|| config_dir.join("sessions.json")),
+            ssh_known_hosts_file: config_dir.join("ssh-known-hosts.json"),
             llama_poll_interval: args.llama_poll_interval,
             lhm_disabled_file: config_dir.join("lhm-disabled.json"),
             agent_host: args.agent_host,

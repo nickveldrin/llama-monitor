@@ -4,6 +4,7 @@
     <meta charset='utf-8'>
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <meta name='theme-color' content='#2e3440'>
+    <meta name='mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-capable' content='yes'>
     <meta name='apple-mobile-web-app-status-bar-style' content='black-translucent'>
     <link rel='manifest' href='/manifest.json'>
@@ -15,9 +16,10 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-    <div class="endpoint-health-strip">
+    <div class="endpoint-health-strip" aria-label="Active endpoint status. Edit the endpoint in the Server Endpoint section below.">
+        <span class="status-label">Active endpoint</span>
         <span class="endpoint-mode" id="endpoint-mode">Loading...</span>
-        <span class="endpoint-url" id="endpoint-url">...</span>
+        <span class="endpoint-url" id="endpoint-url" title="Read-only status. Edit the endpoint in the Server Endpoint section.">...</span>
         <span class="endpoint-status" id="endpoint-status">...</span>
         <span class="agent-status" id="agent-status" style="display:none;">
             <span class="agent-indicator">●</span>
@@ -25,6 +27,11 @@
             <span class="agent-latency" id="agent-latency"></span>
             <button type="button" class="btn-firewall-fix" onclick="openFirewallHelp()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:0.7rem;margin-left:4px;">Fix</button>
         </span>
+        <span class="status-dot" id="status-dot"></span>
+        <span class="status-text" id="status-text"></span>
+        <span class="badge-server" id="badge-server"></span>
+        <span class="badge-chat" id="badge-chat"></span>
+        <span class="badge-logs" id="badge-logs"></span>
     </div>
     <div class="top-nav-bar">
         <div class="nav-left">
@@ -48,13 +55,13 @@
             </div>
             <button id="settings-btn" class="nav-btn" onclick="openSettingsModal()" title="Settings">⚙️ Settings</button>
             <div class="nav-user" id="user-menu">
-                <button class="nav-user-btn">👤 User</button>
+                <button class="nav-user-btn" onclick="toggleUserMenu(event)">👤 User</button>
                 <div class="nav-user-menu">
-                    <a href="#" class="nav-user-menu-item">Profile</a>
-                    <a href="#" class="nav-user-menu-item">Preferences</a>
-                    <a href="#" class="nav-user-menu-item" onclick="toggleTheme()">Toggle Theme</a>
-                    <a href="#" class="nav-user-menu-item">Help</a>
-                    <a href="#" class="nav-user-menu-item">Logout</a>
+                    <a href="#" class="nav-user-menu-item" onclick="openUserProfile(event)">Profile</a>
+                    <a href="#" class="nav-user-menu-item" onclick="openUserPreferencesModal(event)">Preferences</a>
+                    <a href="#" class="nav-user-menu-item" onclick="toggleTheme(event)">Toggle Theme</a>
+                    <a href="#" class="nav-user-menu-item" onclick="openUserHelp(event)">Help</a>
+                    <a href="#" class="nav-user-menu-item" onclick="logoutUser(event)">Logout</a>
                 </div>
             </div>
         </div>
@@ -75,7 +82,7 @@
             <span class="sidebar-label">Logs</span>
             <span class="sidebar-badge" id="sidebar-badge-logs"></span>
         </button>
-        <button class="sidebar-btn" onclick="openSessionsModal()">
+        <button class="sidebar-btn" onclick="openSessionModal()">
             <span class="sidebar-icon">📂</span>
             <span class="sidebar-label">Sessions</span>
         </button>
@@ -89,116 +96,113 @@
         </button>
     </div>
 
-    <div class="content-area">
+    <main class="content-area">
+        <!-- Page: Server (control + monitor) -->
         <div class="page active" id="page-server">
-            <div class="dashboard-header">
-                <h2>Server Endpoint</h2>
-                <div class="dashboard-header-actions">
-                    <label class="num-sm">Server Endpoint (for attach)
-                        <input id="server-endpoint" type="text" value="http://127.0.0.1:8001" style="width:240px;">
-                    </label>
-                    <button class="btn btn-attach" id="btn-attach" onclick="doAttach()">Attach</button>
-                    <button class="btn btn-kill" id="btn-kill" onclick="doKillLlama()">Kill llama-server</button>
+            <div class="dashboard-grid">
+                <div class="dashboard-header">
+                    <div>
+                        <h2>Server Endpoint</h2>
+                        <span class="mode-badge" id="mode-badge">Idle</span>
+                    </div>
+                    <div class="dashboard-header-actions">
+                        <label class="num-sm">Server Endpoint (for attach)
+                            <input id="server-endpoint" type="text" value="http://127.0.0.1:8001">
+                        </label>
+                        <button class="btn btn-attach" id="btn-attach" onclick="doAttach()">Attach</button>
+                        <button class="btn btn-kill" id="btn-kill" onclick="doKillLlama()">Kill llama-server</button>
+                    </div>
                 </div>
-            </div>
+                <div class="control-bar" id="controls">
+                    <label class="preset-label">Model Preset
+                        <select id="preset-select"></select>
+                    </label>
+                    <span class="preset-actions">
+                        <button class="btn-sm btn-preset" onclick="openPresetModal('new')" title="Create new preset">New</button>
+                        <button class="btn-sm btn-preset" onclick="openPresetModal('edit')" title="Edit selected preset">Edit</button>
+                        <button class="btn-sm btn-preset" onclick="copyPreset()" title="Duplicate selected preset">Copy</button>
+                        <button class="btn-sm btn-preset btn-preset-delete" onclick="deletePreset()" title="Delete selected preset">Delete</button>
+                        <button class="btn-sm btn-preset-reset" onclick="resetPresets()" title="Reset all presets to built-in defaults">Reset</button>
+                    </span>
+                    <button class="btn btn-start" id="btn-start" onclick="doStart()">Start</button>
+                    <button class="btn btn-stop" id="btn-stop" onclick="doStop()" disabled>Stop</button>
+                </div>
 
-    <!-- Page: Server (control + monitor) -->
-    <div class="page active" id="page-server">
-  <div class="dashboard-grid">
-        <div class="dashboard-header grid grid-cols-12 gap-xl">
-            <div class="col-span-12">
-                <label class="num-sm">Server Endpoint (for attach)
-                    <input id="server-endpoint" type="text" value="http://127.0.0.1:8001" style="width:240px;">
-                </label>
-            </div>
-        </div>
-        <div class="control-bar grid grid-cols-12 gap-xl" id="controls">
-           <label class="preset-label">Model Preset
-                <select id="preset-select"></select>
-                <span class="preset-actions">
-                    <button class="btn-sm btn-preset" onclick="openPresetModal('new')" title="Create new preset">New</button>
-                    <button class="btn-sm btn-preset" onclick="openPresetModal('edit')" title="Edit selected preset">Edit</button>
-                    <button class="btn-sm btn-preset" onclick="copyPreset()" title="Duplicate selected preset">Copy</button>
-                    <button class="btn-sm btn-preset btn-preset-delete" onclick="deletePreset()" title="Delete selected preset">Delete</button>
-                    <button class="btn-sm btn-preset-reset" onclick="resetPresets()" title="Reset all presets to built-in defaults">Reset</button>
-                </span>
-            </label>
-            <button class="btn btn-start" id="btn-start" onclick="doStart()">Start</button>
-            <button class="btn btn-stop" id="btn-stop" onclick="doStop()" disabled>Stop</button>
-        </div>
+                <section class="metric-section" id="system-section">
+                    <h2 class="dashboard-section-title">System</h2>
+                    <div class="table-wrap widget-card">
+                        <table class="gpu-table">
+                            <colgroup>
+                                <col style="width:18%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:18%">
+                            </colgroup>
+                            <thead><tr>
+                                <th>System</th><th>Temp</th><th>Load</th><th>Clock</th><th>RAM</th><th>Model</th>
+                            </tr></thead>
+                            <tbody id="system-rows"></tbody>
+                        </table>
+                    </div>
+                </section>
 
-        <h2 class="dashboard-header">System</h2>
-        <div class="grid grid-cols-12 gap-xl widget-card">
-            <div class="col-span-12">
-                <table class="gpu-table">
-                    <colgroup>
-                        <col style="width:18%"><col style="width:10%"><col style="width:10%"><col style="width:18%"><col style="width:26%"><col style="width:18%">
-                    </colgroup>
-                    <thead><tr>
-                        <th>System</th><th>Temp</th><th>Load</th><th>Clock</th><th>RAM</th><th>Model</th>
-                    </tr></thead>
-                    <tbody id="system-rows"></tbody>
-                </table>
-            </div>
-        </div>
+                <section class="metric-section" id="inference-section">
+                    <h2 class="dashboard-section-title">Inference Metrics</h2>
+                    <div class="inference-grid" id="inference">
+                        <div class="widget-card widget-metric">
+                            <div class="widget-metric-label">Prompt Speed</div>
+                            <div class="widget-metric-value prompt" id="m-prompt">&mdash;</div>
+                        </div>
+                        <div class="widget-card widget-metric">
+                            <div class="widget-metric-label">Generation Speed</div>
+                            <div class="widget-metric-value gen" id="m-gen">&mdash;</div>
+                        </div>
+                        <div class="widget-card widget-metric">
+                            <div class="widget-metric-label">Context (KV)</div>
+                            <div class="widget-metric-value ctx" id="m-ctx">&mdash;</div>
+                        </div>
+                        <div class="widget-card widget-metric">
+                            <div class="widget-metric-label">Slots</div>
+                            <div class="widget-metric-value slots" id="m-slots">&mdash;</div>
+                        </div>
+                        <div class="widget-card widget-metric">
+                            <div class="widget-metric-label">Server Status</div>
+                            <div class="widget-metric-value" id="m-status">&mdash;</div>
+                        </div>
+                    </div>
+                </section>
 
-        <h2 class="dashboard-header">Inference Metrics</h2>
-        <h2 class="dashboard-header">Inference Metrics</h2>
-        <div class="grid grid-cols-5 gap-md" id="inference">
-            <div class="col-span-1 widget-card widget-metric">
-                <div class="widget-metric-label">Prompt Speed</div>
-                <div class="widget-metric-value prompt" id="m-prompt">&mdash;</div>
-            </div>
-            <div class="col-span-1 widget-card widget-metric">
-                <div class="widget-metric-label">Generation Speed</div>
-                <div class="widget-metric-value gen" id="m-gen">&mdash;</div>
-            </div>
-            <div class="col-span-1 widget-card widget-metric">
-                <div class="widget-metric-label">Context (KV)</div>
-                <div class="widget-metric-value ctx" id="m-ctx">&mdash;</div>
-            </div>
-            <div class="col-span-1 widget-card widget-metric">
-                <div class="widget-metric-label">Slots</div>
-                <div class="widget-metric-value slots" id="m-slots">&mdash;</div>
-            </div>
-            <div class="col-span-1 widget-card widget-metric">
-                <div class="widget-metric-label">Server Status</div>
-                <div class="widget-metric-value" id="m-status">&mdash;</div>
+                <section class="metric-section" id="gpu-section">
+                    <h2 class="dashboard-section-title">GPUs</h2>
+                    <div class="table-wrap widget-card">
+                        <table class="gpu-table">
+                            <colgroup>
+                                <col style="width:14%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:24%"><col style="width:16%"><col style="width:16%">
+                            </colgroup>
+                            <thead><tr>
+                                <th>GPU</th><th>Temp</th><th>Load</th><th>VRAM</th><th>Power</th><th>SCLK</th><th>MCLK</th>
+                            </tr></thead>
+                            <tbody id="gpu-rows"></tbody>
+                        </table>
+                    </div>
+                </section>
             </div>
         </div>
 
-        <h2 class="dashboard-header">GPUs</h2>
-        <div class="grid grid-cols-12 gap-xl widget-card">
-            <div class="col-span-12">
-                <table class="gpu-table">
-                    <colgroup>
-                        <col style="width:14%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:24%"><col style="width:16%"><col style="width:16%">
-                    </colgroup>
-                    <thead><tr>
-                        <th>GPU</th><th>Temp</th><th>Load</th><th>VRAM</th><th>Power</th><th>SCLK</th><th>MCLK</th>
-                    </tr></thead>
-                    <tbody id="gpu-rows"></tbody>
-                </table>
+        <!-- Page: Chat -->
+        <div class="page" id="page-chat">
+            <div class="chat-actions">
+                <button class="btn btn-secondary" onclick="clearChat()">Clear</button>
+            </div>
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-row">
+                <textarea id="chat-input" rows="2" placeholder="Send a message... (Enter to send, Shift+Enter for newline)"></textarea>
+                <button class="btn btn-start" id="btn-send" onclick="sendChat()">Send</button>
             </div>
         </div>
-    </div>
 
-    <!-- Page: Chat -->
-    <div class="page" id="page-chat">
-        <div class="chat-actions">
-            <button onclick="clearChat()">Clear</button>
+        <!-- Page: Logs -->
+        <div class="page" id="page-logs">
+            <div class="log-panel" id="log-panel" style="flex:1;"></div>
         </div>
-        <div class="chat-messages" id="chat-messages"></div>
-        <div class="chat-input-row">
-            <textarea id="chat-input" rows="2" placeholder="Send a message... (Enter to send, Shift+Enter for newline)"></textarea>
-            <button class="btn btn-start" id="btn-send" onclick="sendChat()">Send</button>
-        </div>
-    </div>
-
-    <!-- Page: Logs -->
-    <div class="page" id="page-logs">
-        <div class="log-panel" id="log-panel" style="flex:1;"></div>
-    </div>
+    </main>
 
 <!-- Config Modal -->
 <div class="modal-overlay" id="config-modal">
@@ -210,32 +214,36 @@
         <div class="modal-body">
 
             <details class="modal-section" open>
-                <summary>Server Paths</summary>
-                <label class="modal-field" title="Path to the llama-server binary. Leave empty to use $PATH.">llama-server binary
+                <summary>Local llama-server executable</summary>
+                <p class="modal-help">Choose the actual executable file that starts llama.cpp's HTTP server. Leave it blank to run <code>llama-server</code> from your PATH.</p>
+                <label class="modal-field" title="Path to the llama-server executable file. Leave empty to use PATH.">llama-server executable file
                     <div style="display:flex;gap:6px;">
                         <input type="text" id="set-server-path" placeholder="llama-server (from $PATH)" style="flex:1;">
                         <button type="button" class="btn-sm btn-preset" onclick="openFileBrowser('set-server-path','executable')">Browse</button>
+                        <button type="button" class="btn-sm btn-preset" onclick="usePathServerBinary()">Use PATH</button>
                     </div>
                 </label>
-                <label class="modal-field" title="Working directory for llama-server process.">Working Directory
+                <label class="modal-field" title="Optional process working directory. This is usually left blank.">Process working directory (optional)
                     <div style="display:flex;gap:6px;">
-                        <input type="text" id="set-server-cwd" placeholder=". (current dir)" style="flex:1;">
+                        <input type="text" id="set-server-cwd" placeholder="leave blank unless presets use relative paths" style="flex:1;">
                         <button type="button" class="btn-sm btn-preset" onclick="openFileBrowser('set-server-cwd','dir')">Browse</button>
                     </div>
+                    <span class="modal-help">This is not normally the executable's folder. It only changes where the server process runs from, which matters for relative model paths or config files.</span>
                 </label>
             </details>
 
             <details class="modal-section" open>
                 <summary>GPU Environment <span id="gpu-env-info" style="font-weight:400;color:#6a7585;font-size:0.72rem;"></span></summary>
+                <p class="modal-help">These checks run on this Mac or workstation only. Remote GPU metrics come from a remote agent after you explicitly start or attach one.</p>
                 <div class="modal-row">
-                    <label class="modal-field" title="GPU architecture for ROCm HSA_OVERRIDE_GFX_VERSION. Auto = let ROCm detect natively.">Architecture
+                    <label class="modal-field" title="ROCm architecture for HSA_OVERRIDE_GFX_VERSION. Auto = let ROCm detect natively.">ROCm Architecture
                         <select id="gpu-env-arch"></select>
                     </label>
-                    <label class="modal-field" title="Comma-separated GPU device indices to use (e.g. 0,1,2,3). Empty = all GPUs.">GPU Devices
+                    <label class="modal-field" title="Comma-separated local GPU device indices to use (e.g. 0,1,2,3). Empty = all GPUs.">Local GPU Devices
                         <input type="text" id="gpu-env-devices" placeholder="all">
                     </label>
                 </div>
-                <label class="modal-field" title="Path to ROCm installation directory.">ROCm Path
+                <label class="modal-field" title="Path to local ROCm installation directory. Ignored on Apple Silicon and NVIDIA-only systems.">Local ROCm Path
                     <input type="text" id="gpu-env-rocm-path" value="/opt/rocm">
                 </label>
                 <div id="gpu-detected-info" style="font-size:0.72rem;color:#6a7585;margin-top:2px;"></div>
@@ -243,6 +251,7 @@
 
             <details class="modal-section" id="remote-agent-panel" open>
                   <summary>Remote Agent</summary>
+                  <p class="modal-help">Remote agent actions are opt-in. The app will not SSH into a host just because you typed or attached an endpoint; it only uses SSH when you click one of the agent buttons here or enable the explicit auto-start option below.</p>
                   
                   <div id="remote-agent-validation" class="remote-agent-validation" style="display:none;background:#bf6166;border-radius:6px;padding:8px 12px;margin-bottom:12px;">
                       <div id="remote-agent-validation-message" style="font-size:0.82rem;color:#fff;"></div>
@@ -252,25 +261,28 @@
                       <div class="remote-agent-header">
                           <h3 style="margin:0 0 12px 0;color:#88c0d1;font-size:0.9rem;">Remote Agent Control</h3>
                           <div style="font-size:0.72rem;color:#8899aa;margin-bottom:8px;">
-                              <span style="color:#a3be8b;">●</span> <span id="remote-agent-status-indicator">Ready</span>
+                              <span style="color:#8899aa;">●</span> <span id="remote-agent-status-indicator">Not checked</span>
                           </div>
                       </div>
                       
-                      <div id="remote-agent-status" class="remote-agent-status-text"></div>
+                      <div id="remote-agent-status" class="remote-agent-status-text">Enter an SSH target, then check the host or install/start the agent. Nothing is contacted until you click one of these actions.</div>
                       
                       <div class="remote-agent-versions" style="display:flex;gap:12px;flex-wrap:wrap;margin:12px 0;">
                           <div style="background:#3b4252;border-radius:6px;padding:8px 12px;flex:1;min-width:120px;">
                               <div style="font-size:0.68rem;color:#8899aa;text-transform:uppercase;">Latest</div>
-                              <div style="font-family:monospace;font-size:0.85rem;color:#d8dee9;" id="remote-agent-latest-version">—</div>
+                              <div style="font-family:monospace;font-size:0.85rem;color:#d8dee9;" id="remote-agent-latest-version">Not checked</div>
                           </div>
                           <div style="background:#3b4252;border-radius:6px;padding:8px 12px;flex:1;min-width:120px;">
                               <div style="font-size:0.68rem;color:#8899aa;text-transform:uppercase;">Installed</div>
-                              <div style="font-family:monospace;font-size:0.85rem;color:#d8dee9;" id="remote-agent-installed-version">—</div>
+                              <div style="font-family:monospace;font-size:0.85rem;color:#d8dee9;" id="remote-agent-installed-version">Not checked</div>
                           </div>
                           <div id="remote-agent-update-indicator" style="font-size:0.72rem;color:#ebcb8b;padding:8px 12px;display:none;">● Update available</div>
                       </div>
                       
                       <div class="remote-agent-buttons" id="remote-agent-buttons" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+                          <button type="button" class="btn-sm btn-preset" onclick="openSshSetupGuide()" id="btn-remote-agent-guide">Guided SSH Setup</button>
+                          <button type="button" class="btn-sm btn-preset" onclick="remoteAgentDetect(true)" id="btn-remote-agent-detect">Check Host</button>
+                          <button type="button" class="btn-sm btn-preset" onclick="remoteAgentLatestRelease()" id="btn-remote-agent-latest">Check Release</button>
                           <button type="button" class="btn-sm btn-preset" onclick="remoteAgentInstall()" id="btn-remote-agent-install">Install & Start</button>
                           <button type="button" class="btn-sm btn-preset" onclick="remoteAgentStart()" id="btn-remote-agent-start">Start Agent</button>
                           <button type="button" class="btn-sm btn-preset" onclick="remoteAgentUpdate()" id="btn-remote-agent-update" style="display:none;">Update Agent</button>
@@ -282,7 +294,7 @@
                           <div style="display:flex;align-items:flex-start;gap:10px;">
                               <span style="font-size:1.2rem;">⚠️</span>
                               <div style="flex:1;">
-                                  <div style="color:#ebcb8b;font-weight:600;margin-bottom:4px;">Firewall Detected</div>
+                                  <div style="color:#ebcb8b;font-weight:600;margin-bottom:4px;">Agent Started, HTTP Blocked</div>
                                   <div style="font-size:0.82rem;color:#a0aab5;line-height:1.5;">
                                       The agent started successfully but is not reachable from your browser. This typically means the remote machine's firewall is blocking HTTP access on port <strong>7779</strong>.
                                   </div>
@@ -294,7 +306,7 @@
                                           <li>Try <code>netsh advfirewall firewall add rule name="llama-agent" dir=in action=allow protocol=TCP localport=7779</code> on Windows</li>
                                       </ul>
                                   </div>
-                                  <button type="button" class="btn-sm btn-preset" onclick="openFirewallHelp()" style="margin-top:10px;">Fix Firewall</button>
+                                  <button type="button" class="btn-sm btn-preset" onclick="openFirewallHelp()" style="margin-top:10px;">Show Firewall Steps</button>
                               </div>
                           </div>
                       </div>
@@ -311,13 +323,70 @@
                           <div id="remote-agent-timeline-items" style="font-size:0.78rem;color:#d8dee9;font-family:monospace;"></div>
                       </div>
                   </div>
+
+                  <div class="remote-agent-guide" id="ssh-setup-guide" style="display:none;">
+                      <div class="guide-header">
+                          <div>
+                              <h3>Guided SSH Setup</h3>
+                              <p class="modal-help">Enter the remote machine login details, review the plan, then explicitly choose Check, Install, or Start. No SSH connection is made from this guide by itself.</p>
+                          </div>
+                          <button type="button" class="modal-close" onclick="closeSshSetupGuide()" aria-label="Close">&times;</button>
+                      </div>
+                      <div class="modal-row" style="gap:8px;">
+                          <label class="modal-field" title="Remote machine running llama-server or intended remote agent host.">
+                              Host
+                              <input type="text" id="ssh-guide-host" placeholder="127.0.0.1">
+                          </label>
+                          <label class="modal-field" title="SSH username on the remote host.">
+                              Username
+                              <input type="text" id="ssh-guide-user" placeholder="user">
+                          </label>
+                          <label class="modal-field" title="SSH port on the remote host.">
+                              Port
+                              <input type="number" id="ssh-guide-port" min="1" max="65535" value="22">
+                          </label>
+                      </div>
+                      <div class="modal-row" style="gap:8px;">
+                          <label class="modal-field" title="Authentication used by the dedicated SSH backend.">
+                              Authentication
+                              <select id="ssh-guide-auth">
+                                  <option value="agent">SSH agent or keychain</option>
+                                  <option value="password">Password for this operation</option>
+                                  <option value="key">Private key file</option>
+                              </select>
+                          </label>
+                          <label class="modal-field ssh-guide-secret" id="ssh-guide-password-row" style="display:none;">
+                              Password
+                              <input type="password" id="ssh-guide-password" autocomplete="off" placeholder="not saved">
+                          </label>
+                          <label class="modal-field ssh-guide-secret" id="ssh-guide-key-row" style="display:none;">
+                              Private key path
+                              <input type="text" id="ssh-guide-key-path" placeholder="~/.ssh/id_ed25519">
+                          </label>
+                      </div>
+                      <label class="modal-field ssh-guide-secret" id="ssh-guide-passphrase-row" style="display:none;">
+                          Key passphrase (optional)
+                          <input type="password" id="ssh-guide-key-passphrase" autocomplete="off" placeholder="not saved">
+                      </label>
+                      <div class="remote-agent-plan" id="ssh-guide-plan">
+                          Fill in the host details to preview the install/start plan.
+                      </div>
+                      <div class="remote-agent-plan" id="ssh-guide-host-key" style="display:none;"></div>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+                          <button type="button" class="btn-sm btn-preset" onclick="previewSshSetupGuide()">Preview Plan</button>
+                          <button type="button" class="btn-sm btn-preset" onclick="scanSshHostKey()">Scan Host Key</button>
+                          <button type="button" class="btn-sm btn-preset" onclick="trustSshHostKey()" id="btn-ssh-guide-trust" style="display:none;">Trust Host Key</button>
+                          <button type="button" class="btn-sm btn-preset" onclick="applySshSetupGuide()">Use These Settings</button>
+                      </div>
+                  </div>
                  
                  <details class="modal-section" style="border:none;margin-top:10px;">
-                     <summary style="padding:6px 0;margin:0;color:#88c0d1;">Advanced Options (collapsed)</summary>
+                     <summary style="padding:6px 0;margin:0;color:#88c0d1;">SSH and Agent Details</summary>
+                     <p class="modal-help">Use this when the llama-server endpoint is on another machine and you want this app to install or start the companion agent there. The dedicated SSH backend supports agent/keychain, password, and private-key authentication from the guided setup.</p>
                      <div class="modal-row" style="gap:8px;">
                          <label class="modal-field" style="flex:1;" title="Optional explicit remote agent URL. Empty means infer it from the attached llama-server host on port 7779.">
                              Agent URL
-                             <input type="text" id="set-remote-agent-url" placeholder="http://192.168.2.16:7779">
+                             <input type="text" id="set-remote-agent-url" placeholder="http://127.0.0.1:7779">
                          </label>
                          <label class="modal-field" style="flex:1;" title="Optional bearer token used when polling the remote agent.">
                              Agent Token
@@ -326,15 +395,16 @@
                      </div>
                      <div class="modal-row" style="gap:8px;">
                           <label class="modal-field" style="flex:1;">
-                              <span><input type="checkbox" id="set-remote-agent-ssh-autostart"> Start over SSH if unreachable</span>
+                              <span><input type="checkbox" id="set-remote-agent-ssh-autostart"> After attach, try SSH start if the agent is unreachable</span>
+                              <span class="modal-help">Leave this off unless you want the app to attempt the saved SSH start command after you attach to this remote endpoint.</span>
                           </label>
-                          <label class="modal-field" style="flex:1;" title="SSH target for the remote machine. Example: user@192.168.1.100. If empty, auto-inferred from attached endpoint.">
-                              Remote Host
+                          <label class="modal-field" style="flex:1;" title="SSH target for the remote machine. Example: user@192.168.1.100. If empty, auto-inferred from attached endpoint host.">
+                              SSH target
                               <input type="text" id="set-remote-agent-ssh-target" placeholder="user@host">
                           </label>
                       </div>
                      <label class="modal-field" title="Optional command run on the remote machine. Empty uses an OS-specific default for an installed agent binary.">
-                         SSH Start Command
+                         Custom SSH start command (optional)
                          <input type="text" id="set-remote-agent-ssh-command" placeholder='optional override, e.g. start "" /B llama-monitor.exe --agent --agent-host 0.0.0.0 --agent-port 7779'>
                      </label>
                  </details>
@@ -344,38 +414,6 @@
         <div class="modal-buttons">
             <button type="button" class="btn btn-modal-cancel" onclick="closeConfigModal()">Cancel</button>
             <button type="button" class="btn btn-modal-save" onclick="saveConfig()">Save</button>
-        </div>
-        <div class="modal-buttons">
-            <button type="button" class="btn btn-modal-cancel" onclick="closeConfigModal()">Cancel</button>
-            <button type="button" class="btn btn-modal-save" onclick="saveConfig()">Save</button>
-        </div>
-    </div>
-</div>
-
-<!-- Connect Agent Modal -->
-<div class="modal-overlay" id="connect-agent-modal">
-    <div class="modal" style="width:540px;">
-        <div class="modal-header">
-            <h2>Connect Remote Agent</h2>
-            <button type="button" class="modal-close" onclick="closeConnectAgentModal()" aria-label="Close">&times;</button>
-        </div>
-        <div class="modal-body">
-            <label class="modal-field" title="URL of the remote agent endpoint">
-                Agent URL
-                <input type="text" id="agent-url" placeholder="http://127.0.0.1:7779" style="width:100%;box-sizing:border-box;">
-            </label>
-            <label class="modal-field" title="Authentication token for the agent">
-                Authentication Token
-                <input type="text" id="agent-token" placeholder="Enter token" style="width:100%;box-sizing:border-box;">
-            </label>
-            <p style="font-size:0.72rem;color:#6a7585;margin-top:8px;">
-                The remote agent must be running and accessible at the specified URL.
-                Token is required for authentication.
-            </p>
-        </div>
-        <div class="modal-buttons">
-            <button type="button" class="btn btn-modal-cancel" onclick="closeConnectAgentModal()">Cancel</button>
-            <button type="button" class="btn btn-modal-save" onclick="connectAgent()">Connect</button>
         </div>
     </div>
 </div>
@@ -425,12 +463,12 @@
                 </label>
                 <label class="modal-field" title="Port for spawned server or endpoint for attached server">
                      <span id="modal-session-port-label">Port</span>
-                     <input type="number" id="modal-session-port" placeholder="e.g. 8080">
+                     <input type="text" id="modal-session-port" placeholder="8001">
                  </label>
             </div>
             <div class="modal-buttons">
                 <button type="button" class="btn btn-modal-cancel" onclick="closeSessionModal()">Cancel</button>
-                <button type="submit" class="btn btn-modal-save" id="btn-modal-save">Save</button>
+                <button type="submit" class="btn btn-modal-save" id="btn-session-save">Save</button>
             </div>
         </form>
     </div>
@@ -641,22 +679,23 @@
     </div>
 </div>
 
-<div class="toast-container" id="toast-container"></div>
-
- </div>
-
-<!-- Sessions Management Panel -->
-<div class="page" id="page-sessions">
-    <div class="dashboard-header">
-        <h2>Session Management</h2>
-        <button class="btn btn-primary" onclick="openSessionModal()">
-            <span class="btn-icon">+</span>
-            New Session
-        </button>
-    </div>
-    
-    <div class="sessions-container" id="sessions-container">
-        <!-- Session cards will be rendered here -->
+<!-- Models Modal -->
+<div class="modal-overlay" id="models-modal">
+    <div class="modal" style="width:760px;">
+        <div class="modal-header">
+            <h2>Models</h2>
+            <button type="button" class="modal-close" onclick="closeModelsModal()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="models-toolbar">
+                <button type="button" class="btn btn-secondary" onclick="refreshModels()">Refresh</button>
+                <span class="models-summary" id="models-summary">Loading models...</span>
+            </div>
+            <div class="models-list" id="models-list"></div>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeModelsModal()">Close</button>
+        </div>
     </div>
 </div>
 
@@ -759,8 +798,13 @@
                         </div>
                     </label>
                 </div>
-                <div class="settings-pane" id="settings_advanced">
+                <div class="settings-pane" id="settings-advanced">
                     <h3>Advanced Settings</h3>
+                    <div class="modal-section">
+                        <h3>Runtime Configuration</h3>
+                        <p class="settings-help">Server paths, GPU environment, and remote-agent install/start controls live in runtime configuration.</p>
+                        <button type="button" class="btn btn-secondary" onclick="openConfigModal()">Open Runtime Configuration</button>
+                    </div>
                     <label class="modal-field">
                         Server Binary Path
                         <input type="text" id="settings-server-binary-path" value="/usr/local/bin/llama-server">

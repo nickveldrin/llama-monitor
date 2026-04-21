@@ -169,9 +169,9 @@ Bundling all binaries inside the app can improve offline UX, but it increases bu
 Remote host:
 
 ```text
-ssh target: nick@ryne
-llama-server: http://192.168.2.16:8001
-agent: http://192.168.2.16:7779
+ssh target: user@example-host
+llama-server: http://192.0.2.16:8001
+agent: http://192.0.2.16:7779
 platform: Windows x86_64
 asset: llama-monitor-windows-x86_64.exe
 install: %APPDATA%\llama-monitor\bin\llama-monitor.exe
@@ -179,9 +179,9 @@ install: %APPDATA%\llama-monitor\bin\llama-monitor.exe
 
 Expected flow:
 
-1. Attach to `http://192.168.2.16:8001`.
+1. Attach to `http://192.0.2.16:8001`.
 2. Open Settings -> Remote Agent.
-3. Enter `nick@ryne`.
+3. Enter `user@example-host`.
 4. Click Detect.
 5. App identifies Windows x86_64 and matching release artifact.
 6. If missing or outdated, click Install/Update.

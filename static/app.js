@@ -1,17 +1,24 @@
 function switchTab(name) {
+    const page = document.getElementById('page-' + name);
+    if (!page) return;
 
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
 
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sidebar-btn').forEach(b => b.classList.remove('active'));
 
-    document.getElementById('page-' + name).classList.add('active');
+    page.classList.add('active');
 
-    document.getElementById('tab-' + name).classList.add('active');
+    const sidebarButton = Array.from(document.querySelectorAll('.sidebar-btn'))
+        .find(button => button.getAttribute('onclick') === "switchTab('" + name + "')");
+    if (sidebarButton) sidebarButton.classList.add('active');
 
 }
 
 
 let remoteAgentInProgress = false;
+
+let remoteAgentSshConnection = null;
+let latestSshHostKey = null;
 
 
 
@@ -188,21 +195,24 @@ document.getElementById('controls').addEventListener('input', saveSettings);
 
 document.getElementById('controls').addEventListener('change', saveSettings);
 
-// Auto-detect on SSH target input change
+// Do not auto-detect on SSH target input. SSH actions must remain explicit.
 const sshTargetInput = document.getElementById('set-remote-agent-ssh-target');
 
 if (sshTargetInput) {
 
     sshTargetInput.addEventListener('input', () => {
 
-        if (sshTargetInput.value.trim()) {
-
-            remoteAgentDetect(false);
-
-        }
+        remoteAgentSshConnection = null;
+        clearRemoteAgentValidation();
+        setRemoteAgentStatus('SSH target set. Click <strong>Check Host</strong>, <strong>Install & Start</strong>, or <strong>Start Agent</strong> when you are ready.', 'info');
 
     });
 
+}
+
+const sshGuideAuth = document.getElementById('ssh-guide-auth');
+if (sshGuideAuth) {
+    sshGuideAuth.addEventListener('change', updateSshGuideAuthFields);
 }
 
 
@@ -340,13 +350,15 @@ async function loadGpuEnv() {
 
         if (detected) {
 
-            infoEl.textContent = 'Detected: ' + detected.count + 'x ' + detected.arch + ' (' + detected.names.join(', ') + ')';
+            const source = detected.arch === 'apple' ? 'local macOS system profile' : detected.arch === 'nvidia' ? 'local nvidia-smi' : 'local rocminfo';
+
+            infoEl.textContent = 'Local detection: ' + detected.count + 'x ' + detected.arch + ' (' + detected.names.join(', ') + ') via ' + source;
 
             summaryInfo.textContent = '\u2014 ' + detected.count + 'x ' + detected.arch;
 
         } else {
 
-            infoEl.textContent = 'No GPU detected via rocminfo/nvidia-smi';
+            infoEl.textContent = 'No local GPU detected via Apple Silicon, rocminfo, or nvidia-smi. Remote hosts need a remote agent.';
 
             summaryInfo.textContent = '';
 
@@ -368,6 +380,8 @@ async function loadGpuEnv() {
 
 function openConfigModal() {
 
+    closeSettingsModal();
+
     document.getElementById('config-modal').classList.add('open');
 
 }
@@ -378,6 +392,181 @@ function closeConfigModal() {
 
     document.getElementById('config-modal').classList.remove('open');
 
+}
+
+function openSettingsModal() {
+    document.getElementById('settings-modal')?.classList.add('open');
+}
+
+function closeSettingsModal() {
+    document.getElementById('settings-modal')?.classList.remove('open');
+}
+
+function toggleUserMenu(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.querySelector('.nav-user-menu')?.classList.toggle('open');
+}
+
+function closeUserMenu() {
+    document.querySelector('.nav-user-menu')?.classList.remove('open');
+}
+
+document.addEventListener('click', event => {
+    if (!event.target.closest('.nav-user')) {
+        closeUserMenu();
+    }
+});
+
+function openUserProfile(event) {
+    event?.preventDefault();
+    closeUserMenu();
+    openUserPreferencesModal();
+    showToast('Profile is local-only for now. Preferences are available here.', 'info');
+}
+
+function openUserPreferencesModal(event) {
+    event?.preventDefault();
+    closeUserMenu();
+    document.getElementById('user-preferences-modal')?.classList.add('open');
+}
+
+function closeUserPreferencesModal() {
+    document.getElementById('user-preferences-modal')?.classList.remove('open');
+}
+
+function saveUserPreferences() {
+    const theme = document.getElementById('pref-theme-mode')?.value || 'dark';
+    const fontScale = document.getElementById('pref-font-scale')?.value || '1';
+    const spacingScale = document.getElementById('pref-spacing-scale')?.value || '1';
+
+    applyThemePreference(theme);
+    document.documentElement.style.fontSize = (Number(fontScale) * 16) + 'px';
+    document.documentElement.style.setProperty('--gap-md', (Number(spacingScale) * 16) + 'px');
+
+    localStorage.setItem('llama-monitor-preferences', JSON.stringify({
+        theme,
+        fontScale,
+        spacingScale,
+    }));
+
+    closeUserPreferencesModal();
+    showToast('Preferences saved', 'success');
+}
+
+function applyThemePreference(theme) {
+    const effectiveTheme = theme === 'auto'
+        ? (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+        : theme;
+    document.documentElement.dataset.theme = effectiveTheme;
+}
+
+function toggleTheme(event) {
+    event?.preventDefault();
+    closeUserMenu();
+    const current = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    const next = current === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    const pref = document.getElementById('pref-theme-mode');
+    if (pref) pref.value = next;
+    showToast('Theme set to ' + next, 'success');
+}
+
+function openUserHelp(event) {
+    event?.preventDefault();
+    closeUserMenu();
+    openKeyboardShortcutsModal();
+}
+
+function logoutUser(event) {
+    event?.preventDefault();
+    closeUserMenu();
+    showToast('No signed-in account is configured for this local app.', 'info');
+}
+
+try {
+    const savedPreferences = JSON.parse(localStorage.getItem('llama-monitor-preferences') || 'null');
+    if (savedPreferences) {
+        applyThemePreference(savedPreferences.theme || 'dark');
+        if (savedPreferences.fontScale) {
+            document.documentElement.style.fontSize = (Number(savedPreferences.fontScale) * 16) + 'px';
+        }
+        if (savedPreferences.spacingScale) {
+            document.documentElement.style.setProperty('--gap-md', (Number(savedPreferences.spacingScale) * 16) + 'px');
+        }
+    }
+} catch (_) {}
+
+document.querySelectorAll('.settings-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const target = tab.dataset.tab;
+        document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.settings-pane').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('settings-' + target)?.classList.add('active');
+    });
+});
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function openModelsModal() {
+    document.getElementById('models-modal')?.classList.add('open');
+    await loadModels();
+}
+
+function closeModelsModal() {
+    document.getElementById('models-modal')?.classList.remove('open');
+}
+
+async function loadModels() {
+    const list = document.getElementById('models-list');
+    const summary = document.getElementById('models-summary');
+    if (!list || !summary) return;
+
+    summary.textContent = 'Loading models...';
+    list.innerHTML = '';
+
+    try {
+        const resp = await fetch('/api/models');
+        const models = await resp.json();
+        summary.textContent = models.length ? models.length + ' model' + (models.length === 1 ? '' : 's') + ' found' : 'No models found';
+        list.innerHTML = models.length ? models.map(model => {
+            const name = model.model_name || model.filename;
+            const meta = [
+                model.quant_type || 'unknown quant',
+                model.size_display || '',
+                model.is_split ? 'split model' : ''
+            ].filter(Boolean).join(' · ');
+            return '<div class="model-item">' +
+                '<div><div class="model-name" title="' + escapeHtml(model.path) + '">' + escapeHtml(name) + '</div>' +
+                '<div class="model-meta">' + escapeHtml(model.filename) + '</div></div>' +
+                '<div class="model-meta">' + escapeHtml(meta) + '</div>' +
+                '</div>';
+        }).join('') : '<div class="model-item"><div class="model-name">No models discovered</div><div class="model-meta">Configure --models-dir or model paths in presets.</div></div>';
+    } catch (err) {
+        summary.textContent = 'Failed to load models';
+        list.innerHTML = '<div class="model-item"><div class="model-name">Error</div><div class="model-meta">' + escapeHtml(err.message) + '</div></div>';
+    }
+}
+
+async function refreshModels() {
+    const summary = document.getElementById('models-summary');
+    if (summary) summary.textContent = 'Refreshing...';
+    try {
+        const resp = await fetch('/api/models/refresh', { method: 'POST' });
+        const data = await resp.json();
+        if (!data.ok) showToast('Model refresh failed: ' + (data.error || 'unknown'), 'error');
+    } catch (err) {
+        showToast('Model refresh failed: ' + err.message, 'error');
+    }
+    await loadModels();
 }
 
 
@@ -440,6 +629,16 @@ function saveConfig() {
 
 }
 
+function usePathServerBinary() {
+
+    const input = document.getElementById('set-server-path');
+
+    if (input) input.value = '';
+
+    showToast('llama-server will be resolved from PATH', 'info');
+
+}
+
 function inferredAgentUrl() {
 
     const explicit = document.getElementById('set-remote-agent-url')?.value.trim();
@@ -462,6 +661,230 @@ function inferredAgentUrl() {
 
     }
 
+}
+
+function remoteEndpointHost() {
+    const endpoint = document.getElementById('server-endpoint')?.value.trim();
+    if (!endpoint) return '';
+
+    try {
+        const url = new URL(endpoint.includes('://') ? endpoint : 'http://' + endpoint);
+        return url.hostname || '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function inferSshGuideDefaults() {
+    const hostInput = document.getElementById('ssh-guide-host');
+    const userInput = document.getElementById('ssh-guide-user');
+    const portInput = document.getElementById('ssh-guide-port');
+    const existingTarget = document.getElementById('set-remote-agent-ssh-target')?.value.trim();
+    const endpointHost = remoteEndpointHost();
+
+    if (hostInput && !hostInput.value.trim()) {
+        hostInput.value = endpointHost || '127.0.0.1';
+    }
+
+    if (portInput && !portInput.value.trim()) {
+        portInput.value = '22';
+    }
+
+    if (existingTarget && existingTarget.includes('@') && userInput && !userInput.value.trim()) {
+        const afterScheme = existingTarget.replace(/^ssh:\/\//, '');
+        userInput.value = afterScheme.split('@')[0] || '';
+    }
+}
+
+function updateSshGuideAuthFields() {
+    const auth = document.getElementById('ssh-guide-auth')?.value || 'agent';
+    const passwordRow = document.getElementById('ssh-guide-password-row');
+    const keyRow = document.getElementById('ssh-guide-key-row');
+    const passphraseRow = document.getElementById('ssh-guide-passphrase-row');
+
+    if (passwordRow) passwordRow.style.display = auth === 'password' ? '' : 'none';
+    if (keyRow) keyRow.style.display = auth === 'key' ? '' : 'none';
+    if (passphraseRow) passphraseRow.style.display = auth === 'key' ? '' : 'none';
+}
+
+function openSshSetupGuide() {
+    const guide = document.getElementById('ssh-setup-guide');
+    if (!guide) return;
+
+    inferSshGuideDefaults();
+    updateSshGuideAuthFields();
+    previewSshSetupGuide();
+    guide.style.display = '';
+    guide.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function closeSshSetupGuide() {
+    const guide = document.getElementById('ssh-setup-guide');
+    if (guide) guide.style.display = 'none';
+}
+
+function collectSshGuideConnection() {
+    const host = document.getElementById('ssh-guide-host')?.value.trim() || '';
+    const username = document.getElementById('ssh-guide-user')?.value.trim() || '';
+    const port = parseInt(document.getElementById('ssh-guide-port')?.value, 10) || 22;
+    const auth = document.getElementById('ssh-guide-auth')?.value || 'agent';
+    const connection = { host, username, port };
+
+    if (auth === 'password') {
+        connection.password = document.getElementById('ssh-guide-password')?.value || '';
+    } else if (auth === 'key') {
+        connection.private_key_path = document.getElementById('ssh-guide-key-path')?.value.trim() || '';
+        connection.private_key_passphrase = document.getElementById('ssh-guide-key-passphrase')?.value || '';
+    }
+
+    return { auth, connection };
+}
+
+function sshTargetFromConnection(connection) {
+    const userHost = connection.username ? connection.username + '@' + connection.host : connection.host;
+    return connection.port && connection.port !== 22 ? 'ssh://' + userHost + ':' + connection.port : userHost;
+}
+
+function previewSshSetupGuide() {
+    const plan = document.getElementById('ssh-guide-plan');
+    if (!plan) return;
+
+    const { auth, connection } = collectSshGuideConnection();
+    if (!connection.host) {
+        plan.textContent = 'Fill in the host details to preview the install/start plan.';
+        return;
+    }
+
+    const target = sshTargetFromConnection(connection);
+    const agentUrl = 'http://' + connection.host + ':7779';
+    const authLabel = auth === 'password' ? 'password for this operation' : auth === 'key' ? 'private key file' : 'SSH agent or keychain';
+
+    plan.innerHTML = [
+        '<strong>SSH target:</strong> ' + escapeHtml(target),
+        '<strong>Agent URL:</strong> ' + escapeHtml(agentUrl),
+        '<strong>Auth:</strong> ' + escapeHtml(authLabel),
+        '<strong>Install path:</strong> detected by OS; usually ~/.config/llama-monitor/bin/llama-monitor or %APPDATA%\\llama-monitor\\bin\\llama-monitor.exe',
+        '<strong>Release source:</strong> latest llama-monitor GitHub release asset matching remote OS/architecture',
+        '<strong>Remote command:</strong> default OS-specific agent start command unless you override it below'
+    ].join('<br>');
+}
+
+function formatHostKey(keyHex) {
+    return String(keyHex || '').match(/.{1,2}/g)?.join(':') || '';
+}
+
+async function scanSshHostKey() {
+    const { connection } = collectSshGuideConnection();
+    if (!connection.host) {
+        showRemoteAgentValidation('Enter a remote SSH host first.', 'error');
+        document.getElementById('ssh-guide-host')?.focus();
+        return;
+    }
+
+    const hostKeyEl = document.getElementById('ssh-guide-host-key');
+    const trustBtn = document.getElementById('btn-ssh-guide-trust');
+    if (hostKeyEl) {
+        hostKeyEl.style.display = '';
+        hostKeyEl.textContent = 'Scanning host key...';
+    }
+    if (trustBtn) trustBtn.style.display = 'none';
+
+    try {
+        const resp = await fetch('/api/remote-agent/ssh/host-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ssh_target: sshTargetFromConnection(connection),
+                ssh_connection: connection
+            })
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+            latestSshHostKey = null;
+            if (hostKeyEl) hostKeyEl.textContent = 'Host-key scan failed: ' + (data.error || 'unknown error');
+            return;
+        }
+
+        latestSshHostKey = data.host_key;
+        if (hostKeyEl) {
+            hostKeyEl.innerHTML = [
+                '<strong>Host key:</strong> ' + escapeHtml(data.host_key.key_type),
+                '<strong>Host:</strong> ' + escapeHtml(data.host_key.host + ':' + data.host_key.port),
+                '<strong>Fingerprint:</strong> ' + escapeHtml(formatHostKey(data.host_key.key_hex)),
+                data.host_key.trusted ? '<strong>Status:</strong> trusted' : '<strong>Status:</strong> not trusted yet'
+            ].join('<br>');
+        }
+        if (trustBtn) trustBtn.style.display = data.host_key.trusted ? 'none' : '';
+    } catch (err) {
+        latestSshHostKey = null;
+        if (hostKeyEl) hostKeyEl.textContent = 'Host-key scan failed: ' + err.message;
+    }
+}
+
+async function trustSshHostKey() {
+    const { connection } = collectSshGuideConnection();
+    if (!latestSshHostKey?.key_hex) {
+        showRemoteAgentValidation('Scan the host key before trusting it.', 'error');
+        return;
+    }
+
+    const resp = await fetch('/api/remote-agent/ssh/trust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            ssh_target: sshTargetFromConnection(connection),
+            ssh_connection: connection,
+            key_hex: latestSshHostKey.key_hex
+        })
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+        showRemoteAgentValidation('Failed to trust host key: ' + (data.error || 'unknown error'), 'error');
+        return;
+    }
+
+    clearRemoteAgentValidation();
+    document.getElementById('btn-ssh-guide-trust')?.style.setProperty('display', 'none');
+    const hostKeyEl = document.getElementById('ssh-guide-host-key');
+    if (hostKeyEl) {
+        hostKeyEl.innerHTML += '<br><strong>Status:</strong> trusted for future SSH operations';
+    }
+    setRemoteAgentStatus('SSH host key trusted. You can now click <strong>Check Host</strong>, <strong>Install & Start</strong>, or <strong>Start Agent</strong>.', 'ok');
+}
+
+function applySshSetupGuide() {
+    const { connection } = collectSshGuideConnection();
+
+    if (!connection.host) {
+        showRemoteAgentValidation('Enter a remote SSH host first.', 'error');
+        document.getElementById('ssh-guide-host')?.focus();
+        return;
+    }
+
+    const target = sshTargetFromConnection(connection);
+    const targetInput = document.getElementById('set-remote-agent-ssh-target');
+    const agentUrlInput = document.getElementById('set-remote-agent-url');
+
+    if (targetInput) targetInput.value = target;
+    if (agentUrlInput && !agentUrlInput.value.trim()) {
+        agentUrlInput.value = 'http://' + connection.host + ':7779';
+    }
+
+    remoteAgentSshConnection = connection;
+    clearRemoteAgentValidation();
+    setRemoteAgentStatus('Guided SSH settings are ready. Click <strong>Check Host</strong>, <strong>Install & Start</strong>, or <strong>Start Agent</strong> when you want to contact the remote machine.', 'info');
+    saveSettings();
+}
+
+function remoteAgentSshPayload() {
+    const sshTarget = document.getElementById('set-remote-agent-ssh-target')?.value.trim();
+    const payload = { ssh_target: sshTarget };
+
+    if (remoteAgentSshConnection && sshTarget === sshTargetFromConnection(remoteAgentSshConnection)) {
+        payload.ssh_connection = remoteAgentSshConnection;
+    }
+
+    return payload;
 }
 
 function setRemoteAgentStatus(message, kind) {
@@ -529,12 +952,16 @@ function hideRemoteAgentProgress() {
 
 function setRemoteAgentButtonsDisabled(disabled) {
 
+    const detectBtn = document.getElementById('btn-remote-agent-detect');
+    const latestBtn = document.getElementById('btn-remote-agent-latest');
     const installBtn = document.getElementById('btn-remote-agent-install');
     const startBtn = document.getElementById('btn-remote-agent-start');
     const updateBtn = document.getElementById('btn-remote-agent-update');
     const stopBtn = document.getElementById('btn-remote-agent-stop');
     const restartBtn = document.getElementById('btn-remote-agent-restart');
 
+    if (detectBtn) detectBtn.disabled = disabled;
+    if (latestBtn) latestBtn.disabled = disabled;
     if (installBtn) installBtn.disabled = disabled;
     if (startBtn) startBtn.disabled = disabled;
     if (updateBtn) updateBtn.disabled = disabled;
@@ -593,6 +1020,7 @@ function escapeHtml(value) {
 async function remoteAgentLatestRelease() {
 
     showRemoteAgentProgress('Checking latest release...', 100, 100);
+    setRemoteAgentButtonsDisabled(true);
 
     try {
 
@@ -603,6 +1031,7 @@ async function remoteAgentLatestRelease() {
         if (!data.ok) {
 
             hideRemoteAgentProgress();
+            setRemoteAgentButtonsDisabled(false);
             setRemoteAgentStatus('Release check failed: ' + escapeHtml(data.error || 'unknown error'), 'error');
             return;
 
@@ -610,13 +1039,20 @@ async function remoteAgentLatestRelease() {
 
         const assets = (data.release.assets || []).map(asset => escapeHtml(asset.name)).join('<br>');
 
-        setRemoteAgentStatus('<strong>' + escapeHtml(data.release.tag_name) + '</strong><br>' + assets, 'ok');
+        const latestEl = document.getElementById('remote-agent-latest-version');
+        if (latestEl) latestEl.textContent = data.release.tag_name || 'Unknown';
 
-        setTimeout(() => hideRemoteAgentProgress(), 1000);
+        setRemoteAgentStatus('<strong>Latest release:</strong> ' + escapeHtml(data.release.tag_name) + '<br>' + assets, 'ok');
+
+        setTimeout(() => {
+            hideRemoteAgentProgress();
+            setRemoteAgentButtonsDisabled(false);
+        }, 500);
 
     } catch (err) {
 
         hideRemoteAgentProgress();
+        setRemoteAgentButtonsDisabled(false);
         setRemoteAgentStatus('Release check failed: ' + escapeHtml(String(err)), 'error');
 
     }
@@ -651,11 +1087,8 @@ async function remoteAgentDetect(showProgress = false) {
             headers: { 'Content-Type': 'application/json' },
 
             body: JSON.stringify({
-
-                ssh_target: sshTarget,
-
+                ...remoteAgentSshPayload(),
                 agent_url: inferredAgentUrl() || null,
-
             }),
 
         });
@@ -773,13 +1206,9 @@ async function remoteAgentInstall() {
             headers: { 'Content-Type': 'application/json' },
 
             body: JSON.stringify({
-
-                ssh_target: sshTarget,
-
+                ...remoteAgentSshPayload(),
                 asset: detectData.matching_asset,
-
                 install_path: detectData.install_path,
-
             }),
 
         });
@@ -865,13 +1294,9 @@ async function remoteAgentStart() {
             headers: { 'Content-Type': 'application/json' },
 
             body: JSON.stringify({
-
-                ssh_target: sshTarget,
-
+                ...remoteAgentSshPayload(),
                 install_path: installPath,
-
                 start_command: startCommand,
-
             }),
 
         });
@@ -980,11 +1405,8 @@ async function remoteAgentUpdate() {
             headers: { 'Content-Type': 'application/json' },
 
             body: JSON.stringify({
-
-                ssh_target: sshTarget,
-
+                ...remoteAgentSshPayload(),
                 agent_url: inferredAgentUrl() || null,
-
             }),
 
         });
@@ -1044,11 +1466,7 @@ async function remoteAgentStop() {
 
             headers: { 'Content-Type': 'application/json' },
 
-            body: JSON.stringify({
-
-                ssh_target: sshTarget,
-
-            }),
+            body: JSON.stringify(remoteAgentSshPayload()),
 
         });
 
@@ -1116,9 +1534,9 @@ function updateRemoteAgentPanelState(data) {
 
     if (!versionsEl) return;
 
-    const latestVer = data.latest_release?.tag_name || data.release?.tag_name || 'N/A';
+    const latestVer = data.latest_release?.tag_name || data.release?.tag_name || 'Not checked';
 
-    const installedVer = data.installed_version || 'N/A';
+    const installedVer = data.installed_version || (data.installed ? 'Unknown' : 'Not installed');
 
     document.getElementById('remote-agent-latest-version').textContent = latestVer;
 
@@ -1181,7 +1599,7 @@ function updateRemoteAgentPanelState(data) {
             document.getElementById('remote-agent-status-indicator').textContent = '● Ready';
             document.getElementById('remote-agent-status-indicator').style.color = '#a3be8b';
         } else {
-            document.getElementById('remote-agent-status-indicator').textContent = '● Ready';
+            document.getElementById('remote-agent-status-indicator').textContent = '● Not running';
             document.getElementById('remote-agent-status-indicator').style.color = '#8899aa';
         }
 
@@ -1206,6 +1624,20 @@ function showRemoteAgentFirewall(showAlert = true) {
 }
 
 function openFirewallHelp() {
+    openConfigModal();
+
+    const panel = document.getElementById('remote-agent-panel');
+    if (panel) panel.open = true;
+
+    const agentUrlInput = document.getElementById('set-remote-agent-url');
+    if (agentUrlInput && !agentUrlInput.value.trim()) {
+        agentUrlInput.value = inferredAgentUrl();
+    }
+
+    const sshTargetInput = document.getElementById('set-remote-agent-ssh-target');
+    if (sshTargetInput && !sshTargetInput.value.trim()) {
+        sshTargetInput.value = remoteEndpointHost();
+    }
 
     const firewallEl = document.getElementById('remote-agent-firewall');
 
@@ -1213,7 +1645,16 @@ function openFirewallHelp() {
         firewallEl.style.display = '';
     }
 
-    window.scrollTo({ top: firewallEl.offsetTop - 100, behavior: 'smooth' });
+    setRemoteAgentStatus(
+        'Configure the remote agent for this host, then use <strong>Install & Start</strong> or <strong>Start Agent</strong>. If the agent starts but remains unreachable, open TCP port <strong>7779</strong> on the remote machine.',
+        'info'
+    );
+
+    setTimeout(() => {
+        if (firewallEl) firewallEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        sshTargetInput?.focus();
+        sshTargetInput?.select();
+    }, 50);
 
 }
 
@@ -2505,20 +2946,34 @@ async function switchSession(sessionId) {
 
 
 function openSessionModal() {
-
     const modal = document.getElementById('session-modal');
-
-    const title = document.getElementById('modal-session-title');
-
+    const title = document.getElementById('session-modal-title');
     const form = document.getElementById('session-form');
 
     form.reset();
-
     title.textContent = 'New Session';
-
     modal.classList.add('open');
-
+    updateSessionModalMode();
 }
+
+function updateSessionModalMode() {
+    const mode = document.getElementById('modal-session-mode')?.value || 'spawn';
+    const label = document.getElementById('modal-session-port-label');
+    const input = document.getElementById('modal-session-port');
+    if (!label || !input) return;
+
+    if (mode === 'attach') {
+        label.textContent = 'Endpoint';
+        input.placeholder = 'http://127.0.0.1:8001';
+        input.value = document.getElementById('server-endpoint')?.value || '';
+    } else {
+        label.textContent = 'Port';
+        input.placeholder = '8001';
+        input.value = activeSessionPort || 8001;
+    }
+}
+
+document.getElementById('modal-session-mode')?.addEventListener('change', updateSessionModalMode);
 
 
 
@@ -2531,61 +2986,51 @@ function closeSessionModal() {
 
 
 function saveSession(event) {
-
     event.preventDefault();
 
-    const mode = document.getElementById('session-mode').value;
-
-    const name = document.getElementById('session-name').value;
-
-    
+    const mode = document.getElementById('modal-session-mode').value;
+    const name = document.getElementById('modal-session-name').value.trim();
 
     if (!name) {
-
         showToast('Please enter a session name', 'error');
-
         return;
-
     }
 
-    
+    const target = document.getElementById('modal-session-port').value.trim();
+    const presetId = document.getElementById('preset-select')?.value;
+    const endpoint = target || document.getElementById('server-endpoint')?.value.trim();
+    const url = mode === 'attach' ? '/api/attach' : '/api/sessions/spawn';
+    const payload = mode === 'attach'
+        ? { endpoint }
+        : { name, port: parseInt(target, 10) || 8001, preset_id: presetId };
 
-    const payload = { name, port: parseInt(document.getElementById('session-port').value) || 8001 };
+    if (mode === 'attach' && !endpoint) {
+        showToast('Please enter an endpoint', 'error');
+        return;
+    }
 
-    
+    if (mode === 'spawn' && !presetId) {
+        showToast('Select a model preset before creating a spawn session', 'error');
+        return;
+    }
 
-    fetch('/api/sessions/spawn', {
-
+    fetch(url, {
         method: 'POST',
-
         headers: { 'Content-Type': 'application/json' },
-
         body: JSON.stringify(payload),
-
     })
-
     .then(r => r.json())
-
     .then(data => {
-
         if (data.ok) {
-
             closeSessionModal();
-
             loadSessions();
-
-            showToast('Session created', 'success');
-
+            updateActiveSessionInfo();
+            showToast(mode === 'attach' ? 'Attached to endpoint' : 'Session created', 'success');
         } else {
-
             showToast('Failed to create session: ' + data.error, 'error');
-
         }
-
     })
-
     .catch(err => showToast('Failed to create session: ' + err.message, 'error'));
-
 }
 
 
@@ -2646,18 +3091,8 @@ function setMetricSectionVisibility(tbodyId, visible) {
     const tbody = document.getElementById(tbodyId);
     if (!tbody) return;
 
-    const tableWrap = tbody.closest('.table-wrap');
-    if (tableWrap) {
-        tableWrap.style.display = visible ? '' : 'none';
-    }
-
-    let heading = tableWrap ? tableWrap.previousElementSibling : null;
-    while (heading && heading.tagName !== 'H2') {
-        heading = heading.previousElementSibling;
-    }
-    if (heading) {
-        heading.style.display = visible ? '' : 'none';
-    }
+    const section = tbody.closest('.metric-section');
+    if (section) section.style.display = visible ? '' : 'none';
 }
 
 ws.onmessage = e => {
@@ -2810,13 +3245,13 @@ ws.onmessage = e => {
 
         const severityClass = pct >= 95 ? 'severity-critical' : pct >= 80 ? 'severity-warning' : 'severity-normal';
 
-        document.getElementById('m-ctx').className = 'metric-value ctx ' + severityClass;
+        document.getElementById('m-ctx').className = 'widget-metric-value ctx ' + severityClass;
 
         document.getElementById('m-ctx').textContent = l.kv_cache_tokens + ' / ' + l.kv_cache_max + ' (' + pct.toFixed(1) + '%)';
 
     } else {
 
-        document.getElementById('m-ctx').className = 'metric-value ctx';
+        document.getElementById('m-ctx').className = 'widget-metric-value ctx';
 
         document.getElementById('m-ctx').textContent = getEmptyStateMessage(systemReason, '\u2014');
 
@@ -2838,7 +3273,7 @@ ws.onmessage = e => {
 
     statusEl.textContent = l && l.status ? l.status : '\u2014';
 
-    statusEl.className = 'metric-value ' + (l && l.status === 'ok' ? 'status-ok' : l && l.status === 'no slot available' ? 'status-busy' : 'status-err');
+    statusEl.className = 'widget-metric-value ' + (l && l.status === 'ok' ? 'status-ok' : l && l.status === 'no slot available' ? 'status-busy' : 'status-err');
 
 
 

@@ -18,12 +18,17 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
         }
     };
 
-    loop {
-        // Get active session ID
-        let active_id = { state.active_session_id.lock().unwrap().clone() };
+    let mut enabled = false;
 
-        // Skip polling if no active session
+    loop {
+        if !enabled {
+            state.llama_poll_notify.notified().await;
+            enabled = true;
+        }
+
+        let active_id = { state.active_session_id.lock().unwrap().clone() };
         if active_id.is_empty() {
+            enabled = false;
             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
             continue;
         }
@@ -43,7 +48,7 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
                     crate::state::SessionMode::Attach { endpoint } => endpoint,
                 }
             } else {
-                // No active session found, skip polling
+                enabled = false;
                 tokio::time::sleep(Duration::from_secs(poll_interval)).await;
                 continue;
             }

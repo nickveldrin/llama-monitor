@@ -5,12 +5,12 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use tokio::process::Command;
 use warp::Filter;
 use warp::http::{HeaderMap, StatusCode};
 
 use crate::config::AppConfig;
 use crate::gpu::{self, GpuMetrics};
+use crate::remote_ssh::{self, SshConnection};
 use crate::state::{AppState, EndpointKind, SessionMode};
 use crate::system::{self, SystemMetrics};
 
@@ -51,6 +51,8 @@ pub struct LatestReleaseInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteAgentDetectRequest {
     pub ssh_target: String,
+    #[serde(default)]
+    pub ssh_connection: Option<SshConnection>,
     pub agent_url: Option<String>,
 }
 
@@ -231,8 +233,17 @@ pub async fn latest_release_info() -> Result<LatestReleaseInfo> {
 }
 
 pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDetectResponse {
-    let ssh_target = req.ssh_target.trim().to_string();
-    if ssh_target.is_empty() {
+    let connection = req
+        .ssh_connection
+        .clone()
+        .unwrap_or_else(|| SshConnection::from_target(&req.ssh_target));
+    let ssh_target = if req.ssh_target.trim().is_empty() {
+        connection.target_label()
+    } else {
+        req.ssh_target.trim().to_string()
+    };
+
+    if ssh_target.is_empty() || connection.host.trim().is_empty() {
         return RemoteAgentDetectResponse {
             ok: false,
             ssh_target,
@@ -250,12 +261,12 @@ pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDe
         };
     }
 
-    let remote_os = detect_remote_os(&ssh_target).await;
+    let remote_os = detect_remote_os_with(&connection).await;
     let os = remote_os.as_str().to_string();
-    let arch = detect_remote_arch(&ssh_target, remote_os).await;
+    let arch = detect_remote_arch_with(&connection, remote_os).await;
     let install_path = install_path_for_os(remote_os).map(ToOwned::to_owned);
     let installed = if let Some(path) = install_path.as_deref() {
-        remote_file_exists(&ssh_target, remote_os, path).await
+        remote_file_exists_with(&connection, remote_os, path).await
     } else {
         false
     };
@@ -268,7 +279,7 @@ pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDe
     let ssh_ok = remote_os != RemoteOs::Unknown;
 
     let installed_version = if installed && ssh_ok {
-        install::get_remote_version(&ssh_target)
+        install::get_remote_version_with(connection.clone())
             .await
             .ok()
             .flatten()
@@ -290,13 +301,12 @@ pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDe
     };
 
     let start_command = if ssh_ok {
-        install::default_start_command_for_target(
-            &ssh_target,
+        default_start_command_for_os(
+            remote_os,
             install_path
                 .as_deref()
                 .unwrap_or("~/.config/llama-monitor/bin/llama-monitor"),
         )
-        .await
     } else {
         String::new()
     };
@@ -345,8 +355,14 @@ pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
         }
     };
     let mut last_autostart_attempt: Option<Instant> = None;
+    let mut enabled = false;
 
     loop {
+        if !enabled {
+            state.llama_poll_notify.notified().await;
+            enabled = true;
+        }
+
         let settings = state.ui_settings.lock().unwrap().clone();
         let configured_url = first_non_empty([
             app_config.remote_agent_url.as_deref(),
@@ -407,6 +423,7 @@ pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
             }
         } else {
             mark_disconnected(&state);
+            enabled = false;
         }
 
         tokio::time::sleep(REMOTE_AGENT_POLL_INTERVAL).await;
@@ -456,26 +473,37 @@ async fn maybe_autostart_remote_agent(
 
     eprintln!("[agent] Attempting remote agent autostart via ssh {target}");
 
-    let mut child = match Command::new("ssh").arg(&target).arg(&command).spawn() {
-        Ok(child) => child,
+    let connection = match remote_ssh::with_trusted_host_key(
+        SshConnection::from_target(&target),
+        &app_config.ssh_known_hosts_file,
+    ) {
+        Ok(connection) => connection,
         Err(e) => {
-            eprintln!("[agent] Failed to launch ssh autostart command: {e}");
+            eprintln!("[agent] Remote agent autostart blocked by SSH trust check: {e}");
             return;
         }
     };
 
-    match tokio::time::timeout(REMOTE_AGENT_AUTOSTART_TIMEOUT, child.wait()).await {
-        Ok(Ok(status)) if status.success() => {
+    match tokio::time::timeout(
+        REMOTE_AGENT_AUTOSTART_TIMEOUT,
+        remote_ssh::exec(connection, command),
+    )
+    .await
+    {
+        Ok(Ok(output)) if output.status == 0 => {
             eprintln!("[agent] Remote agent autostart command completed");
         }
-        Ok(Ok(status)) => {
-            eprintln!("[agent] Remote agent autostart command exited with {status}");
+        Ok(Ok(output)) => {
+            eprintln!(
+                "[agent] Remote agent autostart command exited with status {}: {}",
+                output.status,
+                output.stderr.trim()
+            );
         }
         Ok(Err(e)) => {
             eprintln!("[agent] Remote agent autostart command failed: {e}");
         }
         Err(_) => {
-            let _ = child.kill().await;
             eprintln!("[agent] Remote agent autostart timed out; use a detached remote command");
         }
     }
@@ -542,15 +570,22 @@ fn remote_host_from_agent_url(agent_url: &str) -> Option<String> {
 }
 
 async fn default_remote_agent_command_for_target(target: &str) -> String {
-    match detect_remote_os(target).await {
+    default_start_command_for_os(
+        detect_remote_os(target).await,
+        "~/.config/llama-monitor/bin/llama-monitor",
+    )
+}
+
+fn default_start_command_for_os(os: RemoteOs, install_path: &str) -> String {
+    match os {
         RemoteOs::Windows => format!(
             "schtasks /Create /TN llama-monitor-agent /TR \"\\\"%APPDATA%\\llama-monitor\\bin\\llama-monitor.exe\\\" --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}\" /SC ONCE /ST 23:59 /F && schtasks /Run /TN llama-monitor-agent && schtasks /Delete /TN llama-monitor-agent /F"
         ),
         RemoteOs::Unix | RemoteOs::Macos => format!(
-            "nohup ~/.config/llama-monitor/bin/llama-monitor --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT} > ~/.config/llama-monitor/agent.log 2>&1 &"
+            "nohup {install_path} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT} > ~/.config/llama-monitor/agent.log 2>&1 &"
         ),
         RemoteOs::Unknown => format!(
-            "llama-monitor --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}"
+            "{install_path} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}"
         ),
     }
 }
@@ -564,23 +599,24 @@ pub enum RemoteOs {
 }
 
 async fn detect_remote_os(target: &str) -> RemoteOs {
-    let windows = Command::new("ssh")
-        .arg(target)
-        .args(["cmd.exe", "/C", "ver"])
-        .output();
+    detect_remote_os_with(&SshConnection::from_target(target)).await
+}
+
+async fn detect_remote_os_with(connection: &SshConnection) -> RemoteOs {
+    let windows = remote_ssh::exec(connection.clone(), "cmd.exe /C ver".to_string());
 
     if let Ok(Ok(output)) = tokio::time::timeout(Duration::from_secs(5), windows).await
-        && output.status.success()
-        && String::from_utf8_lossy(&output.stdout).contains("Windows")
+        && output.status == 0
+        && output.stdout.contains("Windows")
     {
         return RemoteOs::Windows;
     }
 
-    let unix = Command::new("ssh").arg(target).arg("uname -s").output();
+    let unix = remote_ssh::exec(connection.clone(), "uname -s".to_string());
     if let Ok(Ok(output)) = tokio::time::timeout(Duration::from_secs(5), unix).await
-        && output.status.success()
+        && output.status == 0
     {
-        let name = String::from_utf8_lossy(&output.stdout).to_ascii_lowercase();
+        let name = output.stdout.to_ascii_lowercase();
         if name.contains("darwin") {
             return RemoteOs::Macos;
         }
@@ -588,6 +624,10 @@ async fn detect_remote_os(target: &str) -> RemoteOs {
     }
 
     RemoteOs::Unknown
+}
+
+pub async fn detect_remote_os_for_connection(connection: SshConnection) -> RemoteOs {
+    detect_remote_os_with(&connection).await
 }
 
 #[derive(Debug)]
@@ -649,44 +689,45 @@ fn install_path_for_os(os: RemoteOs) -> Option<&'static str> {
     }
 }
 
-async fn detect_remote_arch(target: &str, os: RemoteOs) -> String {
-    let output = match os {
-        RemoteOs::Windows => Command::new("ssh")
-            .arg(target)
-            .args(["cmd.exe", "/C", "echo", "%PROCESSOR_ARCHITECTURE%"])
-            .output(),
-        RemoteOs::Unix | RemoteOs::Macos => {
-            Command::new("ssh").arg(target).arg("uname -m").output()
-        }
+fn default_install_path_for_os(os: RemoteOs) -> String {
+    install_path_for_os(os)
+        .unwrap_or("/tmp/llama-monitor")
+        .to_string()
+}
+
+async fn detect_remote_arch_with(connection: &SshConnection, os: RemoteOs) -> String {
+    let command = match os {
+        RemoteOs::Windows => "cmd.exe /C echo %PROCESSOR_ARCHITECTURE%",
+        RemoteOs::Unix | RemoteOs::Macos => "uname -m",
         RemoteOs::Unknown => return "unknown".to_string(),
     };
 
-    match tokio::time::timeout(Duration::from_secs(5), output).await {
-        Ok(Ok(output)) if output.status.success() => {
-            normalize_arch(String::from_utf8_lossy(&output.stdout).trim())
-        }
+    match tokio::time::timeout(
+        Duration::from_secs(5),
+        remote_ssh::exec(connection.clone(), command.to_string()),
+    )
+    .await
+    {
+        Ok(Ok(output)) if output.status == 0 => normalize_arch(output.stdout.trim()),
         _ => "unknown".to_string(),
     }
 }
 
-async fn remote_file_exists(target: &str, os: RemoteOs, path: &str) -> bool {
-    let output = match os {
-        RemoteOs::Windows => Command::new("ssh")
-            .arg(target)
-            .args(["cmd.exe", "/C", "if", "exist", path, "(echo", "yes)"])
-            .output(),
-        RemoteOs::Unix | RemoteOs::Macos => Command::new("ssh")
-            .arg(target)
-            .arg(format!("test -x {path} && echo yes"))
-            .output(),
+async fn remote_file_exists_with(connection: &SshConnection, os: RemoteOs, path: &str) -> bool {
+    let command = match os {
+        RemoteOs::Windows => format!("cmd.exe /C if exist \"{path}\" (echo yes)"),
+        RemoteOs::Unix | RemoteOs::Macos => format!("test -x {path} && echo yes"),
         RemoteOs::Unknown => return false,
     };
 
     matches!(
-        tokio::time::timeout(Duration::from_secs(5), output).await,
+        tokio::time::timeout(
+            Duration::from_secs(5),
+            remote_ssh::exec(connection.clone(), command)
+        )
+        .await,
         Ok(Ok(output))
-            if output.status.success()
-                && String::from_utf8_lossy(&output.stdout).contains("yes")
+            if output.status == 0 && output.stdout.contains("yes")
     )
 }
 
@@ -731,6 +772,8 @@ pub mod install {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct RemoteAgentInstallRequest {
         pub ssh_target: String,
+        #[serde(default)]
+        pub ssh_connection: Option<SshConnection>,
         pub asset: ReleaseAssetInfo,
         pub install_path: Option<String>,
     }
@@ -747,10 +790,12 @@ pub mod install {
 
     pub async fn install_remote_agent(
         ssh_target: &str,
+        ssh_connection: Option<SshConnection>,
         asset: &ReleaseAssetInfo,
         install_path: Option<String>,
         os: RemoteOs,
     ) -> Result<RemoteAgentInstallResponse> {
+        let connection = ssh_connection.unwrap_or_else(|| SshConnection::from_target(ssh_target));
         let temp_local_path = download_asset_locally(asset).await?;
         let temp_extracted_path = if asset.archive {
             Some(extract_archive_with_timeout(&temp_local_path, asset).await?)
@@ -762,23 +807,23 @@ pub mod install {
             .unwrap_or(temp_local_path.as_str());
 
         let remote_temp_path = format!("/tmp/{}", asset.name);
-        copy_to_remote(ssh_target, binary_local_path, &remote_temp_path, os).await?;
+        copy_to_remote(&connection, binary_local_path, &remote_temp_path, os).await?;
 
         let install_path = install_path
             .or_else(|| install_path_for_os(os).map(ToOwned::to_owned))
             .context("Could not determine install path")?;
 
-        move_binary_to_install_path(ssh_target, &remote_temp_path, &install_path, os).await?;
+        move_binary_to_install_path(&connection, &remote_temp_path, &install_path, os).await?;
 
         if os == RemoteOs::Unix || os == RemoteOs::Macos {
-            set_executable_bit(ssh_target, &install_path, os).await?;
+            set_executable_bit(&connection, &install_path, os).await?;
         }
 
-        let installed = remote_file_exists(ssh_target, os, &install_path).await;
+        let installed = remote_file_exists_with(&connection, os, &install_path).await;
 
         Ok(RemoteAgentInstallResponse {
             ok: installed,
-            ssh_target: ssh_target.to_string(),
+            ssh_target: connection.target_label(),
             asset_name: asset.name.clone(),
             install_path,
             installed,
@@ -825,78 +870,71 @@ pub mod install {
     }
 
     async fn copy_to_remote(
-        ssh_target: &str,
+        connection: &SshConnection,
         local_path: &str,
         remote_path: &str,
         _os: RemoteOs,
     ) -> Result<()> {
-        let output = Command::new("scp")
-            .arg(local_path)
-            .arg(format!("{ssh_target}:{remote_path}"))
-            .output()
-            .await?;
-
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(io::Error::other("SCP failed").into())
-        }
+        remote_ssh::copy_to_remote(
+            connection.clone(),
+            local_path.to_string(),
+            remote_path.to_string(),
+            0o755,
+        )
+        .await
     }
 
     async fn move_binary_to_install_path(
-        ssh_target: &str,
+        connection: &SshConnection,
         temp_path: &str,
         install_path: &str,
         os: RemoteOs,
     ) -> Result<()> {
-        let output = match os {
-            RemoteOs::Windows => {
-                Command::new("ssh")
-                    .arg(ssh_target)
-                    .args(["cmd.exe", "/C", "mkdir", "%APPDATA%\\llama-monitor\\bin"])
-                    .output()
-                    .await?
-            }
-            RemoteOs::Unix | RemoteOs::Macos => {
-                Command::new("ssh")
-                    .arg(ssh_target)
-                    .args(["mkdir", "-p", "~/.config/llama-monitor/bin"])
-                    .output()
-                    .await?
-            }
+        let mkdir_command = match os {
+            RemoteOs::Windows => "cmd.exe /C mkdir %APPDATA%\\llama-monitor\\bin".to_string(),
+            RemoteOs::Unix | RemoteOs::Macos => "mkdir -p ~/.config/llama-monitor/bin".to_string(),
             RemoteOs::Unknown => return Err(io::Error::other("Unknown OS").into()),
         };
 
-        if !output.status.success() {
+        let output = remote_ssh::exec(connection.clone(), mkdir_command)
+            .await
+            .map_err(|e| io::Error::other(e.to_string()))?;
+
+        if output.status != 0 {
             return Err(io::Error::other("Failed to create install dir").into());
         }
 
-        let output = Command::new("ssh")
-            .arg(ssh_target)
-            .args(["mv", temp_path, install_path])
-            .output()
-            .await?;
+        let command = match os {
+            RemoteOs::Windows => format!("cmd.exe /C move /Y \"{temp_path}\" \"{install_path}\""),
+            RemoteOs::Unix | RemoteOs::Macos => format!("mv {temp_path} {install_path}"),
+            RemoteOs::Unknown => return Err(io::Error::other("Unknown OS").into()),
+        };
+        let output = remote_ssh::exec(connection.clone(), command)
+            .await
+            .map_err(|e| io::Error::other(e.to_string()))?;
 
-        if output.status.success() {
+        if output.status == 0 {
             Ok(())
         } else {
             Err(io::Error::other("Failed to move binary").into())
         }
     }
 
-    async fn set_executable_bit(ssh_target: &str, path: &str, os: RemoteOs) -> Result<()> {
+    async fn set_executable_bit(
+        connection: &SshConnection,
+        path: &str,
+        os: RemoteOs,
+    ) -> Result<()> {
         let output = match os {
             RemoteOs::Unix | RemoteOs::Macos => {
-                Command::new("ssh")
-                    .arg(ssh_target)
-                    .args(["chmod", "+x", path])
-                    .output()
-                    .await?
+                remote_ssh::exec(connection.clone(), format!("chmod +x {path}"))
+                    .await
+                    .map_err(|e| io::Error::other(e.to_string()))?
             }
             _ => return Ok(()),
         };
 
-        if output.status.success() {
+        if output.status == 0 {
             Ok(())
         } else {
             Err(io::Error::other("Failed to set executable bit").into())
@@ -933,25 +971,22 @@ pub mod install {
 
     pub async fn start_remote_agent(
         ssh_target: &str,
+        ssh_connection: Option<SshConnection>,
         install_path: &str,
         command: &str,
     ) -> Result<RemoteAgentStartResponse> {
-        let output = Command::new("ssh")
-            .arg(ssh_target)
-            .arg(command)
-            .output()
-            .await?;
+        let connection = ssh_connection.unwrap_or_else(|| SshConnection::from_target(ssh_target));
+        let output = remote_ssh::exec(connection.clone(), command.to_string()).await?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let error_msg = if !stderr.is_empty() {
-                format!("Start command failed: {}", stderr.trim())
+        if output.status != 0 {
+            let error_msg = if !output.stderr.is_empty() {
+                format!("Start command failed: {}", output.stderr.trim())
             } else {
                 format!("Start command exited with status: {}", output.status)
             };
             return Ok(RemoteAgentStartResponse {
                 ok: false,
-                ssh_target: ssh_target.to_string(),
+                ssh_target: connection.target_label(),
                 install_path: install_path.to_string(),
                 running: false,
                 health_reachable: false,
@@ -961,12 +996,7 @@ pub mod install {
 
         let health_reachable = tokio::time::timeout(Duration::from_secs(10), async {
             loop {
-                if agent_health_reachable(&format!(
-                    "http://{}:{}",
-                    ssh_target, REMOTE_AGENT_DEFAULT_PORT
-                ))
-                .await
-                {
+                if agent_health_reachable(&connection.agent_url(REMOTE_AGENT_DEFAULT_PORT)).await {
                     break;
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -992,7 +1022,7 @@ pub mod install {
 
         Ok(RemoteAgentStartResponse {
             ok: running,
-            ssh_target: ssh_target.to_string(),
+            ssh_target: connection.target_label(),
             install_path: install_path.to_string(),
             running,
             health_reachable: running,
@@ -1000,21 +1030,24 @@ pub mod install {
         })
     }
 
-    pub async fn update_remote_agent(ssh_target: &str) -> Result<RemoteAgentUpdateResponse> {
+    pub async fn update_remote_agent(
+        ssh_target: &str,
+        ssh_connection: Option<SshConnection>,
+    ) -> Result<RemoteAgentUpdateResponse> {
+        let connection = ssh_connection.unwrap_or_else(|| SshConnection::from_target(ssh_target));
         let latest_release = latest_release_info().await?;
-        let remote_version = get_remote_version(ssh_target).await?;
+        let remote_version = get_remote_version_with(connection.clone()).await?;
+        let remote_os = detect_remote_os_with(&connection).await;
+        let remote_arch = detect_remote_arch_with(&connection, remote_os).await;
 
         let matching_asset = latest_release
-            .matching_asset(
-                detect_remote_os(ssh_target).await.as_str(),
-                &detect_remote_arch(ssh_target, detect_remote_os(ssh_target).await).await,
-            )
+            .matching_asset(remote_os.as_str(), &remote_arch)
             .cloned();
 
         if matching_asset.is_none() {
             return Ok(RemoteAgentUpdateResponse {
                 ok: false,
-                ssh_target: ssh_target.to_string(),
+                ssh_target: connection.target_label(),
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
@@ -1022,14 +1055,14 @@ pub mod install {
             });
         }
 
-        let install_path = default_install_path_for_target(ssh_target).await;
+        let install_path = default_install_path_for_os(remote_os);
         let install_path_clone = install_path.clone();
-        let stop_response = stop_remote_agent(ssh_target).await?;
+        let stop_response = stop_remote_agent(ssh_target, Some(connection.clone())).await?;
 
         if !stop_response.stopped {
             return Ok(RemoteAgentUpdateResponse {
                 ok: false,
-                ssh_target: ssh_target.to_string(),
+                ssh_target: connection.target_label(),
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
@@ -1039,16 +1072,17 @@ pub mod install {
 
         let install_response = install_remote_agent(
             ssh_target,
+            Some(connection.clone()),
             &matching_asset.unwrap(),
             Some(install_path_clone),
-            detect_remote_os(ssh_target).await,
+            remote_os,
         )
         .await?;
 
         if !install_response.installed {
             return Ok(RemoteAgentUpdateResponse {
                 ok: false,
-                ssh_target: ssh_target.to_string(),
+                ssh_target: connection.target_label(),
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
@@ -1058,14 +1092,15 @@ pub mod install {
 
         let start_response = start_remote_agent(
             ssh_target,
+            Some(connection.clone()),
             &install_path,
-            &default_start_command_for_target(ssh_target, &install_path).await,
+            &default_start_command_for_os(remote_os, &install_path),
         )
         .await?;
 
         Ok(RemoteAgentUpdateResponse {
             ok: start_response.running,
-            ssh_target: ssh_target.to_string(),
+            ssh_target: connection.target_label(),
             previous_version: remote_version,
             new_version: Some(latest_release.tag_name),
             updated: start_response.running,
@@ -1077,25 +1112,25 @@ pub mod install {
         })
     }
 
-    pub async fn stop_remote_agent(ssh_target: &str) -> Result<RemoteAgentStopResponse> {
-        let os = detect_remote_os(ssh_target).await;
+    pub async fn stop_remote_agent(
+        ssh_target: &str,
+        ssh_connection: Option<SshConnection>,
+    ) -> Result<RemoteAgentStopResponse> {
+        let connection = ssh_connection.unwrap_or_else(|| SshConnection::from_target(ssh_target));
+        let os = detect_remote_os_with(&connection).await;
         let command = match os {
             RemoteOs::Windows => "taskkill /IM llama-monitor.exe /F",
             RemoteOs::Unix | RemoteOs::Macos => "pkill -f llama-monitor",
             RemoteOs::Unknown => return Err(io::Error::other("Unknown OS").into()),
         };
 
-        let output = Command::new("ssh")
-            .arg(ssh_target)
-            .arg(command)
-            .output()
-            .await?;
+        let output = remote_ssh::exec(connection.clone(), command.to_string()).await?;
 
         Ok(RemoteAgentStopResponse {
-            ok: output.status.success(),
-            ssh_target: ssh_target.to_string(),
-            stopped: output.status.success(),
-            error: if output.status.success() {
+            ok: output.status == 0,
+            ssh_target: connection.target_label(),
+            stopped: output.status == 0,
+            error: if output.status == 0 {
                 None
             } else {
                 Some("Failed to stop agent".to_string())
@@ -1103,43 +1138,26 @@ pub mod install {
         })
     }
 
-    pub async fn get_remote_version(ssh_target: &str) -> Result<Option<String>> {
-        let output = Command::new("ssh")
-            .arg(ssh_target)
-            .arg("~/.config/llama-monitor/bin/llama-monitor --version")
-            .output()
-            .await?;
+    pub async fn get_remote_version_with(connection: SshConnection) -> Result<Option<String>> {
+        let output = remote_ssh::exec(
+            connection,
+            "~/.config/llama-monitor/bin/llama-monitor --version".to_string(),
+        )
+        .await?;
 
-        if output.status.success() {
-            let version = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            Ok(Some(version))
+        if output.status == 0 {
+            Ok(Some(output.stdout.trim().to_string()))
         } else {
             Ok(None)
         }
     }
 
     pub async fn default_install_path_for_target(ssh_target: &str) -> String {
-        match detect_remote_os(ssh_target).await {
-            RemoteOs::Windows => "%APPDATA%\\llama-monitor\\bin\\llama-monitor.exe".to_string(),
-            RemoteOs::Unix | RemoteOs::Macos => {
-                "~/.config/llama-monitor/bin/llama-monitor".to_string()
-            }
-            RemoteOs::Unknown => "/tmp/llama-monitor".to_string(),
-        }
+        default_install_path_for_os(detect_remote_os(ssh_target).await)
     }
 
     pub async fn default_start_command_for_target(ssh_target: &str, install_path: &str) -> String {
-        match detect_remote_os(ssh_target).await {
-            RemoteOs::Windows => format!(
-                "schtasks /Create /TN llama-monitor-agent /TR \"\\\"%APPDATA%\\llama-monitor\\bin\\llama-monitor.exe\\\" --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}\" /SC ONCE /ST 23:59 /F && schtasks /Run /TN llama-monitor-agent && schtasks /Delete /TN llama-monitor-agent /F"
-            ),
-            RemoteOs::Unix | RemoteOs::Macos => format!(
-                "nohup {install_path} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT} > ~/.config/llama-monitor/agent.log 2>&1 &"
-            ),
-            RemoteOs::Unknown => format!(
-                "{install_path} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}"
-            ),
-        }
+        default_start_command_for_os(detect_remote_os(ssh_target).await, install_path)
     }
 
     pub async fn detect_remote_os_simple(ssh_target: &str) -> RemoteOs {

@@ -9,6 +9,7 @@ mod lhm_persistence;
 mod llama;
 mod models;
 mod presets;
+mod remote_ssh;
 mod state;
 mod system;
 mod tray;
@@ -178,15 +179,16 @@ fn main() -> Result<()> {
         .enable_all()
         .build()?;
 
-    // Llama metrics poller
+    // Llama metrics poller. It remains idle until the user starts a preset or
+    // explicitly attaches to an endpoint.
     {
         let s = state.clone();
         let interval = app_config.llama_poll_interval;
         runtime.spawn(llama::poller::llama_metrics_poller(s, interval));
     }
 
-    // Remote host metrics poller. For remote attached llama-server endpoints,
-    // this tries the same host on the agent port unless explicitly configured.
+    // Remote host metrics poller. It is gated by the same user action signal,
+    // so app startup never probes saved remote endpoints automatically.
     {
         let s = state.clone();
         let app_config = app_config.clone();

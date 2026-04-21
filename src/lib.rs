@@ -7,6 +7,7 @@ pub mod lhm_persistence;
 pub mod llama;
 pub mod models;
 pub mod presets;
+pub mod remote_ssh;
 pub mod state;
 pub mod system;
 pub mod tray;
