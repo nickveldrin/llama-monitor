@@ -2794,6 +2794,9 @@ async function doAttach() {
 
         }
 
+        // Reset speed max values for new session
+        window.speedMax = { prompt: 0, generation: 0 };
+
     }
 
     updateActiveSessionInfo();
@@ -2819,11 +2822,19 @@ async function doDetach() {
 
         const btnDetach = document.getElementById('btn-detach');
 
+        const btnDetachTop = document.getElementById('btn-detach-top');
+
         if (btnAttach && btnDetach) {
 
             btnAttach.style.display = 'inline-block';
 
             btnDetach.style.display = 'none';
+
+        }
+
+        if (btnDetachTop) {
+
+            btnDetachTop.style.display = 'none';
 
         }
 
@@ -2835,6 +2846,9 @@ async function doDetach() {
             historicBadge.style.display = 'inline-block';
 
         }
+
+        // Reset speed max values on detach
+        window.speedMax = { prompt: 0, generation: 0 };
 
     }
 
@@ -3253,6 +3267,7 @@ ws.onmessage = e => {
     // Update Attach/Detach button states and server endpoint area based on session mode
     const btnAttach = document.getElementById('btn-attach');
     const btnDetach = document.getElementById('btn-detach');
+    const btnDetachTop = document.getElementById('btn-detach-top');
     const attachedIndicator = document.getElementById('attached-indicator');
     const endpointInput = document.getElementById('server-endpoint');
 
@@ -3260,9 +3275,10 @@ ws.onmessage = e => {
     console.log('[ws] session_mode:', d.session_mode, 'active_session_endpoint:', d.active_session_endpoint, 'isAttach:', isAttach);
 
     if (isAttach) {
-        // Attached state: show "Attached to:" indicator, disable input
+        // Attached state: show detach buttons, show indicator, disable input
         btnAttach.style.display = 'none';
         btnDetach.style.display = 'inline-block';
+        if (btnDetachTop) btnDetachTop.style.display = 'inline-block';
         if (attachedIndicator) attachedIndicator.style.display = 'inline-block';
         if (endpointInput) {
             endpointInput.value = d.active_session_endpoint;
@@ -3270,9 +3286,10 @@ ws.onmessage = e => {
             endpointInput.classList.add('readonly');
         }
     } else {
-        // Not attached: hide indicator, enable input
+        // Not attached: hide detach buttons, hide indicator, enable input
         btnAttach.style.display = 'inline-block';
         btnDetach.style.display = 'none';
+        if (btnDetachTop) btnDetachTop.style.display = 'none';
         if (attachedIndicator) attachedIndicator.style.display = 'none';
         if (endpointInput) {
             endpointInput.disabled = false;
@@ -3338,7 +3355,11 @@ ws.onmessage = e => {
     const cpuTempReason = d.availability?.cpu_temp || 'Available';
     const systemReason = d.availability?.system || 'Available';
 
-    // Speed metrics
+    // Speed metrics with adaptive bars (track max values seen)
+    if (!window.speedMax) {
+        window.speedMax = { prompt: 0, generation: 0 };
+    }
+
     const promptEl = document.getElementById('m-prompt');
     const genEl = document.getElementById('m-gen');
     const promptBar = document.getElementById('m-prompt-bar');
@@ -3346,8 +3367,12 @@ ws.onmessage = e => {
 
     if (l && l.prompt_tokens_per_sec > 0) {
         promptEl.textContent = l.prompt_tokens_per_sec.toFixed(1) + ' t/s';
-        // Calculate relative bar width (max 5000 t/s = 100%)
-        const promptPct = Math.min((l.prompt_tokens_per_sec / 5000) * 100, 100);
+        // Update max if this is higher
+        if (l.prompt_tokens_per_sec > window.speedMax.prompt) {
+            window.speedMax.prompt = l.prompt_tokens_per_sec;
+        }
+        // Calculate bar width as percentage of max seen (min 4% for visibility)
+        const promptPct = Math.max((l.prompt_tokens_per_sec / window.speedMax.prompt) * 100, 4);
         if (promptBar) promptBar.style.width = promptPct + '%';
     } else {
         promptEl.textContent = '\u2014';
@@ -3356,8 +3381,12 @@ ws.onmessage = e => {
 
     if (l && l.generation_tokens_per_sec > 0) {
         genEl.textContent = l.generation_tokens_per_sec.toFixed(1) + ' t/s';
-        // Calculate relative bar width (max 200 t/s = 100%)
-        const genPct = Math.min((l.generation_tokens_per_sec / 200) * 100, 100);
+        // Update max if this is higher
+        if (l.generation_tokens_per_sec > window.speedMax.generation) {
+            window.speedMax.generation = l.generation_tokens_per_sec;
+        }
+        // Calculate bar width as percentage of max seen (min 4% for visibility)
+        const genPct = Math.max((l.generation_tokens_per_sec / window.speedMax.generation) * 100, 4);
         if (genBar) genBar.style.width = genPct + '%';
     } else {
         genEl.textContent = '\u2014';

@@ -16,10 +16,11 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
-    <div class="endpoint-health-strip" aria-label="Active endpoint status. Edit the endpoint in the Server Endpoint section below.">
+      <div class="endpoint-health-strip" aria-label="Active endpoint status.">
         <span class="status-label">Active endpoint</span>
         <span class="endpoint-mode" id="endpoint-mode">Loading...</span>
-        <span class="endpoint-url" id="endpoint-url" title="Read-only status. Edit the endpoint in the Server Endpoint section.">...</span>
+        <span class="endpoint-url" id="endpoint-url">...</span>
+        <button class="btn-detach-top" id="btn-detach-top" onclick="doDetach()" style="display:none;" title="Detach from endpoint">Detach</button>
         <span class="endpoint-status" id="endpoint-status">...</span>
         <span class="agent-status" id="agent-status" style="display:none;">
             <span class="agent-indicator">●</span>
@@ -150,19 +151,23 @@
                         <!-- Speed Card -->
                         <div class="widget-card widget-metric widget-speed">
                             <div class="widget-metric-label">SPEED</div>
-                            <div class="speed-values">
-                                <div class="speed-row">
+                            <div class="speed-item">
+                                <div class="speed-header">
                                     <span class="speed-label">prompt</span>
                                     <span class="speed-value" id="m-prompt">&mdash;</span>
                                 </div>
-                                <div class="speed-row">
+                                <div class="speed-bar-bg">
+                                    <div class="speed-bar prompt-bar" id="m-prompt-bar"></div>
+                                </div>
+                            </div>
+                            <div class="speed-item">
+                                <div class="speed-header">
                                     <span class="speed-label">generation</span>
                                     <span class="speed-value" id="m-gen">&mdash;</span>
                                 </div>
-                            </div>
-                            <div class="speed-bar-container">
-                                <div class="speed-bar prompt-bar" id="m-prompt-bar"></div>
-                                <div class="speed-bar gen-bar" id="m-gen-bar"></div>
+                                <div class="speed-bar-bg">
+                                    <div class="speed-bar gen-bar" id="m-gen-bar"></div>
+                                </div>
                             </div>
                         </div>
 

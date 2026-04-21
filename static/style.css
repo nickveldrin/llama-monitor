@@ -610,17 +610,17 @@ svg {
 .widget-speed {
   display: flex;
   flex-direction: column;
-  gap: var(--gap-xs);
+  gap: 14px;
   min-height: 140px;
 }
 
-.speed-values {
+.speed-item {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
-.speed-row {
+.speed-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -630,44 +630,36 @@ svg {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
 .speed-value {
   color: var(--color-text-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 700;
 }
 
-.speed-bar-container {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.speed-bar {
-  height: 4px;
-  border-radius: 2px;
+.speed-bar-bg {
+  height: 6px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
-.speed-bar::after {
-  content: '';
-  display: block;
+.speed-bar {
   height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+  border-radius: 3px;
   transition: width 300ms ease;
+  min-width: 4px;
 }
 
-.prompt-bar::after {
-  background: linear-gradient(90deg, #88c0d1, #88c0d1);
+.prompt-bar {
+  background: linear-gradient(90deg, #88c0d1, #8fbcbb);
 }
 
-.gen-bar::after {
-  background: linear-gradient(90deg, #a3be8c, #a3be8c);
+.gen-bar {
+  background: linear-gradient(90deg, #a3be8c, #b4c69a);
 }
 
 /* Context Card */
@@ -769,6 +761,32 @@ svg {
   letter-spacing: 0.03em;
   margin-right: 8px;
   vertical-align: middle;
+}
+
+.btn-detach-top {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  margin-left: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.btn-detach-top:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--color-text-primary);
+}
+
+.btn-detach-top:active {
+  transform: scale(0.98);
 }
 
 input.readonly {
