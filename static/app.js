@@ -3325,9 +3325,20 @@ ws.onmessage = e => {
 
     const btnStop = document.getElementById('btn-stop');
 
-    if (btnStart) btnStart.disabled = serverRunning;
+    // Use local_server_running for Start/Stop buttons (independent of remote endpoint)
+    const localRunning = d.local_server_running || false;
 
-    if (btnStop) btnStop.disabled = !serverRunning;
+    if (btnStart) {
+
+        btnStart.disabled = localRunning;
+
+    }
+
+    if (btnStop) {
+
+        btnStop.disabled = !localRunning;
+
+    }
 
 
 
@@ -3370,6 +3381,8 @@ ws.onmessage = e => {
 
     const promptEl = document.getElementById('m-prompt');
     const genEl = document.getElementById('m-gen');
+    const promptMaxEl = document.getElementById('m-prompt-max');
+    const genMaxEl = document.getElementById('m-gen-max');
     const promptBar = document.getElementById('m-prompt-bar');
     const genBar = document.getElementById('m-gen-bar');
 
@@ -3379,11 +3392,16 @@ ws.onmessage = e => {
         if (l.prompt_tokens_per_sec > window.speedMax.prompt) {
             window.speedMax.prompt = l.prompt_tokens_per_sec;
         }
+        // Show max in small text
+        if (promptMaxEl && window.speedMax.prompt > 0) {
+            promptMaxEl.textContent = '(' + window.speedMax.prompt.toFixed(0) + ')';
+        }
         // Calculate bar width as percentage of max seen (min 4% for visibility)
         const promptPct = Math.max((l.prompt_tokens_per_sec / window.speedMax.prompt) * 100, 4);
         if (promptBar) promptBar.style.width = promptPct + '%';
     } else {
         promptEl.textContent = '\u2014';
+        if (promptMaxEl) promptMaxEl.textContent = '';
         if (promptBar) promptBar.style.width = '0%';
     }
 
@@ -3393,11 +3411,16 @@ ws.onmessage = e => {
         if (l.generation_tokens_per_sec > window.speedMax.generation) {
             window.speedMax.generation = l.generation_tokens_per_sec;
         }
+        // Show max in small text
+        if (genMaxEl && window.speedMax.generation > 0) {
+            genMaxEl.textContent = '(' + window.speedMax.generation.toFixed(0) + ')';
+        }
         // Calculate bar width as percentage of max seen (min 4% for visibility)
         const genPct = Math.max((l.generation_tokens_per_sec / window.speedMax.generation) * 100, 4);
         if (genBar) genBar.style.width = genPct + '%';
     } else {
         genEl.textContent = '\u2014';
+        if (genMaxEl) genMaxEl.textContent = '';
         if (genBar) genBar.style.width = '0%';
     }
 

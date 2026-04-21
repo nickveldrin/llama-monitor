@@ -20,7 +20,7 @@
         <span class="status-label">Active endpoint</span>
         <span class="endpoint-mode" id="endpoint-mode">Loading...</span>
         <span class="endpoint-url" id="endpoint-url">...</span>
-        <button class="btn-detach-top" id="btn-detach-top" onclick="doDetach()" style="display:none;" title="Detach from endpoint">Detach</button>
+        <button class="btn-detach-top" id="btn-detach-top" onclick="doDetach()" style="display:none;" title="Detach from endpoint">✕ Detach</button>
         <span class="endpoint-status" id="endpoint-status">...</span>
         <span class="agent-status" id="agent-status" style="display:none;">
             <span class="agent-indicator">●</span>
@@ -153,6 +153,7 @@
                                 <div class="speed-header">
                                     <span class="speed-label">prompt</span>
                                     <span class="speed-value" id="m-prompt">&mdash;</span>
+                                    <span class="speed-max" id="m-prompt-max" title="Max seen">&mdash;</span>
                                 </div>
                                 <div class="speed-bar-bg">
                                     <div class="speed-bar prompt-bar" id="m-prompt-bar"></div>
@@ -162,6 +163,7 @@
                                 <div class="speed-header">
                                     <span class="speed-label">generation</span>
                                     <span class="speed-value" id="m-gen">&mdash;</span>
+                                    <span class="speed-max" id="m-gen-max" title="Max seen">&mdash;</span>
                                 </div>
                                 <div class="speed-bar-bg">
                                     <div class="speed-bar gen-bar" id="m-gen-bar"></div>

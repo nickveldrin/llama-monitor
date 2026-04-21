@@ -254,7 +254,8 @@ pub struct AppState {
     pub llama_metrics: Arc<Mutex<LlamaMetrics>>,
     pub server_logs: Arc<Mutex<VecDeque<String>>>,
     pub server_child: Arc<tokio::sync::Mutex<Option<tokio::process::Child>>>,
-    pub server_running: Arc<Mutex<bool>>,
+    pub server_running: Arc<Mutex<bool>>,  // Whether active endpoint is reachable (for inference)
+    pub local_server_running: Arc<Mutex<bool>>,  // Whether a local llama-server was spawned by this app
     pub server_config: Arc<Mutex<Option<ServerConfig>>>,
     pub llama_poll_notify: Arc<tokio::sync::Notify>,
     pub presets: Arc<Mutex<Vec<ModelPreset>>>,
@@ -337,6 +338,7 @@ impl AppState {
             server_logs: Arc::new(Mutex::new(VecDeque::new())),
             server_child: Arc::new(tokio::sync::Mutex::new(None)),
             server_running: Arc::new(Mutex::new(false)),
+            local_server_running: Arc::new(Mutex::new(false)),
             server_config: Arc::new(Mutex::new(None)),
             llama_poll_notify: Arc::new(tokio::sync::Notify::new()),
             presets: Arc::new(Mutex::new(presets)),

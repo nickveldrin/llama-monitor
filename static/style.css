@@ -622,8 +622,8 @@ svg {
 
 .speed-header {
   display: flex;
-  justify-content: space-between;
   align-items: baseline;
+  gap: 8px;
 }
 
 .speed-label {
@@ -638,6 +638,15 @@ svg {
   font-family: var(--font-mono);
   font-size: var(--text-lg);
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.speed-max {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .speed-bar-bg {
@@ -754,26 +763,26 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 12px;
-  margin-left: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 5px 14px;
+  margin-left: 10px;
+  border: 1px solid rgba(191, 97, 106, 0.4);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--color-text-secondary);
+  background: rgba(191, 97, 106, 0.15);
+  color: #bf616a;
   font-size: var(--text-xs);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 150ms ease;
 }
 
 .btn-detach-top:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.25);
-  color: var(--color-text-primary);
+  background: rgba(191, 97, 106, 0.25);
+  border-color: rgba(191, 97, 106, 0.6);
+  color: #d47981;
 }
 
 .btn-detach-top:active {
-  transform: scale(0.98);
+  transform: scale(0.96);
 }
 
 .table-wrap {

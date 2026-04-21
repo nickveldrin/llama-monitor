@@ -283,6 +283,10 @@ pub async fn start_server(
         *running = true;
     }
     {
+        let mut local_running = state.local_server_running.lock().unwrap();
+        *local_running = true;
+    }
+    {
         let mut cfg = state.server_config.lock().unwrap();
         *cfg = Some(config);
     }
@@ -301,8 +305,8 @@ pub async fn stop_server(state: &AppState) -> Result<()> {
     }
     *guard = None;
     {
-        let mut running = state.server_running.lock().unwrap();
-        *running = false;
+        let mut local_running = state.local_server_running.lock().unwrap();
+        *local_running = false;
     }
     {
         let mut cfg = state.server_config.lock().unwrap();

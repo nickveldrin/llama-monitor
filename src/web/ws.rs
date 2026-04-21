@@ -20,12 +20,13 @@ pub fn ws_route(
 
                 let update_task = tokio::spawn(async move {
                     let mut interval = tokio::time::interval(WS_PUSH_INTERVAL);
-                    loop {
-                        interval.tick().await;
+                     loop {
+                         interval.tick().await;
 
-                        let running = *state.server_running.lock().unwrap();
+                         let running = *state.server_running.lock().unwrap();
+                         let local_running = *state.local_server_running.lock().unwrap();
 
-                        let json = {
+                         let json = {
                             let local_metrics_available = state.active_session_uses_local_metrics();
                             let host_metrics_available = state.host_metrics_available();
                             let remote_agent_connected = state.remote_agent_connected();
@@ -71,13 +72,14 @@ pub fn ws_route(
                             let session_kind = state.current_session_kind();
                             let (system_reason, gpu_reason, cpu_temp_reason) =
                                 state.calculate_availability_reasons();
-                            serde_json::json!({
-                                "gpu": gpu,
-                                "llama": llama,
-                                "system": system,
-                                "logs": logs,
-                                "server_running": running,
-                                "session_mode": session_mode,
+                             serde_json::json!({
+                                 "gpu": gpu,
+                                 "llama": llama,
+                                 "system": system,
+                                 "logs": logs,
+                                 "server_running": running,
+                                 "local_server_running": local_running,
+                                 "session_mode": session_mode,
                                 "active_session_id": active_session_id,
                                 "active_session_endpoint": active_session_endpoint,
                                 "local_metrics_available": local_metrics_available,
