@@ -19,6 +19,7 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
     };
 
     let mut enabled = false;
+    let mut last_reachable = false;
 
     loop {
         if !enabled {
@@ -29,6 +30,7 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
         let active_id = { state.active_session_id.lock().unwrap().clone() };
         if active_id.is_empty() {
             enabled = false;
+            last_reachable = false;
             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
             continue;
         }
@@ -49,6 +51,7 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
                 }
             } else {
                 enabled = false;
+                last_reachable = false;
                 tokio::time::sleep(Duration::from_secs(poll_interval)).await;
                 continue;
             }
@@ -57,13 +60,7 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
         let base = endpoint;
 
         // First check if server is up at all
-        let server_up = match client.get(&base).send().await {
-            Ok(_) => true,
-            Err(e) => {
-                eprintln!("[poller] Server not reachable at {}: {}", base, e);
-                false
-            }
-        };
+        let server_up = client.get(&base).send().await.is_ok();
 
         let server_reachable = if server_up {
             // Try /health for detailed status
@@ -88,14 +85,26 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
             false
         };
 
-        // Update server_running state with hysteresis (only change on state transition)
+        // Update server_running state with hysteresis (only log on state transition)
         {
             let mut running = state.server_running.lock().unwrap();
-            // Only update if state actually changed to prevent flickering
             if server_reachable != *running {
                 *running = server_reachable;
+                if server_reachable {
+                    println!("[poller] Server is now reachable at {}", base);
+                } else {
+                    eprintln!("[poller] Server is no longer reachable at {}", base);
+                }
             }
         }
+
+        // Track reachability for error logging
+        if !server_reachable && last_reachable {
+            eprintln!("[poller] Server became unreachable at {}", base);
+        } else if server_reachable && !last_reachable {
+            println!("[poller] Server became reachable at {}", base);
+        }
+        last_reachable = server_reachable;
 
         if !server_reachable {
             // Don't reset metrics when server is temporarily unavailable

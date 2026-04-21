@@ -1385,6 +1385,40 @@ fn api_attach(
                     }
                 };
 
+                // Pre-attach health check
+                let client = match reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(5))
+                    .build()
+                {
+                    Ok(c) => c,
+                    Err(e) => {
+                        return Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({
+                                "ok": false,
+                                "error": format!("Failed to create HTTP client: {}", e)
+                            }),
+                        ));
+                    }
+                };
+
+                // Check if server is reachable
+                let server_up = client.get(&endpoint).send().await.is_ok();
+                if !server_up {
+                    return Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({
+                            "ok": false,
+                            "error": format!("Cannot reach llama-server at {}. Is it running?", endpoint)
+                        }),
+                    ));
+                }
+
+                // Check if metrics endpoint is available
+                let metrics_available = client
+                    .get(format!("{}/health", endpoint.trim_end_matches('/')))
+                    .send()
+                    .await
+                    .is_ok();
+
                 let session_id = crate::state::generate_session_id();
                 let session_id_for_active = session_id.clone();
                 let session = crate::state::Session::new_attach(
@@ -1396,7 +1430,14 @@ fn api_attach(
                 if state.add_session(session) {
                     state.set_active_session(&session_id_for_active);
                     state.llama_poll_notify.notify_waiters();
-                    Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
+                    Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                        "ok": true,
+                        "warning": if !metrics_available {
+                            Some("llama-server is running but metrics endpoint (/health) is unavailable. Inference metrics will not be available. Start llama-server with --metrics flag to enable metrics.")
+                        } else {
+                            None
+                        }
+                    })))
                 } else {
                     Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": "Maximum sessions reached"}),

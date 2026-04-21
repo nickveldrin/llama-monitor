@@ -2784,9 +2784,21 @@ async function doAttach() {
 
     const data = await resp.json();
 
-    if (!data.ok) showToast('Attach failed: ' + (data.error || 'unknown'), 'error');
+    if (!data.ok) {
 
-    else showToast('Attached to server', 'success');
+        showToast('Attach failed: ' + (data.error || 'unknown'), 'error');
+
+    } else {
+
+        showToast('Attached to server', 'success');
+
+        if (data.warning) {
+
+            showToast(data.warning, 'warning');
+
+        }
+
+    }
 
     document.getElementById('btn-attach').disabled = false;
     
