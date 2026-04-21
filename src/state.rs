@@ -511,7 +511,7 @@ impl AppState {
 
         match session.map(|s| s.mode) {
             Some(SessionMode::Spawn { .. }) => true,
-            Some(SessionMode::Attach { endpoint }) => endpoint_is_local(&endpoint),
+            Some(SessionMode::Attach { .. }) => false,  // Attach never uses local metrics - only inference stats
             None => true,
         }
     }
