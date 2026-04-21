@@ -2802,9 +2802,13 @@ async function doAttach() {
 
 async function doDetach() {
 
+    console.log('[doDetach] Starting detach...');
+
     const resp = await fetch('/api/detach', { method: 'POST' });
 
     const data = await resp.json();
+
+    console.log('[doDetach] Response:', data);
 
     if (!data.ok) {
 
@@ -2813,6 +2817,23 @@ async function doDetach() {
     } else {
 
         showToast('Detached from server', 'success');
+
+        // Immediately update button states without waiting for WebSocket
+        const btnAttach = document.getElementById('btn-attach');
+
+        const btnDetach = document.getElementById('btn-detach');
+
+        console.log('[doDetach] Buttons - Attach:', btnAttach, 'Detach:', btnDetach);
+
+        if (btnAttach && btnDetach) {
+
+            btnAttach.style.display = 'inline-block';
+
+            btnDetach.style.display = 'none';
+
+            console.log('[doDetach] Button states updated');
+
+        }
 
     }
 
@@ -3232,7 +3253,9 @@ ws.onmessage = e => {
     const btnAttach = document.getElementById('btn-attach');
     const btnDetach = document.getElementById('btn-detach');
     if (btnAttach && btnDetach) {
-        if (d.session_mode === 'attach' && d.active_session_endpoint) {
+        const isAttach = d.session_mode === 'attach' && d.active_session_endpoint;
+        console.log('[ws] session_mode:', d.session_mode, 'active_session_endpoint:', d.active_session_endpoint, 'isAttach:', isAttach);
+        if (isAttach) {
             btnAttach.style.display = 'none';
             btnDetach.style.display = 'inline-block';
         } else {

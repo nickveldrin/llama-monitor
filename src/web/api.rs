@@ -1459,7 +1459,9 @@ fn api_detach(
             let state = state.clone();
             async move {
                 let active_id = state.active_session_id.lock().unwrap().clone();
+                println!("[api/detach] active_id: {}", active_id);
                 if active_id.is_empty() {
+                    println!("[api/detach] No active session");
                     return Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": "No active session to detach from"}),
                     ));
@@ -1468,7 +1470,9 @@ fn api_detach(
                 // Check if the active session is an attach session
                 let sessions = state.sessions.lock().unwrap();
                 let session = sessions.iter().find(|s| s.id == active_id);
+                println!("[api/detach] session: {:?}", session);
                 if session.map(|s| !matches!(s.mode, crate::state::SessionMode::Attach { .. })).unwrap_or(true) {
+                    println!("[api/detach] Not an attach session");
                     return Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": "Active session is not an attach session"}),
                     ));
@@ -1477,6 +1481,7 @@ fn api_detach(
                 // Clear the active session
                 state.set_active_session("");
                 state.llama_poll_notify.notify_waiters();
+                println!("[api/detach] Detached successfully");
 
                 Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
             }
