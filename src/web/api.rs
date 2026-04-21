@@ -1458,40 +1458,28 @@ fn api_detach(
         .and_then(move || {
             let state = state.clone();
             async move {
-                println!("[api/detach] Starting...");
                 let active_id = state.active_session_id.lock().unwrap().clone();
-                println!("[api/detach] active_id: {}", active_id);
                 if active_id.is_empty() {
-                    println!("[api/detach] No active session");
                     return Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": "No active session to detach from"}),
                     ));
                 }
 
                 // Check if the active session is an attach session
-                println!("[api/detach] Locking sessions...");
                 let sessions = state.sessions.lock().unwrap();
-                println!("[api/detach] Found session");
                 let session = sessions.iter().find(|s| s.id == active_id);
-                println!("[api/detach] session: {:?}", session);
                 
                 let is_attach = session.map(|s| matches!(s.mode, crate::state::SessionMode::Attach { .. }));
-                println!("[api/detach] is_attach: {:?}", is_attach);
                 
                 if !is_attach.unwrap_or(false) {
-                    println!("[api/detach] Not an attach session");
                     return Ok::<_, warp::Rejection>(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": "Active session is not an attach session"}),
                     ));
                 }
 
                 drop(sessions);
-                println!("[api/detach] Dropping sessions lock, clearing active session...");
                 // Clear the active session only - server_running is managed by the poller
                 state.set_active_session("");
-                println!("[api/detach] Cleared active session. Poller will stop on next iteration.");
-                // DON'T call notify_waiters() - that would wake the poller and cause it to re-detect!
-                println!("[api/detach] Detached successfully, returning response");
 
                 Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
             }

@@ -3285,7 +3285,6 @@ ws.onmessage = e => {
     const btnDetachTop = document.getElementById('btn-detach-top');
 
     const isAttach = d.session_mode === 'attach' && d.active_session_endpoint;
-    console.log('[ws] session_mode:', d.session_mode, 'active_session_endpoint:', d.active_session_endpoint, 'isAttach:', isAttach);
 
     if (isAttach) {
         // Attached state: hide server header, show detach buttons

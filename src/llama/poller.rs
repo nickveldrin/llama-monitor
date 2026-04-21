@@ -23,16 +23,12 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
 
     loop {
         if !enabled {
-            println!("[poller] Waiting for notify (enabled={})", enabled);
             state.llama_poll_notify.notified().await;
-            println!("[poller] Notified! Setting enabled=true");
             enabled = true;
         }
 
         let active_id = { state.active_session_id.lock().unwrap().clone() };
-        println!("[poller] active_id='{}', enabled={}", active_id, enabled);
         if active_id.is_empty() {
-            println!("[poller] No active session, setting enabled=false and sleeping");
             enabled = false;
             last_reachable = false;
             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
@@ -89,25 +85,14 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
             false
         };
 
-        // Update server_running state with hysteresis (only log on state transition)
+        // Update server_running state with hysteresis (only change on state transition)
         {
             let mut running = state.server_running.lock().unwrap();
             if server_reachable != *running {
                 *running = server_reachable;
-                if server_reachable {
-                    println!("[poller] Server is now reachable at {}", base);
-                } else {
-                    eprintln!("[poller] Server is no longer reachable at {}", base);
-                }
             }
         }
 
-        // Track reachability for error logging
-        if !server_reachable && last_reachable {
-            eprintln!("[poller] Server became unreachable at {}", base);
-        } else if server_reachable && !last_reachable {
-            println!("[poller] Server became reachable at {}", base);
-        }
         last_reachable = server_reachable;
 
         if !server_reachable {
