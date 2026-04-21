@@ -19,7 +19,6 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
     };
 
     let mut enabled = false;
-    let mut last_reachable = false;
 
     loop {
         if !enabled {
@@ -30,7 +29,6 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
         let active_id = { state.active_session_id.lock().unwrap().clone() };
         if active_id.is_empty() {
             enabled = false;
-            last_reachable = false;
             tokio::time::sleep(Duration::from_secs(poll_interval)).await;
             continue;
         }
@@ -51,7 +49,6 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
                 }
             } else {
                 enabled = false;
-                last_reachable = false;
                 tokio::time::sleep(Duration::from_secs(poll_interval)).await;
                 continue;
             }
@@ -92,8 +89,6 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
                 *running = server_reachable;
             }
         }
-
-        last_reachable = server_reachable;
 
         if !server_reachable {
             // Don't reset metrics when server is temporarily unavailable
