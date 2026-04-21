@@ -106,6 +106,9 @@
                         <span class="mode-badge" id="mode-badge">Idle</span>
                     </div>
                     <div class="dashboard-header-actions">
+                        <label class="num-sm">
+                            <input id="server-endpoint" type="text" value="http://127.0.0.1:8001" placeholder="http://host:port">
+                        </label>
                         <button class="btn btn-attach" id="btn-attach" onclick="doAttach()">Attach</button>
                         <button class="btn btn-detach" id="btn-detach" onclick="doDetach()" style="display:none;">Detach</button>
                         <button class="btn btn-kill" id="btn-kill" onclick="doKillLlama()">Kill llama-server</button>
@@ -210,15 +213,6 @@
             <button type="button" class="modal-close" onclick="closeConfigModal()" aria-label="Close">&times;</button>
         </div>
        <div class="modal-body">
-
-             <details class="modal-section" open>
-                 <summary>Attach to llama-server</summary>
-                 <p class="modal-help">Enter the endpoint of a running llama.cpp server to attach and monitor its inference metrics.</p>
-                 <label class="modal-field" title="Endpoint URL of the running llama-server (e.g. http://192.168.2.16:8001)">llama-server Endpoint
-                     <input type="text" id="attach-endpoint" placeholder="http://192.168.2.16:8001" style="flex:1;">
-                 </label>
-                 <button type="button" class="btn btn-attach" onclick="doAttachFromModal()">Attach</button>
-             </details>
 
              <details class="modal-section" open>
                  <summary>Local llama-server executable</summary>

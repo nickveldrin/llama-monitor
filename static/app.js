@@ -2758,19 +2758,7 @@ async function doKillLlamaInternal() {
 
 async function doAttach() {
 
-    const attachModal = document.getElementById('config-modal');
-
-    if (attachModal) {
-
-        attachModal.classList.remove('hidden');
-
-    }
-
-}
-
-async function doAttachFromModal() {
-
-    const endpoint = document.getElementById('attach-endpoint').value.trim();
+    const endpoint = document.getElementById('server-endpoint').value.trim();
 
     if (!endpoint) {
 
@@ -2805,8 +2793,6 @@ async function doAttachFromModal() {
             showToast(data.warning, 'warning');
 
         }
-
-        closeConfigModal();
 
     }
 
