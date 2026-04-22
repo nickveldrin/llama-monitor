@@ -98,8 +98,7 @@ test.describe('modal controls', () => {
       document.getElementById('agent-status').style.display = '';
     });
     await page.locator('.btn-agent-fix').click();
-    await expect(page.locator('#config-modal')).toBeVisible();
-    await expect(page.locator('#remote-agent-panel')).toBeVisible();
+    await expect(page.locator('#remote-agent-setup-modal')).toBeVisible();
   });
 
   test('configuration explains local executable, GPU, and explicit SSH flow', async ({ page }) => {
