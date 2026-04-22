@@ -3143,9 +3143,11 @@ async function fileBrowserGo(path) {
 
         entriesEl.innerHTML = data.entries.map(e => {
 
+            const escapeJsString = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
             if (e.is_dir) {
 
-                return '<div class="fb-entry fb-entry-dir" onclick="fileBrowserGo(\'' + e.path.replace(/'/g, "\\'") + '\')">' +
+                return '<div class="fb-entry fb-entry-dir" onclick="fileBrowserGo(\'' + escapeJsString(e.path) + '\')">' +
 
                     '<span class="fb-entry-icon">\u{1F4C1}</span>' +
 
@@ -3153,7 +3155,7 @@ async function fileBrowserGo(path) {
 
             } else {
 
-                return '<div class="fb-entry fb-entry-file fb-match" onclick="fileBrowserSelect(\'' + e.path.replace(/'/g, "\\'") + '\')">' +
+                return '<div class="fb-entry fb-entry-file fb-match" onclick="fileBrowserSelect(\'' + escapeJsString(e.path) + '\')">' +
 
                     '<span class="fb-entry-icon">\u{1F4C4}</span>' +
 
