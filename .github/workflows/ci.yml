@@ -22,6 +22,7 @@ jobs:
       - run: cargo build --release
 
   ui:
+    needs: check
     if: github.event.pull_request.draft == false && contains(github.event.pull_request.labels.*.name, 'ready-to-test')
     runs-on: [self-hosted, linux, proxmox]
     steps:
@@ -43,7 +44,7 @@ jobs:
         run: npx playwright install chromium
       - name: Start UI smoke server
         run: |
-          cargo run -- --headless --port 7778 > "$RUNNER_TEMP/llama-monitor-ui.log" 2>&1 &
+          ./target/release/llama-monitor --headless --port 7778 > "$RUNNER_TEMP/llama-monitor-ui.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/llama-monitor-ui.pid"
           for i in {1..30}; do
             curl -fsS http://127.0.0.1:7778 >/dev/null && exit 0
