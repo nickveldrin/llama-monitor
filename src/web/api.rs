@@ -296,6 +296,8 @@ pub fn api_routes(
     let remote_agent_detect = api_remote_agent_detect(app_config.clone());
     let remote_agent_host_key = api_remote_agent_ssh_host_key(app_config.clone());
     let remote_agent_trust_host = api_remote_agent_ssh_trust(app_config.clone());
+    let remote_agent_status = api_remote_agent_status(app_config.clone());
+    let remote_agent_remove = api_remote_agent_remove(app_config.clone());
 
     start
         .or(stop)
@@ -333,10 +335,12 @@ pub fn api_routes(
         .or(remote_agent_detect)
         .or(remote_agent_host_key)
         .or(remote_agent_trust_host)
+        .or(remote_agent_status)
         .or(api_remote_agent_install(app_config.clone()))
         .or(api_remote_agent_start(app_config.clone()))
         .or(api_remote_agent_update(app_config.clone()))
         .or(api_remote_agent_stop(app_config))
+        .or(remote_agent_remove)
 }
 
 fn api_remote_agent_latest_release()
@@ -527,6 +531,47 @@ fn api_remote_agent_install(
         )
 }
 
+fn api_remote_agent_status(
+    app_config: Arc<AppConfig>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "remote-agent" / "status")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(move |request: serde_json::Map<String, serde_json::Value>| {
+            let app_config = app_config.clone();
+            async move {
+                let ssh_target = match request.get("ssh_target") {
+                    Some(v) => v.as_str().unwrap_or("").to_string(),
+                    None => {
+                        return Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"ok": false, "error": "Missing ssh_target"}),
+                        ));
+                    }
+                };
+                let ssh_connection = match hydrate_ssh_connection(
+                    request
+                        .get("ssh_connection")
+                        .and_then(|value| serde_json::from_value(value.clone()).ok()),
+                    &ssh_target,
+                    &app_config,
+                ) {
+                    Ok(connection) => Some(connection),
+                    Err(e) => {
+                        return Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"ok": false, "error": e.to_string()}),
+                        ));
+                    }
+                };
+                match crate::agent::status_remote_agent(&ssh_target, ssh_connection).await {
+                    Ok(response) => Ok(warp::reply::json(&response)),
+                    Err(e) => Ok(warp::reply::json(
+                        &serde_json::json!({"ok": false, "error": e.to_string()}),
+                    )),
+                }
+            }
+        })
+}
+
 fn api_remote_agent_start(
     app_config: Arc<AppConfig>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
@@ -659,6 +704,47 @@ fn api_remote_agent_stop(
                     }
                 };
                 match crate::agent::stop_remote_agent(&ssh_target, ssh_connection).await {
+                    Ok(response) => Ok(warp::reply::json(&response)),
+                    Err(e) => Ok(warp::reply::json(
+                        &serde_json::json!({"ok": false, "error": e.to_string()}),
+                    )),
+                }
+            }
+        })
+}
+
+fn api_remote_agent_remove(
+    app_config: Arc<AppConfig>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "remote-agent" / "remove")
+        .and(warp::post())
+        .and(warp::body::json())
+        .and_then(move |request: serde_json::Map<String, serde_json::Value>| {
+            let app_config = app_config.clone();
+            async move {
+                let ssh_target = match request.get("ssh_target") {
+                    Some(v) => v.as_str().unwrap_or("").to_string(),
+                    None => {
+                        return Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"ok": false, "error": "Missing ssh_target"}),
+                        ));
+                    }
+                };
+                let ssh_connection = match hydrate_ssh_connection(
+                    request
+                        .get("ssh_connection")
+                        .and_then(|value| serde_json::from_value(value.clone()).ok()),
+                    &ssh_target,
+                    &app_config,
+                ) {
+                    Ok(connection) => Some(connection),
+                    Err(e) => {
+                        return Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"ok": false, "error": e.to_string()}),
+                        ));
+                    }
+                };
+                match crate::agent::remove_remote_agent(&ssh_target, ssh_connection).await {
                     Ok(response) => Ok(warp::reply::json(&response)),
                     Err(e) => Ok(warp::reply::json(
                         &serde_json::json!({"ok": false, "error": e.to_string()}),
@@ -1421,30 +1507,48 @@ fn api_attach(
                     .await
                     .is_ok();
 
-                let session_id = crate::state::generate_session_id();
-                let session_id_for_active = session_id.clone();
-                let session = crate::state::Session::new_attach(
-                    session_id,
-                    format!("Attached: {}", endpoint),
-                    endpoint,
-                );
-
-                if state.add_session(session) {
-                    state.set_active_session(&session_id_for_active);
-                    state.llama_poll_notify.notify_waiters();
-                    Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
-                        "ok": true,
-                        "warning": if !metrics_available {
-                            Some("llama-server is running but metrics endpoint (/health) is unavailable. Inference metrics will not be available. Start llama-server with --metrics flag to enable metrics.")
+                // Check if there's already an attach session for this endpoint
+                let existing_session_id = {
+                    let sessions = state.sessions.lock().unwrap();
+                    sessions.iter().find(|s| {
+                        if let crate::state::SessionMode::Attach { endpoint: ep } = &s.mode {
+                            *ep == endpoint
                         } else {
-                            None
+                            false
                         }
-                    })))
+                    }).map(|s| s.id.clone())
+                };
+
+                let session_id = if let Some(id) = existing_session_id {
+                    // Reuse existing session
+                    eprintln!("[info] Reusing existing attach session for {}", endpoint);
+                    id
                 } else {
-                    Ok::<_, warp::Rejection>(warp::reply::json(
-                        &serde_json::json!({"ok": false, "error": "Maximum sessions reached"}),
-                    ))
-                }
+                    // Create new session
+                    let session_id = crate::state::generate_session_id();
+                    let session = crate::state::Session::new_attach(
+                        session_id.clone(),
+                        format!("Attached: {}", endpoint),
+                        endpoint,
+                    );
+                    if !state.add_session(session) {
+                        return Ok::<_, warp::Rejection>(warp::reply::json(
+                            &serde_json::json!({"ok": false, "error": "Maximum sessions reached"}),
+                        ));
+                    }
+                    session_id
+                };
+
+                state.set_active_session(&session_id);
+                state.llama_poll_notify.notify_waiters();
+                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({
+                    "ok": true,
+                    "warning": if !metrics_available {
+                        Some("llama-server is running but metrics endpoint (/health) is unavailable. Inference metrics will not be available. Start llama-server with --metrics flag to enable metrics.")
+                    } else {
+                        None
+                    }
+                })))
             }
         })
 }

@@ -110,34 +110,47 @@ pub struct Session {
     pub name: String,
     pub mode: SessionMode,
     pub status: SessionStatus,
+    pub created_at: u64,
     pub last_active: u64,
 }
 
 impl Session {
+    fn now() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs()
+    }
+
     pub fn new_spawn(id: String, name: String, port: u16) -> Self {
+        let now = Self::now();
         Self {
             id,
             name,
             mode: SessionMode::Spawn { port },
             status: SessionStatus::Stopped,
-            last_active: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
+            created_at: now,
+            last_active: now,
         }
     }
 
     pub fn new_attach(id: String, name: String, endpoint: String) -> Self {
+        let now = Self::now();
         Self {
             id,
             name,
             mode: SessionMode::Attach { endpoint },
             status: SessionStatus::Disconnected,
-            last_active: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs(),
+            created_at: now,
+            last_active: now,
         }
+    }
+
+    pub fn is_inactive(&self) -> bool {
+        matches!(
+            self.status,
+            SessionStatus::Stopped | SessionStatus::Disconnected
+        )
     }
 }
 
@@ -311,7 +324,7 @@ impl AppState {
             tray: true,
         };
 
-        Self {
+        let state = Self {
             gpu_metrics: Arc::new(Mutex::new(BTreeMap::new())),
             llama_metrics: Arc::new(Mutex::new(LlamaMetrics::default())),
             server_logs: Arc::new(Mutex::new(VecDeque::new())),
@@ -347,7 +360,12 @@ impl AppState {
             tray_mode: Arc::new(Mutex::new(TrayMode::Headless)),
             remote_agent_connected: Arc::new(Mutex::new(false)),
             remote_agent_url: Arc::new(Mutex::new(None)),
-        }
+        };
+
+        // Prune old inactive sessions on startup (older than 7 days)
+        state.prune_old_sessions(7 * 24 * 60 * 60);
+
+        state
     }
 
     pub fn push_log(&self, line: String) {
@@ -386,7 +404,7 @@ impl AppState {
         true
     }
 
-    pub fn add_session(&self, session: Session) -> bool {
+    pub fn add_session(&self, mut session: Session) -> bool {
         let mut sessions = match self.sessions.lock() {
             Ok(s) => s,
             Err(e) => {
@@ -394,20 +412,82 @@ impl AppState {
                 return false;
             }
         };
+
+        let now = Session::now();
+        session.last_active = now;
+
+        // If at capacity, try to remove old inactive sessions first
         if sessions.len() >= MAX_SESSIONS {
-            return false;
+            // Sort by created_at (oldest first), prefer inactive sessions
+            let mut indices: Vec<usize> = (0..sessions.len()).collect();
+            indices.sort_by(|&a, &b| {
+                let sa = &sessions[a];
+                let sb = &sessions[b];
+                // Inactive sessions first, then by created_at
+                (sa.is_inactive() as i32, sa.created_at)
+                    .cmp(&(sb.is_inactive() as i32, sb.created_at))
+            });
+
+            // Find first inactive session to remove
+            for &idx in &indices {
+                if sessions[idx].is_inactive() {
+                    eprintln!(
+                        "[info] Auto-removing old inactive session: {} ({})",
+                        sessions[idx].name, sessions[idx].id
+                    );
+                    sessions.remove(idx);
+                    break;
+                }
+            }
+
+            // If still at capacity and no inactive sessions, we're truly full
+            if sessions.len() >= MAX_SESSIONS {
+                eprintln!(
+                    "[warn] Session limit reached: all {} sessions are active",
+                    sessions.len()
+                );
+                return false;
+            }
         }
-        let now = match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-            Ok(d) => d.as_secs(),
-            Err(_) => {
-                eprintln!("[error] Failed to get system time");
-                0
+
+        sessions.push(session);
+        true
+    }
+
+    /// Remove inactive sessions older than the given duration (in seconds)
+    pub fn prune_old_sessions(&self, max_age_secs: u64) -> usize {
+        let now = Session::now();
+        let mut removed = 0;
+
+        let mut sessions = match self.sessions.lock() {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[error] Failed to acquire sessions lock for prune: {e}");
+                return 0;
             }
         };
-        let mut new_session = session;
-        new_session.last_active = now;
-        sessions.push(new_session);
-        true
+
+        let len_before = sessions.len();
+        sessions.retain(|s| {
+            let is_old = now.saturating_sub(s.created_at) > max_age_secs;
+            let is_inactive = s.is_inactive();
+            if is_old && is_inactive {
+                eprintln!(
+                    "[info] Pruning old inactive session: {} ({} days old)",
+                    s.name, is_old as u64
+                );
+                removed += 1;
+                false
+            } else {
+                true
+            }
+        });
+
+        if sessions.len() < len_before {
+            eprintln!("[info] Pruned {} old inactive session(s)", removed);
+        }
+
+        removed
     }
 
     pub fn remove_session(&self, session_id: &str) -> bool {

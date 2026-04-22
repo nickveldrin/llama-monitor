@@ -10,5 +10,6 @@ pub mod presets;
 pub mod remote_ssh;
 pub mod state;
 pub mod system;
+#[cfg(feature = "native-tray")]
 pub mod tray;
 pub mod web;

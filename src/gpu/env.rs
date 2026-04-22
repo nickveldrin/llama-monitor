@@ -250,6 +250,7 @@ pub fn detect_apple_gpus() -> Option<DetectedGpu> {
     None
 }
 
+#[cfg(any(target_os = "macos", test))]
 pub fn parse_apple_cpu_brand(brand: &str) -> Option<DetectedGpu> {
     let trimmed = brand.trim();
 

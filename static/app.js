@@ -136,7 +136,7 @@ function renderLiveSparkline(id, points) {
         return;
     }
     const width = 120;
-    const height = 34;
+    const height = 28;
     const max = Math.max(...points, 1);
     const step = width / (points.length - 1);
     let peak = { value: -1, x: 0, y: height - 2 };
@@ -147,7 +147,7 @@ function renderLiveSparkline(id, points) {
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
     svg.innerHTML = [
-        '<path class="sparkline-fill live-output" d="' + path + ' L 120 34 L 0 34 Z"></path>',
+        '<path class="sparkline-fill live-output" d="' + path + ' L 120 28 L 0 28 Z"></path>',
         '<path class="sparkline-line live-output" d="' + path + '"></path>',
         '<circle class="sparkline-peak live-output" cx="' + peak.x.toFixed(2) + '" cy="' + peak.y.toFixed(2) + '" r="2.6"></circle>'
     ].join('');
@@ -352,6 +352,72 @@ function getPrimarySlot(l) {
     return slots.find(slot => slot.is_processing) || slots[0] || null;
 }
 
+function renderSlotUtilization(l) {
+    const utilBar = document.getElementById('m-slot-util-bar');
+    const utilValue = document.getElementById('m-slot-util');
+    if (!l || !l.slots_processing !== undefined && l.slots_idle !== undefined) {
+        if (utilBar) utilBar.style.width = '0%';
+        if (utilValue) utilValue.textContent = '\u2014';
+        return;
+    }
+    const processing = l.slots_processing || 0;
+    const idle = l.slots_idle || 0;
+    const total = processing + idle;
+    if (total === 0) {
+        if (utilBar) utilBar.style.width = '0%';
+        if (utilValue) utilValue.textContent = '\u2014';
+        return;
+    }
+    const utilPct = Math.round((processing / total) * 100);
+    if (utilBar) utilBar.style.width = utilPct + '%';
+    if (utilValue) utilValue.textContent = utilPct + '%';
+}
+
+function renderRequestStats() {
+    const reqCount = document.getElementById('m-req-count');
+    const reqAvg = document.getElementById('m-req-avg');
+    const now = Date.now();
+    const windowMs = 10 * 60 * 1000;
+    const segments = window.requestActivity.filter(s => (s.endedAtMs || now) >= now - windowMs);
+    const completed = segments.filter(s => s.endedAtMs);
+    if (reqCount) reqCount.textContent = formatMetricNumber(completed.length);
+    if (reqAvg && completed.length > 0) {
+        const totalDuration = completed.reduce((sum, s) => sum + (s.endedAtMs - s.startedAtMs), 0);
+        const avgDuration = totalDuration / completed.length;
+        reqAvg.textContent = formatDuration(avgDuration);
+    } else if (reqAvg) {
+        reqAvg.textContent = '\u2014';
+    }
+}
+
+function renderSamplerParamsInline(slot) {
+    const el = document.getElementById('m-sampler-params-inline');
+    if (!el || !slot || !slot.sampler_config) {
+        el.innerHTML = '';
+        return;
+    }
+    const samplerItems = slot.sampler_config || [];
+    const priorityKeys = ['top_k', 'top_p', 'min_p', 'temperature', 'dry', 'xtc'];
+    const priorityItems = samplerItems.filter(item => priorityKeys.includes(item.label));
+    if (priorityItems.length === 0) {
+        el.innerHTML = '';
+        return;
+    }
+    el.innerHTML = priorityItems.slice(0, 4).map(item => {
+        const displayValue = formatConfigValue(item.value);
+        return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
+    }).join('');
+}
+
+function formatConfigValue(value) {
+    const num = parseFloat(value);
+    if (!Number.isNaN(num) && Number.isFinite(num)) {
+        const rounded = Math.round(num * 100) / 100;
+        return String(rounded);
+    }
+    return String(value);
+}
+
 function renderConfigItems(id, items, emptyText) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -360,7 +426,8 @@ function renderConfigItems(id, items, emptyText) {
         return;
     }
     el.innerHTML = items.map(item => {
-        return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(item.value) + '</strong></span>';
+        const displayValue = formatConfigValue(item.value);
+        return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
     }).join('');
 }
 
@@ -375,21 +442,15 @@ function renderGenerationDetailItems(el, parts) {
 function renderDecodingConfig(l, hasActiveEndpoint) {
     const slot = getPrimarySlot(l);
     const specChip = document.getElementById('m-speculative-chip');
-    const samplerStack = document.getElementById('m-sampler-stack');
     const decodingState = document.getElementById('m-decoding-state');
-    const decodingPopover = document.getElementById('m-decoding-popover');
     const hasConfig = !!slot && ((slot.sampler_stack || []).length > 0 || (slot.speculative_config || []).length > 0);
 
     setChipState(decodingState, hasConfig ? 'config' : 'waiting', hasConfig ? 'live' : 'idle');
 
     if (!hasActiveEndpoint || !slot) {
         if (specChip) specChip.textContent = 'Attach an endpoint for decoding config';
-        if (samplerStack) samplerStack.innerHTML = '<span class="config-empty">Sampler stack unavailable</span>';
         renderConfigItems('m-speculative-config', [], 'Speculative config unavailable');
-        renderConfigItems('m-sampler-config', [], 'Sampler params unavailable');
-        if (decodingPopover) {
-            decodingPopover.innerHTML = '<span class="config-empty">No decoding configuration is available yet.</span>';
-        }
+        renderSamplerParamsInline(null);
         return;
     }
 
@@ -406,37 +467,8 @@ function renderDecodingConfig(l, hasActiveEndpoint) {
     }
 
     renderConfigItems('m-speculative-config', slot.speculative_config || [], 'Configuration only appears when exposed');
-    renderConfigItems('m-sampler-config', slot.sampler_config || [], 'Sampler params unavailable');
 
-    if (samplerStack) {
-        const stack = slot.sampler_stack || [];
-        samplerStack.innerHTML = stack.length
-            ? stack.map((name, index) => '<span class="sampler-chip" style="--i:' + index + '">' + escapeHtml(name) + '</span>').join('')
-            : '<span class="config-empty">Sampler stack unavailable</span>';
-    }
-
-    if (decodingPopover) {
-        const specItems = slot.speculative_config || [];
-        const samplerItems = slot.sampler_config || [];
-        const stack = slot.sampler_stack || [];
-        const specRows = specItems.length
-            ? specItems.map(item => '<span><em>' + escapeHtml(item.label) + '</em><strong>' + escapeHtml(item.value) + '</strong></span>').join('')
-            : '<span><em>acceptance</em><strong>not exposed</strong></span>';
-        const samplerRows = samplerItems.length
-            ? samplerItems.map(item => '<span><em>' + escapeHtml(item.label) + '</em><strong>' + escapeHtml(item.value) + '</strong></span>').join('')
-            : '<span><em>sampler params</em><strong>unavailable</strong></span>';
-        decodingPopover.innerHTML = [
-            '<div class="decoding-popover-section"><h3>Speculative decoding</h3><div class="decoding-popover-grid">',
-            specRows,
-            '<span><em>acceptance rate</em><strong>not exposed</strong></span>',
-            '</div></div>',
-            '<div class="decoding-popover-section"><h3>Sampler pipeline</h3><p>',
-            stack.length ? escapeHtml(stack.join(' -> ')) : 'Sampler stack unavailable',
-            '</p><div class="decoding-popover-grid">',
-            samplerRows,
-            '</div></div>'
-        ].join('');
-    }
+    renderSamplerParamsInline(slot);
 }
 
 function renderCapabilityPopover(d, l, generationAvailable, contextLiveAvailable) {
@@ -903,6 +935,641 @@ function closeConfigModal() {
 
     document.getElementById('config-modal').classList.remove('open');
 
+}
+
+// Remote Agent Setup Modal State
+let remoteAgentSetupState = {
+    sshHost: '',
+    sshPort: '22',
+    sshAuth: 'agent',
+    sshPassword: '',
+    sshKeyPath: '',
+    latestVersion: null,
+    installedVersion: null,
+    hostKey: null
+};
+
+function openRemoteAgentSetup() {
+    closeConfigModal();
+    closeSettingsModal();
+    
+    const modal = document.getElementById('remote-agent-setup-modal');
+    if (!modal) return;
+    prepareAgentSetupFromEndpoint();
+    
+    // Get current endpoint URL
+    const endpointUrl = document.getElementById('endpoint-url')?.textContent || '';
+    const endpointEl = document.getElementById('agent-setup-endpoint-url');
+    if (endpointEl) endpointEl.textContent = endpointUrl;
+    
+    // Infer SSH host from endpoint
+    let inferredHost = '';
+    try {
+        const url = endpointUrl.includes('://') ? endpointUrl : 'http://' + endpointUrl;
+        const hostname = new URL(url).hostname;
+        inferredHost = hostname;
+    } catch (_) {}
+    
+    // Pre-fill fields
+    const sshHostInput = document.getElementById('agent-setup-ssh-host');
+    const agentUrlInput = document.getElementById('agent-setup-agent-url');
+    if (sshHostInput && !sshHostInput.value && inferredHost) {
+        sshHostInput.value = inferredHost;
+    }
+    if (agentUrlInput && !agentUrlInput.value && inferredHost) {
+        agentUrlInput.value = 'http://' + inferredHost + ':7779';
+    }
+    
+    // Reset state
+    document.getElementById('agent-setup-host-key')?.style.setProperty('display', 'none');
+    document.getElementById('btn-agent-setup-trust')?.style.setProperty('display', 'none');
+    document.getElementById('agent-setup-details-section')?.style.setProperty('display', '');
+    document.getElementById('agent-setup-install-section')?.style.setProperty('display', '');
+    document.getElementById('agent-setup-progress')?.style.setProperty('display', 'none');
+    document.getElementById('agent-setup-status')?.style.setProperty('display', 'none');
+    document.getElementById('btn-agent-setup-done')?.style.setProperty('display', 'none');
+    document.getElementById('btn-agent-setup-install')?.style.setProperty('display', '');
+    document.getElementById('btn-agent-setup-start')?.style.setProperty('display', 'none');
+    document.getElementById('btn-agent-setup-stop')?.style.setProperty('display', 'none');
+    document.getElementById('btn-agent-setup-remove')?.style.setProperty('display', 'none');
+    
+    // Check latest version
+    checkRemoteAgentVersions();
+    
+    modal.classList.add('open');
+}
+
+function closeRemoteAgentSetup() {
+    document.getElementById('remote-agent-setup-modal')?.classList.remove('open');
+}
+
+function updateSshSetupAuthFields() {
+    const auth = document.getElementById('agent-setup-ssh-auth')?.value || 'agent';
+    const passwordRow = document.getElementById('agent-setup-password-row');
+    const keyRow = document.getElementById('agent-setup-key-row');
+    if (passwordRow) passwordRow.style.display = auth === 'password' ? '' : 'none';
+    if (keyRow) keyRow.style.display = auth === 'key' ? '' : 'none';
+}
+
+// Bind auth selector
+document.addEventListener('DOMContentLoaded', () => {
+    const authSelect = document.getElementById('agent-setup-ssh-auth');
+    if (authSelect) {
+        authSelect.addEventListener('change', updateSshSetupAuthFields);
+    }
+});
+
+function collectRemoteAgentSetupConnection() {
+    const hostInput = document.getElementById('agent-setup-ssh-host')?.value.trim() || '';
+    const portInput = document.getElementById('agent-setup-ssh-port')?.value.trim() || '22';
+    const auth = document.getElementById('agent-setup-ssh-auth')?.value || 'agent';
+    const host = hostInput.includes('@') ? hostInput.split('@')[1] : hostInput;
+    const username = hostInput.includes('@') ? hostInput.split('@')[0] : '';
+    const connection = { host, username, port: parseInt(portInput, 10) };
+    
+    if (auth === 'password') {
+        connection.password = document.getElementById('agent-setup-ssh-password')?.value || '';
+    } else if (auth === 'key') {
+        connection.private_key_path = document.getElementById('agent-setup-ssh-key-path')?.value.trim() || '';
+    }
+    
+    return { auth, connection };
+}
+
+function sshTargetFromSetup() {
+    const hostInput = document.getElementById('agent-setup-ssh-host')?.value.trim() || '';
+    const portInput = document.getElementById('agent-setup-ssh-port')?.value.trim() || '22';
+    const userHost = hostInput;
+    const port = parseInt(portInput, 10);
+    return port && port !== 22 ? 'ssh://' + userHost + ':' + port : userHost;
+}
+
+async function scanRemoteAgentHostKey() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!connection.host) {
+        showAgentSetupStatus('Enter an SSH host first.', 'error');
+        document.getElementById('agent-setup-ssh-host')?.focus();
+        return;
+    }
+    
+    const hostKeyEl = document.getElementById('agent-setup-host-key');
+    const trustBtn = document.getElementById('btn-agent-setup-trust');
+    if (hostKeyEl) {
+        hostKeyEl.style.display = '';
+        hostKeyEl.innerHTML = '<em>Scanning host key…</em>';
+    }
+    if (trustBtn) trustBtn.style.display = 'none';
+    
+    try {
+        const resp = await fetch('/api/remote-agent/ssh/host-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ssh_target: sshTargetFromSetup(),
+                ssh_connection: connection
+            })
+        });
+        const data = await resp.json();
+        if (!data.ok) {
+            remoteAgentSetupState.hostKey = null;
+            if (hostKeyEl) hostKeyEl.innerHTML = '<em style="color:#bf616a;">Scan failed: ' + escapeHtml(data.error || 'unknown') + '</em>';
+            return;
+        }
+        
+        remoteAgentSetupState.hostKey = data.host_key;
+        const trusted = data.host_key.trusted ? 'trusted' : 'not trusted yet';
+        if (hostKeyEl) {
+            hostKeyEl.innerHTML = [
+                '<strong>Key:</strong> ' + escapeHtml(data.host_key.key_type),
+                '<strong>Host:</strong> ' + escapeHtml(data.host_key.host + ':' + data.host_key.port),
+                '<strong>Fingerprint:</strong> ' + escapeHtml(formatHostKey(data.host_key.key_hex)),
+                '<strong>Status:</strong> ' + trusted
+            ].join('<br>');
+        }
+        if (trustBtn) trustBtn.style.display = data.host_key.trusted ? 'none' : '';
+        
+        if (!data.host_key.trusted) {
+            // Auto-advance to details section after scan
+            document.getElementById('agent-setup-details-section')?.style.setProperty('display', '');
+        }
+    } catch (err) {
+        remoteAgentSetupState.hostKey = null;
+        if (hostKeyEl) hostKeyEl.innerHTML = '<em style="color:#bf616a;">Scan failed: ' + escapeHtml(err.message) + '</em>';
+    }
+}
+
+async function trustRemoteAgentHostKey() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!remoteAgentSetupState.hostKey?.key_hex) {
+        showAgentSetupStatus('Scan the host key before trusting it.', 'error');
+        return;
+    }
+    
+    const resp = await fetch('/api/remote-agent/ssh/trust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            ssh_target: sshTargetFromSetup(),
+            ssh_connection: connection,
+            key_hex: remoteAgentSetupState.hostKey.key_hex
+        })
+    });
+    const data = await resp.json();
+    if (!data.ok) {
+        showAgentSetupStatus('Failed to trust host key: ' + (data.error || 'unknown'), 'error');
+        return;
+    }
+    
+    const hostKeyEl = document.getElementById('agent-setup-host-key');
+    if (hostKeyEl) {
+        hostKeyEl.innerHTML += '<br><strong style="color:#95bc7a;">✓ Trusted for future operations</strong>';
+    }
+    document.getElementById('btn-agent-setup-trust')?.style.setProperty('display', 'none');
+    showAgentSetupStatus('Host key trusted. You can now install and start the agent.', 'ok');
+    
+    // Auto-advance to install section
+    document.getElementById('agent-setup-install-section')?.style.setProperty('display', '');
+}
+
+async function checkRemoteAgentVersions() {
+    const latestEl = document.getElementById('agent-setup-latest-version');
+    const installedEl = document.getElementById('agent-setup-installed-version');
+    
+    if (latestEl) latestEl.textContent = 'Checking…';
+    
+    try {
+        const resp = await fetch('/api/remote-agent/releases/latest');
+        const data = await resp.json();
+        if (data.ok && data.release?.tag_name) {
+            remoteAgentSetupState.latestVersion = data.release.tag_name;
+            if (latestEl) latestEl.textContent = data.release.tag_name;
+        } else {
+            if (latestEl) latestEl.textContent = 'Unavailable';
+        }
+    } catch (_) {
+        if (latestEl) latestEl.textContent = 'Unavailable';
+    }
+    
+    // Check installed version
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!connection.host || !remoteAgentSetupState.hostKey) {
+        if (installedEl) installedEl.textContent = '—';
+        return;
+    }
+    
+    try {
+        const resp = await fetch('/api/remote-agent/detect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ssh_target: sshTargetFromSetup(),
+                ssh_connection: connection,
+                agent_url: document.getElementById('agent-setup-agent-url')?.value.trim() || null
+            })
+        });
+        const data = await resp.json();
+        if (data.ok) {
+            remoteAgentSetupState.installedVersion = data.installed_version || null;
+            if (installedEl) installedEl.textContent = data.installed_version || 'Not installed';
+            if (data.installed_version) {
+                document.getElementById('btn-agent-setup-install')?.style.setProperty('display', 'none');
+                document.getElementById('btn-agent-setup-start')?.style.setProperty('display', data.reachable ? 'none' : '');
+                document.getElementById('btn-agent-setup-stop')?.style.setProperty('display', data.reachable ? '' : 'none');
+                document.getElementById('btn-agent-setup-remove')?.style.setProperty('display', '');
+            }
+        } else {
+            remoteAgentSetupState.installedVersion = null;
+            if (installedEl) installedEl.textContent = 'Not installed';
+        }
+    } catch (_) {
+        remoteAgentSetupState.installedVersion = null;
+        if (installedEl) installedEl.textContent = 'Checking…';
+    }
+}
+
+function showAgentSetupProgress(message, percent) {
+    const progressEl = document.getElementById('agent-setup-progress');
+    const bar = document.getElementById('agent-setup-progress-bar');
+    const text = document.getElementById('agent-setup-progress-text');
+    
+    progressEl.style.display = '';
+    if (bar) bar.style.width = percent + '%';
+    if (text) text.textContent = message;
+    
+    // Auto-scroll to keep progress visible
+    setTimeout(() => {
+        const statusEl = document.getElementById('agent-setup-status');
+        if (statusEl && statusEl.offsetParent !== null) {
+            statusEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else if (progressEl && progressEl.offsetParent !== null) {
+            progressEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, 100);
+}
+
+function hideAgentSetupProgress() {
+    document.getElementById('agent-setup-progress')?.style.setProperty('display', 'none');
+}
+
+function showAgentSetupStatus(message, kind) {
+    const el = document.getElementById('agent-setup-status');
+    el.style.display = '';
+    el.className = 'agent-setup-status ' + kind;
+    el.innerHTML = message;
+}
+
+function remoteAgentSetupRequestPayload() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    return {
+        ssh_target: sshTargetFromSetup(),
+        ssh_connection: connection,
+        agent_url: document.getElementById('agent-setup-agent-url')?.value.trim() || inferredAgentUrl() || null
+    };
+}
+
+function renderManagedAgentStatus(data) {
+    const installedEl = document.getElementById('agent-setup-installed-version');
+    if (installedEl) installedEl.textContent = data.installed_version || (data.installed ? 'Unknown' : 'Not installed');
+
+    const installBtn = document.getElementById('btn-agent-setup-install');
+    const startBtn = document.getElementById('btn-agent-setup-start');
+    const stopBtn = document.getElementById('btn-agent-setup-stop');
+    const removeBtn = document.getElementById('btn-agent-setup-remove');
+
+    if (installBtn) {
+        installBtn.style.display = data.installed && data.managed_task_matches && !data.update_available ? 'none' : '';
+        installBtn.querySelector('.btn-icon')?.replaceChildren(document.createTextNode(data.installed ? '↻' : '⬇'));
+    }
+    if (startBtn) startBtn.style.display = data.running ? 'none' : '';
+    if (stopBtn) stopBtn.style.display = data.running ? '' : 'none';
+    if (removeBtn) removeBtn.style.display = data.installed || data.managed_task_installed ? '' : 'none';
+
+    const managedLines = [
+        '<strong>Install path:</strong> ' + escapeHtml(data.install_path || 'unknown'),
+        '<strong>Installed:</strong> ' + (data.installed ? 'yes' : 'no'),
+        '<strong>Running:</strong> ' + (data.running || data.reachable ? 'yes' : 'no'),
+    ];
+    if (data.installed_version) managedLines.push('<strong>Version:</strong> ' + escapeHtml(data.installed_version));
+    if (data.managed_task_name) managedLines.push('<strong>Startup task:</strong> ' + escapeHtml(data.managed_task_name) + (data.managed_task_matches ? ' (healthy)' : ' (needs repair)'));
+    if (data.managed_task_command && !data.managed_task_matches) managedLines.push('<strong>Task command:</strong> ' + escapeHtml(data.managed_task_command));
+    showAgentSetupStatus(managedLines.join('<br>'), data.running || data.reachable ? 'ok' : 'info');
+}
+
+async function checkManagedRemoteAgent() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!connection.host) {
+        prepareAgentSetupFromEndpoint();
+    }
+    if (!collectRemoteAgentSetupConnection().connection.host) {
+        showAgentSetupStatus('Enter an SSH host first.', 'error');
+        return { ok: false, error: 'No SSH host' };
+    }
+
+    showAgentSetupProgress('Checking managed agent…', 20);
+    try {
+        const resp = await fetch('/api/remote-agent/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(remoteAgentSetupRequestPayload())
+        });
+        const data = await resp.json();
+        hideAgentSetupProgress();
+        if (!data.ok) {
+            showAgentSetupStatus('Status check failed: ' + escapeHtml(data.error || 'unknown'), 'error');
+            return data;
+        }
+        renderManagedAgentStatus(data);
+        return data;
+    } catch (err) {
+        hideAgentSetupProgress();
+        showAgentSetupStatus('Status check failed: ' + escapeHtml(err.message), 'error');
+        return { ok: false, error: err.message };
+    }
+}
+
+async function installRemoteAgent() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!connection.host) {
+        showAgentSetupStatus('Enter an SSH host first.', 'error');
+        return;
+    }
+    
+    // Auto-scan host key if not done
+    if (!remoteAgentSetupState.hostKey) {
+        showAgentSetupProgress('Scanning host key…', 5);
+        try {
+            const resp = await fetch('/api/remote-agent/ssh/host-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ssh_target: sshTargetFromSetup(),
+                    ssh_connection: connection
+                })
+            });
+            const data = await resp.json();
+            if (!data.ok) {
+                showAgentSetupStatus('Failed to scan host key: ' + (data.error || 'unknown'), 'error');
+                return;
+            }
+            remoteAgentSetupState.hostKey = data.host_key;
+        } catch (err) {
+            showAgentSetupStatus('Failed to scan host key: ' + err.message, 'error');
+            return;
+        }
+    }
+    
+    // Auto-trust host key if not trusted
+    if (!remoteAgentSetupState.hostKey.trusted) {
+        showAgentSetupProgress('Trusting host key…', 10);
+        try {
+            const resp = await fetch('/api/remote-agent/ssh/trust', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ssh_target: sshTargetFromSetup(),
+                    ssh_connection: connection,
+                    key_hex: remoteAgentSetupState.hostKey.key_hex
+                })
+            });
+            const data = await resp.json();
+            if (!data.ok) {
+                showAgentSetupStatus('Failed to trust host key: ' + (data.error || 'unknown'), 'error');
+                return;
+            }
+            remoteAgentSetupState.hostKey.trusted = true;
+        } catch (err) {
+            showAgentSetupStatus('Failed to trust host key: ' + err.message, 'error');
+            return;
+        }
+    }
+    
+    showAgentSetupProgress('Detecting remote OS…', 15);
+    
+    try {
+        // Detect remote OS first
+        const detectResp = await fetch('/api/remote-agent/detect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ssh_target: sshTargetFromSetup(),
+                ssh_connection: connection,
+                agent_url: document.getElementById('agent-setup-agent-url')?.value.trim() || null
+            })
+        });
+        const detectData = await detectResp.json();
+        if (!detectData.ok) {
+            showAgentSetupStatus('Failed to detect remote OS: ' + (detectData.error || 'unknown'), 'error');
+            return;
+        }
+        
+        const remoteOs = detectData.os || 'linux';
+        const remoteArch = detectData.arch || 'x86_64';
+        showAgentSetupProgress('Remote: ' + remoteOs + ' ' + remoteArch + '. Fetching release…', 15);
+        
+        // Use the matching_asset from detect response (already filtered by OS/arch)
+        const asset = detectData.matching_asset;
+        if (!asset) {
+            showAgentSetupStatus('No compatible asset found for ' + remoteOs + ' ' + remoteArch + ': ' + (detectData.error || ''), 'error');
+            return;
+        }
+        
+        showAgentSetupProgress('Downloading ' + asset.name + '…', 20);
+        
+        const resp = await fetch('/api/remote-agent/install', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ssh_target: sshTargetFromSetup(),
+                ssh_connection: connection,
+                asset: asset,
+                install_path: detectData.install_path
+            })
+        });
+        
+        if (!resp.ok) {
+            const text = await resp.text();
+            showAgentSetupStatus('Install failed: HTTP ' + resp.status + ' - ' + text, 'error');
+            return;
+        }
+        
+        const data = await resp.json();
+        if (!data.ok) {
+            showAgentSetupStatus('Install failed: ' + (data.error || 'unknown'), 'error');
+            return;
+        }
+        
+        remoteAgentSetupState.installedVersion = remoteAgentSetupState.latestVersion;
+        document.getElementById('agent-setup-installed-version').textContent = remoteAgentSetupState.installedVersion;
+        document.getElementById('btn-agent-setup-install')?.style.setProperty('display', 'none');
+        document.getElementById('btn-agent-setup-start')?.style.setProperty('display', '');
+        
+        showAgentSetupStatus('Agent installed successfully. Starting managed agent…', 'ok');
+        await startRemoteAgent();
+    } catch (err) {
+        showAgentSetupStatus('Install failed: ' + err.message, 'error');
+        hideAgentSetupProgress();
+    }
+}
+
+async function startRemoteAgent() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!connection.host) {
+        showAgentSetupStatus('Enter an SSH host first.', 'error');
+        return;
+    }
+    
+    showAgentSetupProgress('Starting agent…', 30);
+    
+    try {
+        const resp = await fetch('/api/remote-agent/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ssh_target: sshTargetFromSetup(),
+                ssh_connection: connection
+            })
+        });
+        const data = await resp.json();
+        
+        if (!data.ok) {
+            showAgentSetupStatus('Start failed: ' + (data.error || 'unknown'), 'error');
+            hideAgentSetupProgress();
+            return;
+        }
+        
+        showAgentSetupProgress('Agent started… verifying…', 80);
+        
+        // Wait a moment then verify
+        await new Promise(r => setTimeout(r, 2000));
+        
+        const verifyResp = await fetch('/api/remote-agent/detect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                ssh_target: sshTargetFromSetup(),
+                ssh_connection: connection,
+                agent_url: document.getElementById('agent-setup-agent-url')?.value.trim() || null
+            })
+        });
+        const verifyData = await verifyResp.json();
+        
+        hideAgentSetupProgress();
+        
+        if (verifyData.ok && (verifyData.reachable || data.running)) {
+            renderManagedAgentStatus({ ...verifyData, running: true });
+            document.getElementById('btn-agent-setup-done').style.display = '';
+        } else {
+            showAgentSetupStatus('Agent started but verification failed. Check SSH logs.', 'error');
+        }
+    } catch (err) {
+        showAgentSetupStatus('Start failed: ' + err.message, 'error');
+        hideAgentSetupProgress();
+    }
+}
+
+async function stopManagedRemoteAgent() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!connection.host) {
+        prepareAgentSetupFromEndpoint();
+    }
+    if (!collectRemoteAgentSetupConnection().connection.host) {
+        showAgentSetupStatus('Enter an SSH host first.', 'error');
+        return;
+    }
+
+    showAgentSetupProgress('Stopping managed agent…', 30);
+    try {
+        const resp = await fetch('/api/remote-agent/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(remoteAgentSetupRequestPayload())
+        });
+        const data = await resp.json();
+        hideAgentSetupProgress();
+        if (!data.ok) {
+            showAgentSetupStatus('Stop failed: ' + escapeHtml(data.error || 'unknown'), 'error');
+            return;
+        }
+        showAgentSetupStatus('Agent process stopped. The managed startup task remains installed.', 'ok');
+        await checkManagedRemoteAgent();
+    } catch (err) {
+        hideAgentSetupProgress();
+        showAgentSetupStatus('Stop failed: ' + escapeHtml(err.message), 'error');
+    }
+}
+
+async function removeManagedRemoteAgent() {
+    const { connection } = collectRemoteAgentSetupConnection();
+    if (!connection.host) {
+        prepareAgentSetupFromEndpoint();
+    }
+    if (!collectRemoteAgentSetupConnection().connection.host) {
+        showAgentSetupStatus('Enter an SSH host first.', 'error');
+        return;
+    }
+
+    const confirmed = window.confirm('Remove the managed remote agent from this host? This stops the process, deletes the startup task, and removes the managed binary.');
+    if (!confirmed) return;
+
+    showAgentSetupProgress('Removing managed agent…', 30);
+    try {
+        const resp = await fetch('/api/remote-agent/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(remoteAgentSetupRequestPayload())
+        });
+        const data = await resp.json();
+        hideAgentSetupProgress();
+        if (!data.ok) {
+            showAgentSetupStatus('Remove failed: ' + escapeHtml(data.error || 'unknown'), 'error');
+            return;
+        }
+        showAgentSetupStatus('Managed agent removed from this host.', 'ok');
+        document.getElementById('agent-setup-installed-version').textContent = 'Not installed';
+        document.getElementById('btn-agent-setup-install')?.style.setProperty('display', '');
+        document.getElementById('btn-agent-setup-start')?.style.setProperty('display', 'none');
+        document.getElementById('btn-agent-setup-stop')?.style.setProperty('display', 'none');
+        document.getElementById('btn-agent-setup-remove')?.style.setProperty('display', 'none');
+    } catch (err) {
+        hideAgentSetupProgress();
+        showAgentSetupStatus('Remove failed: ' + escapeHtml(err.message), 'error');
+    }
+}
+
+async function finishRemoteAgentSetup() {
+    const agentUrlInput = document.getElementById('agent-setup-agent-url');
+    const agentTokenInput = document.getElementById('agent-setup-agent-token');
+    const sshHostInput = document.getElementById('agent-setup-ssh-host');
+    const sshPortInput = document.getElementById('agent-setup-ssh-port');
+    const sshAuthSelect = document.getElementById('agent-setup-ssh-auth');
+    
+    // Update settings
+    const settings = {
+        remote_agent_url: agentUrlInput?.value.trim() || '',
+        remote_agent_token: agentTokenInput?.value.trim() || '',
+        remote_agent_ssh_target: sshTargetFromSetup(),
+        remote_agent_ssh_autostart: true
+    };
+    
+    const { auth, connection } = collectRemoteAgentSetupConnection();
+    if (auth === 'password') {
+        settings.remote_agent_ssh_password = connection.password;
+    } else if (auth === 'key') {
+        settings.remote_agent_ssh_key_path = connection.private_key_path;
+    }
+    
+    try {
+        await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+    } catch (_) {}
+    
+    closeRemoteAgentSetup();
+    
+    // Refresh the page state
+    window.location.reload();
 }
 
 function openSettingsModal() {
@@ -1470,6 +2137,7 @@ function setRemoteAgentButtonsDisabled(disabled) {
     const updateBtn = document.getElementById('btn-remote-agent-update');
     const stopBtn = document.getElementById('btn-remote-agent-stop');
     const restartBtn = document.getElementById('btn-remote-agent-restart');
+    const removeBtn = document.getElementById('btn-remote-agent-remove');
 
     if (detectBtn) detectBtn.disabled = disabled;
     if (latestBtn) latestBtn.disabled = disabled;
@@ -1478,6 +2146,7 @@ function setRemoteAgentButtonsDisabled(disabled) {
     if (updateBtn) updateBtn.disabled = disabled;
     if (stopBtn) stopBtn.disabled = disabled;
     if (restartBtn) restartBtn.disabled = disabled;
+    if (removeBtn) removeBtn.disabled = disabled;
 
     remoteAgentInProgress = disabled;
 
@@ -1486,6 +2155,22 @@ function setRemoteAgentButtonsDisabled(disabled) {
 function updateAgentStatusIndicator(connected, firewallBlocked) {
 
     const el = document.getElementById('agent-status');
+    const menuDot = document.getElementById('agent-menu-dot');
+    const menuSubtitle = document.getElementById('agent-menu-subtitle');
+
+    if (menuDot) {
+        menuDot.className = 'agent-menu-dot' + (connected ? (firewallBlocked ? ' warning' : ' connected') : '');
+    }
+    if (menuSubtitle) {
+        if (firewallBlocked) {
+            menuSubtitle.textContent = 'Agent started, HTTP blocked';
+        } else if (connected) {
+            menuSubtitle.textContent = 'Connected to remote metrics';
+        } else {
+            const host = remoteEndpointHost();
+            menuSubtitle.textContent = host ? 'Manage agent for ' + host : 'No remote endpoint attached';
+        }
+    }
 
     if (!el) return;
 
@@ -1495,6 +2180,7 @@ function updateAgentStatusIndicator(connected, firewallBlocked) {
     }
 
     el.style.display = 'flex';
+    const fixBtn = el.querySelector('.btn-agent-fix');
 
     if (firewallBlocked) {
         el.className = 'agent-status firewall-blocked';
@@ -1502,14 +2188,75 @@ function updateAgentStatusIndicator(connected, firewallBlocked) {
         const textEl = el.querySelector('.agent-text');
         if (indicator) indicator.textContent = '⚠️';
         if (textEl) textEl.textContent = 'Firewall blocked';
+        if (fixBtn) fixBtn.style.display = '';
     } else {
         el.className = 'agent-status connected';
         const indicator = el.querySelector('.agent-indicator');
         const textEl = el.querySelector('.agent-text');
         if (indicator) indicator.textContent = '●';
         if (textEl) textEl.textContent = 'Remote Agent';
+        if (fixBtn) fixBtn.style.display = 'none';
     }
 
+}
+
+function toggleAgentMenu(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    document.getElementById('agent-menu-panel')?.classList.toggle('open');
+}
+
+function closeAgentMenu() {
+    document.getElementById('agent-menu-panel')?.classList.remove('open');
+}
+
+document.addEventListener('click', event => {
+    if (!event.target.closest('.agent-menu')) {
+        closeAgentMenu();
+    }
+});
+
+function prepareAgentSetupFromEndpoint() {
+    const host = remoteEndpointHost();
+    const sshHostInput = document.getElementById('agent-setup-ssh-host');
+    const agentUrlInput = document.getElementById('agent-setup-agent-url');
+    const configSshTarget = document.getElementById('set-remote-agent-ssh-target');
+    const configAgentUrl = document.getElementById('set-remote-agent-url');
+
+    if (sshHostInput && !sshHostInput.value.trim() && host) sshHostInput.value = host;
+    if (agentUrlInput && !agentUrlInput.value.trim() && host) agentUrlInput.value = 'http://' + host + ':7779';
+    if (configSshTarget && !configSshTarget.value.trim() && host) configSshTarget.value = host;
+    if (configAgentUrl && !configAgentUrl.value.trim() && host) configAgentUrl.value = 'http://' + host + ':7779';
+}
+
+async function agentMenuCheck() {
+    closeAgentMenu();
+    openRemoteAgentSetup();
+    await checkManagedRemoteAgent();
+}
+
+async function agentMenuInstallRepair() {
+    closeAgentMenu();
+    openRemoteAgentSetup();
+    await installRemoteAgent();
+}
+
+async function agentMenuStart() {
+    closeAgentMenu();
+    openRemoteAgentSetup();
+    await startRemoteAgent();
+}
+
+async function agentMenuStop() {
+    closeAgentMenu();
+    openRemoteAgentSetup();
+    await stopManagedRemoteAgent();
+}
+
+async function agentMenuRemove() {
+    closeAgentMenu();
+    openRemoteAgentSetup();
+    await removeManagedRemoteAgent();
 }
 
 function escapeHtml(value) {
@@ -1629,6 +2376,12 @@ async function remoteAgentDetect(showProgress = false) {
         if (data.installed_version) {
 
             lines.push('Installed: v' + escapeHtml(data.installed_version));
+
+        }
+
+        if (data.managed_task_name) {
+
+            lines.push('Startup task: ' + escapeHtml(data.managed_task_name) + (data.managed_task_matches ? ' (healthy)' : ' (needs repair)'));
 
         }
 
@@ -2039,6 +2792,75 @@ async function remoteAgentRestart() {
 
 }
 
+async function remoteAgentRemove() {
+
+    const sshTarget = document.getElementById('set-remote-agent-ssh-target')?.value.trim();
+
+    if (!sshTarget) {
+
+        clearRemoteAgentValidation();
+        showRemoteAgentValidation('Enter an SSH target first.', 'error');
+        document.getElementById('set-remote-agent-ssh-target').focus();
+        return;
+
+    }
+
+    if (!window.confirm('Remove the managed remote agent from this host? This stops the process, deletes the startup task, and removes the managed binary.')) {
+        return;
+    }
+
+    setRemoteAgentButtonsDisabled(true);
+    addTimelineItem('Remove command sent', 'pending');
+    showRemoteAgentProgress('Removing managed agent...', 0, 100);
+
+    try {
+
+        const resp = await fetch('/api/remote-agent/remove', {
+
+            method: 'POST',
+
+            headers: { 'Content-Type': 'application/json' },
+
+            body: JSON.stringify(remoteAgentSshPayload()),
+
+        });
+
+        const data = await resp.json();
+
+        if (!data.ok) {
+
+            addTimelineItem('Remove failed: ' + (data.error || 'unknown'), 'failed');
+            hideRemoteAgentProgress();
+            setRemoteAgentButtonsDisabled(false);
+            setRemoteAgentStatus('Remove failed: ' + escapeHtml(data.error || 'unknown'), 'error');
+            return data;
+
+        }
+
+        addTimelineItem('Managed agent removed', 'completed');
+        showRemoteAgentProgress('Managed agent removed', 100, 100);
+
+        setTimeout(() => {
+            hideRemoteAgentProgress();
+            setRemoteAgentButtonsDisabled(false);
+            setRemoteAgentStatus('Managed agent removed from this host.', 'ok');
+            updateRemoteAgentPanelState({ installed: false, running: false, managed_task_installed: false });
+        }, 500);
+
+        return data;
+
+    } catch (err) {
+
+        addTimelineItem('Remove error: ' + escapeHtml(String(err)), 'failed');
+        hideRemoteAgentProgress();
+        setRemoteAgentButtonsDisabled(false);
+        setRemoteAgentStatus('Remove failed: ' + escapeHtml(String(err)), 'error');
+        return { ok: false, error: String(err) };
+
+    }
+
+}
+
 function updateRemoteAgentPanelState(data) {
 
     const versionsEl = document.getElementById('remote-agent-versions');
@@ -2083,6 +2905,8 @@ function updateRemoteAgentPanelState(data) {
 
         const restartBtn = document.getElementById('btn-remote-agent-restart');
 
+        const removeBtn = document.getElementById('btn-remote-agent-remove');
+
         if (installBtn) installBtn.style.display = isInstalled ? 'none' : '';
 
         if (startBtn) startBtn.style.display = isRunning ? 'none' : '';
@@ -2102,6 +2926,8 @@ function updateRemoteAgentPanelState(data) {
         if (stopBtn) stopBtn.style.display = isRunning ? '' : 'none';
 
         if (restartBtn) restartBtn.style.display = isRunning ? '' : 'none';
+
+        if (removeBtn) removeBtn.style.display = (isInstalled || data.managed_task_installed) ? '' : 'none';
 
         if (isRunning && isUpdateAvailable) {
             document.getElementById('remote-agent-status-indicator').textContent = '● Update available';
@@ -3765,11 +4591,13 @@ ws.onmessage = e => {
         agentStatusEl.style.display = showAgent ? '' : 'none';
         
         const agentStatus = d.remote_agent_connected ? 'connected' : 'disconnected';
-        const firewallBlocked = !d.remote_agent_health_reachable && d.remote_agent_connected;
+        const remoteAgentHealthReachable = d.remote_agent_health_reachable !== false;
+        const firewallBlocked = d.remote_agent_connected && !remoteAgentHealthReachable;
         
         agentStatusEl.className = 'agent-status ' + (firewallBlocked ? 'firewall-blocked' : agentStatus);
         
         const textEl = agentStatusEl.querySelector('.agent-text');
+        const fixBtn = agentStatusEl.querySelector('.btn-agent-fix');
         if (textEl) {
             if (firewallBlocked) {
                 textEl.textContent = 'Firewall blocked';
@@ -3779,8 +4607,12 @@ ws.onmessage = e => {
                 textEl.textContent = 'No Remote Agent';
             }
         }
+        if (fixBtn) {
+            fixBtn.style.display = (!d.remote_agent_connected || firewallBlocked) ? '' : 'none';
+            fixBtn.title = firewallBlocked ? 'Repair remote agent connectivity' : 'Set up remote agent';
+        }
         
-        if (d.remote_agent_connected && !d.remote_agent_health_reachable) {
+        if (d.remote_agent_connected && !remoteAgentHealthReachable) {
             setRemoteAgentStatus('Agent connected but HTTP is not reachable (firewall blocked)', 'warning');
         }
         
@@ -3963,12 +4795,24 @@ ws.onmessage = e => {
     renderSparkline('m-prompt-spark', window.metricSeries.prompt, 'prompt');
     renderSparkline('m-gen-spark', window.metricSeries.generation, 'generation');
 
+    // Throughput ratio
+    const ratioBar = document.getElementById('m-throughput-ratio-bar');
+    const ratioValue = document.getElementById('m-throughput-ratio');
+    if (promptDisplayRate > 0 && genDisplayRate > 0) {
+        const ratio = promptDisplayRate / genDisplayRate;
+        const ratioPct = Math.min((ratio / 50) * 100, 100);
+        if (ratioBar) ratioBar.style.width = ratioPct + '%';
+        if (ratioValue) ratioValue.textContent = ratio.toFixed(1) + ':1';
+    } else {
+        if (ratioBar) ratioBar.style.width = '0%';
+        if (ratioValue) ratioValue.textContent = '\u2014';
+    }
+
     // Generation progress from /slots next_token metadata
     const generationState = document.getElementById('m-generation-state');
     const generationMain = document.getElementById('m-generation-main');
     const generationSub = document.getElementById('m-generation-sub');
     const generationDetails = document.getElementById('m-generation-details');
-    const generationFill = document.getElementById('m-generation-fill');
     const generationRing = document.getElementById('m-generation-ring');
     const liveVelocity = document.getElementById('m-live-velocity');
     const promptStage = document.getElementById('m-stage-prompt');
@@ -3988,6 +4832,8 @@ ws.onmessage = e => {
     renderActivityRail(generationActive);
     renderRecentTask();
     renderSlotGrid(l, hasActiveEndpoint);
+    renderSlotUtilization(l);
+    renderRequestStats();
     renderDecodingConfig(l, hasActiveEndpoint);
     renderLiveSparkline('m-live-output-spark', window.metricSeries.liveOutput);
 
@@ -4012,17 +4858,17 @@ ws.onmessage = e => {
         if (generationDetails) {
             const detailParts = [];
             if (taskId !== null && taskId !== undefined) detailParts.push('task ' + taskId);
-            if (generationTotal > 0) detailParts.push(formatMetricNumber(generationTotal) + ' output budget');
-            detailParts.push(formatMetricNumber(remaining) + ' output tokens remaining');
-            detailParts.push((l?.slots_processing || 0) + ' busy · ' + (l?.slots_idle || 0) + ' idle');
+            if (generationTotal > 0) {
+                const maxStr = generationTotal >= 1000 ? Math.round(generationTotal / 1000) + 'k' : formatMetricNumber(generationTotal);
+                detailParts.push('max ' + maxStr);
+            }
+            detailParts.push(formatMetricNumber(remaining) + ' left');
             renderGenerationDetailItems(generationDetails, detailParts);
         }
-        if (generationFill) generationFill.style.width = generationPct + '%';
     } else {
         if (generationMain) generationMain.textContent = generationActive ? 'working' : '\u2014';
         if (generationSub) generationSub.textContent = 'output budget';
-        renderGenerationDetailItems(generationDetails, [(l?.slots_processing || 0) + ' busy · ' + (l?.slots_idle || 0) + ' idle']);
-        if (generationFill) generationFill.style.width = '0%';
+        renderGenerationDetailItems(generationDetails, []);
     }
 
     // Context metrics with progress bar

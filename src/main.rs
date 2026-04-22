@@ -12,6 +12,7 @@ mod presets;
 mod remote_ssh;
 mod state;
 mod system;
+#[cfg(feature = "native-tray")]
 mod tray;
 mod web;
 
@@ -217,18 +218,26 @@ fn main() -> Result<()> {
 
     // Run tray on the main thread when a desktop session is available.
     // Headless Linux servers still keep the web UI/API running.
-    if should_start_tray(&args) {
-        if let Err(e) = crate::tray::run_tray(state, port) {
-            eprintln!("[warn] Tray unavailable: {e}");
-            eprintln!("[info] Continuing in headless mode with web/API server");
+    #[cfg(feature = "native-tray")]
+    {
+        if should_start_tray(&args) {
+            if let Err(e) = crate::tray::run_tray(state, port) {
+                eprintln!("[warn] Tray unavailable: {e}");
+                eprintln!("[info] Continuing in headless mode with web/API server");
+            }
+        } else {
+            println!("[info] Tray disabled (no graphical session)");
             park_forever();
         }
-    } else {
-        println!("[info] Tray disabled (no graphical session)");
-        park_forever();
     }
 
-    Ok(())
+    #[cfg(not(feature = "native-tray"))]
+    {
+        let _ = state;
+        println!("[info] Tray disabled in this build");
+    }
+
+    park_forever()
 }
 
 #[cfg(target_os = "linux")]
@@ -240,11 +249,17 @@ pub fn should_start_tray(args: &cli::AppArgs) -> bool {
 }
 
 #[cfg(not(target_os = "linux"))]
+#[cfg(feature = "native-tray")]
 pub fn should_start_tray(args: &cli::AppArgs) -> bool {
     if args.headless || args.no_tray {
         return false;
     }
     true
+}
+
+#[cfg(not(feature = "native-tray"))]
+pub fn should_start_tray(_args: &cli::AppArgs) -> bool {
+    false
 }
 
 fn park_forever() -> ! {
@@ -382,7 +397,7 @@ mod tests {
         assert!(!should_start_tray(&args));
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(all(not(target_os = "linux"), feature = "native-tray"))]
     #[test]
     fn should_start_tray_non_linux_default_enabled() {
         let args = cli::AppArgs {
@@ -409,5 +424,34 @@ mod tests {
             remote_agent_ssh_command: None,
         };
         assert!(should_start_tray(&args));
+    }
+
+    #[cfg(not(feature = "native-tray"))]
+    #[test]
+    fn should_start_tray_without_desktop_feature_disabled() {
+        let args = cli::AppArgs {
+            port: 7778,
+            gpu_backend: "auto".to_string(),
+            models_dir: None,
+            gpu_arch: None,
+            gpu_devices: None,
+            llama_poll_interval: 1,
+            llama_server_path: None,
+            llama_server_cwd: None,
+            presets_file: None,
+            sessions_file: None,
+            headless: false,
+            no_tray: false,
+            agent: false,
+            agent_host: "127.0.0.1".to_string(),
+            agent_port: 7779,
+            agent_token: None,
+            remote_agent_url: None,
+            remote_agent_token: None,
+            remote_agent_ssh_autostart: false,
+            remote_agent_ssh_target: None,
+            remote_agent_ssh_command: None,
+        };
+        assert!(!should_start_tray(&args));
     }
 }

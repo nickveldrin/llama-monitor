@@ -31,7 +31,7 @@
             <span class="agent-indicator">●</span>
             <span class="agent-text">Remote Agent</span>
             <span class="agent-latency" id="agent-latency"></span>
-            <button type="button" class="btn-firewall-fix" onclick="openFirewallHelp()" style="background:none;border:none;color:inherit;cursor:pointer;font-size:0.7rem;margin-left:4px;">Fix</button>
+            <button type="button" class="btn-agent-fix" onclick="openRemoteAgentSetup()" title="Set up remote agent">⚡ Fix</button>
         </span>
         <span class="status-dot" id="status-dot"></span>
         <span class="status-text" id="status-text"></span>
@@ -58,6 +58,24 @@
         <div class="nav-right">
             <div id="session-controls">
                 <button class="nav-btn" onclick="openSessionModal()" title="New Session">+ New Session</button>
+            </div>
+            <div class="agent-menu" id="agent-menu">
+                <button type="button" class="nav-btn agent-menu-btn" onclick="toggleAgentMenu(event)" title="Remote agent">
+                    <span class="agent-menu-dot" id="agent-menu-dot"></span>
+                    Agent
+                </button>
+                <div class="agent-menu-panel" id="agent-menu-panel">
+                    <div class="agent-menu-header">
+                        <div class="agent-menu-title">Remote Agent</div>
+                        <div class="agent-menu-subtitle" id="agent-menu-subtitle">No remote endpoint attached</div>
+                    </div>
+                    <button type="button" class="agent-menu-item" onclick="agentMenuCheck()">Check agent</button>
+                    <button type="button" class="agent-menu-item" onclick="openRemoteAgentSetup()">Manage agent</button>
+                    <button type="button" class="agent-menu-item" onclick="agentMenuInstallRepair()">Install / repair</button>
+                    <button type="button" class="agent-menu-item" onclick="agentMenuStart()">Start</button>
+                    <button type="button" class="agent-menu-item" onclick="agentMenuStop()">Stop</button>
+                    <button type="button" class="agent-menu-item danger" onclick="agentMenuRemove()">Remove managed agent</button>
+                </div>
             </div>
             <button id="settings-btn" class="nav-btn" onclick="openSettingsModal()" title="Settings">⚙️ Settings</button>
             <div class="nav-user" id="user-menu">
@@ -126,11 +144,11 @@
                         <select id="preset-select"></select>
                     </label>
                     <span class="preset-actions">
-                        <button class="btn-sm btn-preset" onclick="openPresetModal('new')" title="Create new preset">New</button>
-                        <button class="btn-sm btn-preset" onclick="openPresetModal('edit')" title="Edit selected preset">Edit</button>
-                        <button class="btn-sm btn-preset" onclick="copyPreset()" title="Duplicate selected preset">Copy</button>
-                        <button class="btn-sm btn-preset btn-preset-delete" onclick="deletePreset()" title="Delete selected preset">Delete</button>
-                        <button class="btn-sm btn-preset-reset" onclick="resetPresets()" title="Reset all presets to built-in defaults">Reset</button>
+                        <button class="btn-sm btn-preset" onclick="openPresetModal('new')" title="Create new preset">➕ New</button>
+                        <button class="btn-sm btn-preset" onclick="openPresetModal('edit')" title="Edit selected preset">✎ Edit</button>
+                        <button class="btn-sm btn-preset" onclick="copyPreset()" title="Duplicate selected preset">⧉ Copy</button>
+                        <button class="btn-sm btn-preset btn-preset-delete" onclick="deletePreset()" title="Delete selected preset">✕ Delete</button>
+                        <button class="btn-sm btn-preset-reset" onclick="resetPresets()" title="Reset all presets to built-in defaults">↺ Reset</button>
                     </span>
                     <button class="btn btn-start" id="btn-start" onclick="doStart()">Start</button>
                     <button class="btn btn-stop" id="btn-stop" onclick="doStop()" disabled>Stop</button>
@@ -187,6 +205,13 @@
                                 <svg class="metric-sparkline" id="m-prompt-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true"></svg>
                                 <svg class="metric-sparkline" id="m-gen-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true"></svg>
                             </div>
+                            <div class="throughput-ratio">
+                                <div class="ratio-label">Prompt/Gen ratio</div>
+                                <div class="ratio-bar-bg">
+                                    <div class="ratio-bar" id="m-throughput-ratio-bar"></div>
+                                </div>
+                                <div class="ratio-value" id="m-throughput-ratio">&mdash;</div>
+                            </div>
                             <div class="metric-footnote" id="m-throughput-age">&mdash;</div>
                         </div>
 
@@ -213,14 +238,11 @@
                                         <span>Live generation estimate</span>
                                         <strong id="m-live-velocity">&mdash;</strong>
                                     </div>
-                                    <svg class="metric-sparkline live-output-sparkline" id="m-live-output-spark" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true"></svg>
+                                    <svg class="metric-sparkline live-output-sparkline" id="m-live-output-spark" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true"></svg>
                                     <div class="token-flow" id="m-token-flow" aria-hidden="true">
                                         <span></span><span></span><span></span><span></span><span></span>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="generation-progress-bar">
-                                <div class="generation-progress-fill" id="m-generation-fill"></div>
                             </div>
                             <div class="generation-details" id="m-generation-details">&mdash;</div>
                             <div class="recent-task-strip" id="m-recent-task" style="display:none;"></div>
@@ -260,24 +282,39 @@
                                 <div class="metric-live-chip" id="m-slots-state">idle</div>
                             </div>
                             <div class="slot-grid" id="m-slot-grid"></div>
+                            <div class="slot-utilization">
+                                <div class="util-label">Slot utilization</div>
+                                <div class="util-bar-bg">
+                                    <div class="util-bar" id="m-slot-util-bar"></div>
+                                </div>
+                                <div class="util-value" id="m-slot-util">&mdash;</div>
+                            </div>
                         </div>
                         <div class="widget-card inference-mini-panel">
                             <div class="metric-card-topline">
                                 <div class="widget-metric-label">REQUEST ACTIVITY</div>
                                 <div class="metric-live-chip" id="m-activity-state">idle</div>
                             </div>
+                            <div class="request-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">Requests (10m)</span>
+                                    <span class="stat-value" id="m-req-count">&mdash;</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Avg duration</span>
+                                    <span class="stat-value" id="m-req-avg">&mdash;</span>
+                                </div>
+                            </div>
                             <div class="activity-rail" id="m-activity-rail" aria-label="Recent request activity"></div>
                         </div>
-                        <div class="widget-card inference-mini-panel inference-config-panel" tabindex="0">
+                        <div class="widget-card inference-mini-panel inference-config-panel">
                             <div class="metric-card-topline">
                                 <div class="widget-metric-label">DECODING CONFIG</div>
                                 <div class="metric-live-chip" id="m-decoding-state">config</div>
                             </div>
                             <div class="speculative-chip" id="m-speculative-chip">Speculative decoding unavailable</div>
                             <div class="config-kv-grid" id="m-speculative-config"></div>
-                            <div class="sampler-stack" id="m-sampler-stack"></div>
-                            <div class="config-kv-grid sampler-config" id="m-sampler-config"></div>
-                            <div class="decoding-popover" id="m-decoding-popover" role="status" aria-live="polite"></div>
+                            <div class="sampler-params-inline" id="m-sampler-params-inline"></div>
                         </div>
                     </div>
                 </section>
@@ -401,6 +438,7 @@
                           <button type="button" class="btn-sm btn-preset" onclick="remoteAgentUpdate()" id="btn-remote-agent-update" style="display:none;">Update Agent</button>
                           <button type="button" class="btn-sm btn-preset" onclick="remoteAgentStop()" id="btn-remote-agent-stop" style="display:none;">Stop Agent</button>
                           <button type="button" class="btn-sm btn-preset" onclick="remoteAgentRestart()" id="btn-remote-agent-restart" style="display:none;">Restart Agent</button>
+                          <button type="button" class="btn-sm btn-preset" onclick="remoteAgentRemove()" id="btn-remote-agent-remove" style="display:none;">Remove Agent</button>
                       </div>
                       
                       <div class="remote-agent-firewall" id="remote-agent-firewall" style="display:none;background:#3b4252;border-radius:6px;padding:12px;">
@@ -496,26 +534,27 @@
                  <details class="modal-section" style="border:none;margin-top:10px;">
                      <summary style="padding:6px 0;margin:0;color:#88c0d1;">SSH and Agent Details</summary>
                      <p class="modal-help">Use this when the llama-server endpoint is on another machine and you want this app to install or start the companion agent there. The dedicated SSH backend supports agent/keychain, password, and private-key authentication from the guided setup.</p>
-                     <div class="modal-row" style="gap:8px;">
-                         <label class="modal-field" style="flex:1;" title="Optional explicit remote agent URL. Empty means infer it from the attached llama-server host on port 7779.">
-                             Agent URL
-                             <input type="text" id="set-remote-agent-url" placeholder="http://127.0.0.1:7779">
-                         </label>
-                         <label class="modal-field" style="flex:1;" title="Optional bearer token used when polling the remote agent.">
-                             Agent Token
-                             <input type="text" id="set-remote-agent-token" placeholder="optional">
-                         </label>
-                     </div>
-                     <div class="modal-row" style="gap:8px;">
-                          <label class="modal-field" style="flex:1;">
-                              <span><input type="checkbox" id="set-remote-agent-ssh-autostart"> After attach, try SSH start if the agent is unreachable</span>
-                              <span class="modal-help">Leave this off unless you want the app to attempt the saved SSH start command after you attach to this remote endpoint.</span>
+<div class="modal-row" style="gap:12px;">
+                          <label class="modal-field" style="flex:1;" title="Optional explicit remote agent URL. Empty means infer it from the attached llama-server host on port 7779.">
+                              Agent URL
+                              <input type="text" id="set-remote-agent-url" placeholder="http://127.0.0.1:7779">
                           </label>
-                          <label class="modal-field" style="flex:1;" title="SSH target for the remote machine. Example: user@192.168.1.100. If empty, auto-inferred from attached endpoint host.">
-                              SSH target
-                              <input type="text" id="set-remote-agent-ssh-target" placeholder="user@host">
+                          <label class="modal-field" style="flex:1;" title="Optional bearer token used when polling the remote agent.">
+                              Agent Token
+                              <input type="text" id="set-remote-agent-token" placeholder="optional">
                           </label>
                       </div>
+                      <div class="modal-row" style="gap:12px;">
+                           <label class="modal-field checkbox-field" style="flex:1;">
+                               <input type="checkbox" id="set-remote-agent-ssh-autostart">
+                               <span>After attach, try SSH start if the agent is unreachable</span>
+                           </label>
+                           <label class="modal-field" style="flex:1;" title="SSH target for the remote machine. Example: user@192.168.1.100. If empty, auto-inferred from attached endpoint host.">
+                               SSH target
+                               <input type="text" id="set-remote-agent-ssh-target" placeholder="user@host">
+                           </label>
+                       </div>
+                       <p class="modal-help">Leave this off unless you want the app to attempt the saved SSH start command after you attach to this remote endpoint.</p>
                      <label class="modal-field" title="Optional command run on the remote machine. Empty uses an OS-specific default for an installed agent binary.">
                          Custom SSH start command (optional)
                          <input type="text" id="set-remote-agent-ssh-command" placeholder='optional override, e.g. start "" /B llama-monitor.exe --agent --agent-host 0.0.0.0 --agent-port 7779'>
@@ -527,6 +566,164 @@
         <div class="modal-buttons">
             <button type="button" class="btn btn-modal-cancel" onclick="closeConfigModal()">Cancel</button>
             <button type="button" class="btn btn-modal-save" onclick="saveConfig()">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Remote Agent Setup Modal -->
+<div class="modal-overlay" id="remote-agent-setup-modal" style="z-index:1150;">
+    <div class="modal remote-agent-setup-modal">
+        <div class="modal-header">
+            <h2>
+                <span class="agent-setup-icon">🔌</span>
+                Set Up Remote Agent
+            </h2>
+            <button type="button" class="modal-close" onclick="closeRemoteAgentSetup()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body remote-agent-setup-body">
+            <!-- Hero Section -->
+            <div class="agent-setup-hero">
+                <div class="agent-setup-hero-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8 21h8M12 17v4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+                <h3>Enable host metrics monitoring</h3>
+                <p class="agent-setup-hero-desc">
+                    Your endpoint <span class="agent-endpoint-url" id="agent-setup-endpoint-url"></span> needs a remote agent to monitor GPU, system, and process metrics. We'll install it via SSH.
+                </p>
+            </div>
+
+            <!-- SSH Connection Section -->
+            <div class="agent-setup-section">
+                <h4 class="agent-setup-section-title">
+                    <span class="step-badge">1</span>
+                    SSH Connection
+                </h4>
+                <div class="agent-setup-grid">
+                    <label class="agent-setup-field">
+                        <span>SSH Host</span>
+                        <input type="text" id="agent-setup-ssh-host" placeholder="user@192.168.1.100">
+                    </label>
+                    <label class="agent-setup-field">
+                        <span>Port</span>
+                        <input type="text" id="agent-setup-ssh-port" value="22" style="max-width:80px;">
+                    </label>
+                </div>
+                <div class="agent-setup-auth">
+                    <label class="agent-setup-field">
+                        <span>Authentication</span>
+                        <select id="agent-setup-ssh-auth">
+                            <option value="agent">SSH Agent / Keychain</option>
+                            <option value="password">Password</option>
+                            <option value="key">Private Key</option>
+                        </select>
+                    </label>
+                    <label class="agent-setup-field ssh-guide-secret" id="agent-setup-password-row" style="display:none;">
+                        <span>Password</span>
+                        <input type="password" id="agent-setup-ssh-password" autocomplete="off" placeholder="not saved">
+                    </label>
+                    <label class="agent-setup-field ssh-guide-secret" id="agent-setup-key-row" style="display:none;">
+                        <span>Private Key Path</span>
+                        <input type="text" id="agent-setup-ssh-key-path" placeholder="~/.ssh/id_ed25519">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Host Key Section -->
+            <div class="agent-setup-section">
+                <h4 class="agent-setup-section-title">
+                    <span class="step-badge">2</span>
+                    Verify Host Key
+                </h4>
+                <div class="agent-setup-actions">
+                    <button type="button" class="btn btn-agent-scan" id="btn-agent-setup-scan" onclick="scanRemoteAgentHostKey()">
+                        <span class="btn-icon">🔍</span>
+                        Scan Host Key
+                    </button>
+                    <button type="button" class="btn btn-agent-trust" id="btn-agent-setup-trust" onclick="trustRemoteAgentHostKey()" style="display:none;">
+                        <span class="btn-icon">✓</span>
+                        Trust & Continue
+                    </button>
+                </div>
+                <div class="agent-setup-host-key" id="agent-setup-host-key" style="display:none;"></div>
+            </div>
+
+            <!-- Agent Details Section -->
+            <div class="agent-setup-section" id="agent-setup-details-section" style="display:none;">
+                <h4 class="agent-setup-section-title">
+                    <span class="step-badge">3</span>
+                    Agent Configuration
+                </h4>
+                <div class="agent-setup-grid">
+                    <label class="agent-setup-field">
+                        <span>Agent URL</span>
+                        <input type="text" id="agent-setup-agent-url" placeholder="http://192.168.1.100:7779">
+                    </label>
+                    <label class="agent-setup-field">
+                        <span>Agent Token (optional)</span>
+                        <input type="text" id="agent-setup-agent-token" placeholder="optional">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Install Section -->
+            <div class="agent-setup-section" id="agent-setup-install-section" style="display:none;">
+                <h4 class="agent-setup-section-title">
+                    <span class="step-badge">4</span>
+                    Install Agent
+                </h4>
+                <div class="agent-setup-versions">
+                    <div class="version-card">
+                        <span class="version-label">Latest</span>
+                        <span class="version-value" id="agent-setup-latest-version">Checking…</span>
+                    </div>
+                    <div class="version-card">
+                        <span class="version-label">Installed</span>
+                        <span class="version-value" id="agent-setup-installed-version">—</span>
+                    </div>
+                </div>
+                <div class="agent-setup-actions">
+                    <button type="button" class="btn btn-agent-scan" id="btn-agent-setup-status" onclick="checkManagedRemoteAgent()">
+                        <span class="btn-icon">✓</span>
+                        Check Status
+                    </button>
+                    <button type="button" class="btn btn-agent-install" id="btn-agent-setup-install" onclick="installRemoteAgent()">
+                        <span class="btn-icon">⬇</span>
+                        Install / Repair
+                    </button>
+                    <button type="button" class="btn btn-agent-start" id="btn-agent-setup-start" onclick="startRemoteAgent()" style="display:none;">
+                        <span class="btn-icon">▶</span>
+                        Start Agent
+                    </button>
+                    <button type="button" class="btn btn-agent-start" id="btn-agent-setup-stop" onclick="stopManagedRemoteAgent()" style="display:none;">
+                        <span class="btn-icon">■</span>
+                        Stop Agent
+                    </button>
+                    <button type="button" class="btn btn-agent-trust" id="btn-agent-setup-remove" onclick="removeManagedRemoteAgent()" style="display:none;">
+                        <span class="btn-icon">✕</span>
+                        Remove
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Section -->
+            <div class="agent-setup-progress" id="agent-setup-progress" style="display:none;">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="agent-setup-progress-bar"></div>
+                </div>
+                <div class="progress-text" id="agent-setup-progress-text"></div>
+            </div>
+
+            <!-- Status Section -->
+            <div class="agent-setup-status" id="agent-setup-status" style="display:none;"></div>
+        </div>
+        <div class="modal-buttons">
+            <button type="button" class="btn btn-modal-cancel" onclick="closeRemoteAgentSetup()">Cancel</button>
+            <button type="button" class="btn btn-agent-done" id="btn-agent-setup-done" onclick="finishRemoteAgentSetup()" style="display:none;">
+                Done
+            </button>
         </div>
     </div>
 </div>
@@ -915,7 +1112,7 @@
                     <h3>Advanced Settings</h3>
                     <div class="modal-section">
                         <h3>Runtime Configuration</h3>
-                        <p class="settings-help">Server paths, GPU environment, and remote-agent install/start controls live in runtime configuration.</p>
+                        <p class="settings-help">Server paths and GPU environment live in runtime configuration. Use the Agent button in the header to install, validate, repair, or remove a remote agent.</p>
                         <button type="button" class="btn btn-secondary" onclick="openConfigModal()">Open Runtime Configuration</button>
                     </div>
                     <label class="modal-field">

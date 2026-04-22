@@ -4,6 +4,7 @@ use std::path::PathBuf;
 #[derive(Parser, Debug, Clone)]
 #[command(
     name = "llama-monitor",
+    version,
     about = "Web dashboard for llama.cpp server management and GPU monitoring"
 )]
 pub struct AppArgs {

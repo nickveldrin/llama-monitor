@@ -90,6 +90,7 @@ pub fn ws_route(
                                 "local_metrics_available": local_metrics_available,
                                 "host_metrics_available": host_metrics_available,
                                 "remote_agent_connected": remote_agent_connected,
+                                "remote_agent_health_reachable": remote_agent_connected,
                                 "remote_agent_url": remote_agent_url,
                                 "capabilities": capabilities,
                                 "endpoint_kind": endpoint_kind,
