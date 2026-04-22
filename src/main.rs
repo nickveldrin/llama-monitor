@@ -315,7 +315,7 @@ mod tests {
     #[cfg(target_os = "linux")]
     #[test]
     fn should_start_tray_linux_display_variations() {
-        std::env::set_var("DISPLAY", ":0");
+        unsafe { std::env::set_var("DISPLAY", ":0") };
         let args = cli::AppArgs {
             port: 7778,
             gpu_backend: "auto".to_string(),
@@ -340,9 +340,9 @@ mod tests {
             remote_agent_ssh_command: None,
         };
         assert!(should_start_tray(&args));
-        std::env::remove_var("DISPLAY");
+        unsafe { std::env::remove_var("DISPLAY") };
 
-        std::env::set_var("WAYLAND_DISPLAY", "wayland-0");
+        unsafe { std::env::set_var("WAYLAND_DISPLAY", "wayland-0") };
         let args = cli::AppArgs {
             port: 7778,
             gpu_backend: "auto".to_string(),
@@ -367,10 +367,10 @@ mod tests {
             remote_agent_ssh_command: None,
         };
         assert!(should_start_tray(&args));
-        std::env::remove_var("WAYLAND_DISPLAY");
+        unsafe { std::env::remove_var("WAYLAND_DISPLAY") };
 
-        std::env::remove_var("DISPLAY");
-        std::env::remove_var("WAYLAND_DISPLAY");
+        unsafe { std::env::remove_var("DISPLAY") };
+        unsafe { std::env::remove_var("WAYLAND_DISPLAY") };
         let args = cli::AppArgs {
             port: 7778,
             gpu_backend: "auto".to_string(),
