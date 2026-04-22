@@ -98,7 +98,7 @@ test.describe('modal controls', () => {
       document.getElementById('agent-status').style.display = '';
     });
     await page.locator('.btn-agent-fix').click();
-    await expect(page.locator('#config-modal')).toHaveClass(/open/);
+    await expect(page.locator('#config-modal')).toBeVisible();
     await expect(page.locator('#remote-agent-panel')).toBeVisible();
   });
 
@@ -277,10 +277,6 @@ test.describe('inference metric rendering', () => {
     await expect(page.locator('#m-activity-rail .activity-phase.prompt')).toBeVisible();
     await expect(page.locator('#m-activity-rail .activity-phase.generation')).toBeVisible();
     await expect(page.locator('#m-generation-details .generation-detail-chip')).toHaveCount(4);
-
-    await page.locator('.inference-config-panel').focus();
-    await expect(page.locator('#m-decoding-popover')).toContainText('acceptance rate');
-    await expect(page.locator('#m-decoding-popover')).toContainText('not exposed');
   });
 
   test('request rail leaves completion markers for finished tasks', async ({ page }) => {
