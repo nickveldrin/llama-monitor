@@ -37,6 +37,8 @@ jobs:
         with:
           name: llama-monitor-binary
           path: target/release/
+      - name: Make binary executable
+        run: chmod +x target/release/llama-monitor
       - uses: actions/setup-node@v4
         with:
           node-version: 22
