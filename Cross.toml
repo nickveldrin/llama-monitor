@@ -2,5 +2,5 @@
 pre-build = [
   "dpkg --add-architecture $CROSS_DEB_ARCH",
   "apt-get update",
-  "apt-get --assume-yes install libgtk-3-dev:$CROSS_DEB_ARCH libwebkit2gtk-4.1-dev:$CROSS_DEB_ARCH libjavascriptcoregtk-4.1-dev:$CROSS_DEB_ARCH libsoup-3.0-dev:$CROSS_DEB_ARCH libayatana-appindicator3-dev:$CROSS_DEB_ARCH",
+  "apt-get --assume-yes install libgtk-3-dev:$CROSS_DEB_ARCH libayatana-appindicator3-dev:$CROSS_DEB_ARCH",
 ]
