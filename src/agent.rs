@@ -336,12 +336,14 @@ pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDe
     };
 
     let start_command = if ssh_ok {
-        default_start_command_for_os(
+        default_start_command_for_os_with(
+            &connection,
             remote_os,
             install_path
                 .as_deref()
                 .unwrap_or("~/.config/llama-monitor/bin/llama-monitor"),
         )
+        .await
     } else {
         String::new()
     };
@@ -631,6 +633,23 @@ fn default_start_command_for_os(os: RemoteOs, install_path: &str) -> String {
     }
 }
 
+pub(crate) async fn default_start_command_for_os_with(
+    connection: &SshConnection,
+    os: RemoteOs,
+    install_path: &str,
+) -> String {
+    let resolved_path = if os == RemoteOs::Windows {
+        if let Some(appdata) = resolve_windows_appdata(connection).await {
+            install_path.replace("%APPDATA%", &appdata)
+        } else {
+            install_path.to_string()
+        }
+    } else {
+        install_path.to_string()
+    };
+    default_start_command_for_os(os, &resolved_path)
+}
+
 const WINDOWS_AGENT_TASK_NAME: &str = "LlamaMonitorAgent";
 const WINDOWS_AGENT_LEGACY_TASK_NAME: &str = "llama-monitor-agent";
 
@@ -677,7 +696,7 @@ async fn detect_remote_os_with(connection: &SshConnection) -> RemoteOs {
 /// expansion may resolve `%APPDATA%` to a system profile path instead of the
 /// user's, causing "The system cannot find the path specified" on `schtasks /Run`.
 /// Expanding the path at install/start time avoids this entirely.
-async fn resolve_windows_appdata(connection: &SshConnection) -> Option<String> {
+pub(crate) async fn resolve_windows_appdata(connection: &SshConnection) -> Option<String> {
     match tokio::time::timeout(
         Duration::from_secs(5),
         remote_ssh::exec(connection.clone(), "cmd.exe /C echo %APPDATA%".to_string()),
@@ -1396,7 +1415,7 @@ pub mod install {
             ssh_target,
             Some(connection.clone()),
             &install_path,
-            &default_start_command_for_os(remote_os, &install_path),
+            &default_start_command_for_os_with(&connection, remote_os, &install_path).await,
         )
         .await?;
 

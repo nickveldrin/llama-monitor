@@ -610,8 +610,21 @@ fn api_remote_agent_start(
                 let command = match request.get("start_command") {
                     Some(v) => v.as_str().unwrap_or("").to_string(),
                     None => {
-                        crate::agent::default_start_command_for_target(&ssh_target, &install_path)
+                        let remote_os = crate::agent::detect_remote_os_simple(&ssh_target).await;
+                        if let Some(ref conn) = ssh_connection {
+                            crate::agent::default_start_command_for_os_with(
+                                conn,
+                                remote_os,
+                                &install_path,
+                            )
                             .await
+                        } else {
+                            crate::agent::default_start_command_for_target(
+                                &ssh_target,
+                                &install_path,
+                            )
+                            .await
+                        }
                     }
                 };
                 match crate::agent::start_remote_agent(
