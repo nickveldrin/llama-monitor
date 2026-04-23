@@ -26,7 +26,6 @@ CROSS_REMOTE=1 \
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=-Wl,--allow-shlib-undefined" \
   cross build --release --target aarch64-unknown-linux-gnu \
   --target-dir target/smoke-aarch64-linux \
-  --no-default-features --features native-tray \
   > /tmp/build-linux-aarch64.log 2>&1 &
 pid2=$!
 

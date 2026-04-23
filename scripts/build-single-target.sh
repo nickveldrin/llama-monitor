@@ -26,8 +26,7 @@ case "$TARGET" in
     # runner container, so cross copies the sysroot via docker cp instead.
     CROSS_REMOTE=1 \
       CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=-Wl,--allow-shlib-undefined" \
-      cross build --release --target aarch64-unknown-linux-gnu \
-      --no-default-features --features native-tray
+      cross build --release --target aarch64-unknown-linux-gnu
     ;;
   x86_64-pc-windows-gnu)
     CROSS_REMOTE=1 \
