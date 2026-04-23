@@ -627,6 +627,20 @@ fn api_remote_agent_start(
                         }
                     }
                 };
+                // Always resolve %APPDATA% for Windows targets
+                let command = if command.contains("%APPDATA%") {
+                    if let Some(ref conn) = ssh_connection {
+                        if let Some(appdata) = crate::agent::resolve_windows_appdata(conn).await {
+                            command.replace("%APPDATA%", &appdata)
+                        } else {
+                            command
+                        }
+                    } else {
+                        command
+                    }
+                } else {
+                    command
+                };
                 match crate::agent::start_remote_agent(
                     &ssh_target,
                     ssh_connection,
