@@ -11,6 +11,12 @@ rustflags = [
   "-C", "link-arg=-isysroot",
   "-C", "link-arg=/opt/osxcross/target/SDK/MacOSX26.1.sdk",
 ]
+
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+rustflags = [
+  "-C", "link-arg=-Wl,--allow-shlib-undefined",
+]
 EOF
 
 echo "Building release targets..."
@@ -20,11 +26,12 @@ cargo build --release --target x86_64-unknown-linux-gnu \
   > /tmp/build-linux-x86_64.log 2>&1 &
 pid1=$!
 
-# CROSS_REMOTE=1: dind's Docker daemon can't bind-mount /opt/rustup from the
-# runner container, so cross copies the sysroot via docker cp instead.
-CROSS_REMOTE=1 \
-  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=-Wl,--allow-shlib-undefined" \
-  cross build --release --target aarch64-unknown-linux-gnu \
+PKG_CONFIG_ALLOW_CROSS=1 \
+  PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig:/usr/share/pkgconfig \
+  CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \
+  CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++ \
+  AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar \
+  cargo build --release --target aarch64-unknown-linux-gnu \
   --target-dir target/smoke-aarch64-linux \
   > /tmp/build-linux-aarch64.log 2>&1 &
 pid2=$!
