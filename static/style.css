@@ -1300,6 +1300,19 @@ body.sidebar-collapsed .content-area {
   text-align: right;
 }
 
+.blocked-indicator.critical {
+  background: linear-gradient(135deg, rgba(191, 97, 106, 0.14), rgba(191, 97, 106, 0.06));
+  border-color: rgba(191, 97, 106, 0.36);
+}
+
+.blocked-indicator.critical .blocked-text {
+  color: #bf616a;
+}
+
+.blocked-indicator.critical .blocked-timer {
+  color: #bf616a;
+}
+
 .sparkline-pair {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1502,6 +1515,18 @@ body.sidebar-collapsed .content-area {
 @keyframes stage-toolcall-pulse {
   0%, 100% { box-shadow: 0 0 18px rgba(235, 203, 139, 0.16); }
   50% { box-shadow: 0 0 28px rgba(235, 203, 139, 0.32); }
+}
+
+.stage-segment.toolcall-critical {
+  color: #bf616a;
+  background: linear-gradient(135deg, rgba(191, 97, 106, 0.28), rgba(191, 97, 106, 0.14));
+  box-shadow: 0 0 18px rgba(191, 97, 106, 0.2);
+  animation: stage-toolcall-critical-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes stage-toolcall-critical-pulse {
+  0%, 100% { box-shadow: 0 0 18px rgba(191, 97, 106, 0.2); }
+  50% { box-shadow: 0 0 32px rgba(191, 97, 106, 0.4); }
 }
 
 .generation-layout {

@@ -113,7 +113,7 @@ function pushSparklinePoint(name, value) {
     }
 }
 
-function renderSparkline(id, points, className) {
+function renderSparkline(id, points, className, isBlocked) {
     const svg = document.getElementById(id);
     if (!svg || !points || points.length < 2) return;
     const width = 120;
@@ -125,7 +125,8 @@ function renderSparkline(id, points, className) {
         const y = height - ((value / max) * (height - 4)) - 2;
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
-    svg.innerHTML = '<path class="sparkline-fill ' + className + '" d="' + path + ' L 120 28 L 0 28 Z"></path><path class="sparkline-line ' + className + '" d="' + path + '"></path>';
+    const wallLine = isBlocked ? '<line x1="120" y1="0" x2="120" y2="28" stroke="#ebcb8b" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>' : '';
+    svg.innerHTML = '<path class="sparkline-fill ' + className + '" d="' + path + ' L 120 28 L 0 28 Z"></path><path class="sparkline-line ' + className + '" d="' + path + '"></path>' + wallLine;
 }
 
 function renderLiveSparkline(id, points) {
@@ -4748,15 +4749,21 @@ ws.onmessage = e => {
     const throughputActive = promptRate > 0 || genRate > 0;
     const isBlocked = l?.tool_calling_blocked || false;
     const blockedSec = l?.blocked_duration_sec || 0;
+    const isBlockedCritical = isBlocked && blockedSec >= 60;
 
     setCardState(throughputCard, !hasActiveEndpoint ? 'dormant' : isBlocked ? 'blocked' : throughputActive ? 'live' : 'idle');
     setEmptyState(document.getElementById('m-throughput-empty'), !hasActiveEndpoint);
-    setChipState(throughputState, throughputActive ? 'live' : isBlocked ? 'blocked' : 'idle', throughputActive ? 'live' : isBlocked ? 'blocked' : 'idle');
+    setChipState(throughputState, throughputActive ? 'live' : isBlockedCritical ? 'critical' : isBlocked ? 'blocked' : 'idle', throughputActive ? 'live' : isBlockedCritical ? 'critical' : isBlocked ? 'blocked' : 'idle');
 
     const blockedEl = document.getElementById('m-throughput-blocked');
     const blockedTimer = document.getElementById('m-blocked-timer');
-    if (blockedEl) blockedEl.classList.toggle('visible', isBlocked);
+    if (blockedEl) {
+        blockedEl.classList.toggle('visible', isBlocked);
+        blockedEl.classList.toggle('critical', isBlockedCritical);
+    }
     if (blockedTimer) blockedTimer.textContent = `${blockedSec}s`;
+    const blockedText = blockedEl?.querySelector('.blocked-text');
+    if (blockedText) blockedText.textContent = isBlockedCritical ? 'potential hang — throughput suspended' : 'tool calling — throughput suspended';
     if (throughputAge) {
         throughputAge.textContent = formatMetricAge(latestThroughputMs);
     }
@@ -4801,8 +4808,8 @@ ws.onmessage = e => {
 
     pushSparklinePoint('prompt', promptDisplayRate);
     pushSparklinePoint('generation', genDisplayRate);
-    renderSparkline('m-prompt-spark', window.metricSeries.prompt, 'prompt');
-    renderSparkline('m-gen-spark', window.metricSeries.generation, 'generation');
+    renderSparkline('m-prompt-spark', window.metricSeries.prompt, 'prompt', isBlocked);
+    renderSparkline('m-gen-spark', window.metricSeries.generation, 'generation', isBlocked);
 
     // Throughput ratio
     const ratioBar = document.getElementById('m-throughput-ratio-bar');
@@ -4848,12 +4855,12 @@ ws.onmessage = e => {
 
     setCardState(generationCard, !hasActiveEndpoint ? 'dormant' : isBlocked ? 'blocked' : generationActive ? 'live' : generationAvailable ? 'idle' : 'unavailable');
     setEmptyState(document.getElementById('m-generation-empty'), !hasActiveEndpoint);
-    setChipState(generationState, isBlocked ? 'blocked' : (generationActive ? 'generating' : 'idle'), isBlocked ? 'blocked' : (generationActive ? 'live' : 'idle'));
+    setChipState(generationState, isBlockedCritical ? 'critical' : isBlocked ? 'blocked' : (generationActive ? 'generating' : 'idle'), isBlockedCritical ? 'critical' : isBlocked ? 'blocked' : (generationActive ? 'live' : 'idle'));
     setChipState(document.getElementById('m-slots-state'), generationActive ? 'active' : 'idle', generationActive ? 'live' : 'idle');
     setChipState(document.getElementById('m-activity-state'), generationActive ? 'active' : 'idle', generationActive ? 'live' : 'idle');
     if (generationRing) generationRing.style.setProperty('--progress', generationPct.toFixed(2));
     if (liveVelocity) {
-        liveVelocity.textContent = liveOutputRate > 0 ? liveOutputRate.toFixed(1) + ' t/s' : (generationActive ? 'warming' : 'retained');
+        liveVelocity.textContent = liveOutputRate > 0 ? liveOutputRate.toFixed(1) + ' t/s' : (isBlockedCritical ? 'hung' : isBlocked ? 'blocked' : (generationActive ? 'warming' : 'retained'));
     }
     if (promptStage && outputStage) {
         promptStage.classList.toggle('active', generationActive && generated <= 1 && !isBlocked);
@@ -4863,7 +4870,8 @@ ws.onmessage = e => {
     }
     const toolCallStage = document.getElementById('m-stage-toolcall');
     if (toolCallStage) {
-        toolCallStage.classList.toggle('toolcall', isBlocked);
+        toolCallStage.classList.toggle('toolcall-critical', isBlockedCritical);
+        toolCallStage.classList.toggle('toolcall', isBlocked && !isBlockedCritical);
         toolCallStage.classList.toggle('idle', !isBlocked && !generationActive);
     }
     if (generationAvailable) {
