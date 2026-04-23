@@ -4863,10 +4863,18 @@ ws.onmessage = e => {
         liveVelocity.textContent = liveOutputRate > 0 ? liveOutputRate.toFixed(1) + ' t/s' : (isBlockedCritical ? 'hung' : isBlocked ? 'blocked' : (generationActive ? 'warming' : 'retained'));
     }
     if (promptStage && outputStage) {
-        promptStage.classList.toggle('active', generationActive && generated <= 1 && !isBlocked);
-        outputStage.classList.toggle('active', generationActive && generated > 1 && !isBlocked);
-        promptStage.classList.toggle('idle', !generationActive && !isBlocked);
-        outputStage.classList.toggle('idle', !generationActive && !isBlocked);
+        // Use throughput as proxy for phase detection when next_token data isn't available
+        const useThroughputFallback = !generationAvailable;
+        const isPromptPhase = useThroughputFallback
+            ? !!(l?.prompt_throughput_active && !l?.generation_throughput_active)
+            : (generated <= 1);
+        const isOutputPhase = useThroughputFallback
+            ? !!(l?.generation_throughput_active)
+            : (generated > 1);
+        promptStage.classList.toggle('active', generationActive && isPromptPhase && !isBlocked);
+        outputStage.classList.toggle('active', generationActive && isOutputPhase && !isBlocked);
+        promptStage.classList.toggle('idle', !generationActive && !isBlocked && !isOutputPhase);
+        outputStage.classList.toggle('idle', !generationActive && !isBlocked && !isPromptPhase);
     }
     const toolCallStage = document.getElementById('m-stage-toolcall');
     if (toolCallStage) {

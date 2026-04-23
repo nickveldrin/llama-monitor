@@ -14,6 +14,7 @@ struct CounterSnapshot {
 }
 
 const BLOCKED_STAGNANT_THRESHOLD: u32 = 3;
+const GPU_IDLE_THRESHOLD: u32 = 10; // GPU < 10% = likely blocked on tool call
 
 #[derive(Debug, Clone, Default)]
 struct SlotBlockTracker {
@@ -35,6 +36,7 @@ impl SlotBlockTracker {
         task_id: Option<u64>,
         prompt_tps: f64,
         gen_tps: f64,
+        gpu_load_pct: Option<u32>,
     ) {
         if !is_processing {
             self.reset();
@@ -59,20 +61,29 @@ impl SlotBlockTracker {
             return;
         }
 
-        // Fallback detection: n_decoded not available — detect from zero throughput while processing
+        // Fallback detection: n_decoded not available — use GPU load to distinguish
+        // blocked (GPU idle) from prompt processing (GPU busy)
         if !has_output_tokens {
+            let gpu_available = gpu_load_pct.is_some();
+            let gpu_idle = gpu_load_pct.is_some_and(|load| load < GPU_IDLE_THRESHOLD);
+
             if prompt_tps > 0.0 || gen_tps > 0.0 {
                 // Throughput is non-zero — slot is actively working
                 self.stagnant_polls = 0;
                 self.blocked_since = None;
                 self.blocked_task_id = None;
-            } else {
-                // Slot is processing but throughput is zero — likely blocked on tool call
+            } else if gpu_available && gpu_idle {
+                // GPU is idle (< 10%) while slot is processing — blocked on tool call
                 self.stagnant_polls += 1;
                 if self.stagnant_polls >= BLOCKED_STAGNANT_THRESHOLD && self.blocked_since.is_none() {
                     self.blocked_since = Some(Instant::now());
                     self.blocked_task_id = task_id;
                 }
+            } else {
+                // GPU is busy or unavailable — likely prompt processing, don't flag as blocked
+                self.stagnant_polls = 0;
+                self.blocked_since = None;
+                self.blocked_task_id = None;
             }
             return;
         }
@@ -301,6 +312,11 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
             && let Ok(body) = resp.text().await
             && let Some(slots) = parse_slot_metrics(&body)
         {
+            // Read GPU load for fallback blocked detection
+            let gpu_load_pct: Option<u32> = state.gpu_metrics.lock().unwrap().values()
+                .map(|g| g.load)
+                .max();
+
             // Track blocked state from primary processing slot
             if let Some(primary) = slots.slots.iter().find(|s| s.is_processing) {
                 block_tracker.update(
@@ -311,6 +327,7 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
                     primary.id_task,
                     prompt_tps,
                     gen_tps,
+                    gpu_load_pct,
                 );
             } else if slots.slots_processing == 0 {
                 block_tracker.reset();
