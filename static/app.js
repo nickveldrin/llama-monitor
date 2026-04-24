@@ -105,6 +105,45 @@ function setCardState(card, state) {
     if (state) card.classList.add('is-' + state);
 }
 
+// Welcome panel management
+function updateWelcomePanel(hasSession) {
+    const welcome = document.getElementById('welcome-panel');
+    const metrics = document.getElementById('metrics-container');
+    if (!welcome || !metrics) return;
+
+    if (hasSession) {
+        // Hide welcome, show metrics
+        if (welcome.style.display !== 'none') {
+            welcome.classList.add('exiting');
+            setTimeout(() => {
+                welcome.style.display = 'none';
+                welcome.classList.remove('exiting');
+                metrics.style.display = '';
+                metrics.classList.add('entering');
+                setTimeout(() => metrics.classList.remove('entering'), 800);
+            }, 350);
+        }
+    } else {
+        // Show welcome, hide metrics
+        metrics.style.display = 'none';
+        metrics.classList.remove('entering');
+        welcome.style.display = '';
+        welcome.classList.remove('exiting');
+    }
+}
+
+function doAttachFromWelcome() {
+    const input = document.getElementById('welcome-endpoint-input');
+    if (input && input.value.trim()) {
+        doAttach(input.value.trim());
+    }
+}
+
+function focusAttachInput() {
+    const input = document.getElementById('welcome-endpoint-input');
+    if (input) input.focus();
+}
+
 function pushSparklinePoint(name, value) {
     window.metricSeries[name].push(Number.isFinite(value) ? value : 0);
     const limit = name === 'liveOutput' ? 90 : 40;
@@ -5063,12 +5102,20 @@ ws.onmessage = e => {
     const agentLatencyEl = document.getElementById('agent-latency');
 
     if (d.capabilities && d.endpoint_kind) {
+        const hasSession = !!d.active_session_id;
         let modeClass = 'unknown';
         let modeText = 'Unknown';
         let statusClass = 'ok';
         let statusText = 'OK';
 
-        if (d.endpoint_kind === 'Local') {
+        if (!hasSession) {
+            if (endpointModeEl) {
+                endpointModeEl.textContent = 'Ready';
+                endpointModeEl.className = 'endpoint-mode local';
+            }
+            if (endpointUrlEl) endpointUrlEl.textContent = '';
+            if (endpointStatusEl) endpointStatusEl.innerHTML = '<span class="status-dot ok"></span>';
+        } else if (d.endpoint_kind === 'Local') {
             modeClass = 'local';
             modeText = 'Local';
             if (!d.capabilities.system || !d.capabilities.gpu) {
@@ -5253,6 +5300,8 @@ ws.onmessage = e => {
     const promptDeltaEl = document.getElementById('m-prompt-delta');
     const genDeltaEl = document.getElementById('m-gen-delta');
     const hasActiveEndpoint = !!d.active_session_id;
+
+    updateWelcomePanel(hasActiveEndpoint);
 
     const promptRate = l?.prompt_tokens_per_sec || 0;
     const genRate = l?.generation_tokens_per_sec || 0;

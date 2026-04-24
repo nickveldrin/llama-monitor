@@ -153,7 +153,66 @@
                     <button class="btn btn-stop" id="btn-stop" onclick="doStop()" disabled>Stop</button>
                 </div>
 
-                <section class="metric-section" id="inference-section">
+                <!-- Welcome Panel (shown when no session) -->
+<div class="welcome-panel" id="welcome-panel">
+    <div class="welcome-bg">
+        <div class="welcome-orb welcome-orb-1"></div>
+        <div class="welcome-orb welcome-orb-2"></div>
+    </div>
+    <div class="welcome-content">
+        <div class="welcome-hero">
+            <div class="welcome-logo-wrap">
+                <svg class="welcome-logo" width="64" height="64" viewBox="0 0 32 32" fill="none">
+                    <path d="M16 2C8.268 2 2 8.268 2 16C2 23.732 8.268 30 16 30C23.732 30 30 23.732 30 16C30 8.268 23.732 2 16 2ZM16 26C10.477 26 6 21.523 6 16C6 10.477 10.477 6 16 6C21.523 6 26 10.477 26 16C26 21.523 21.523 26 16 26Z" fill="var(--theme-primary)"/>
+                    <path d="M16 12C14.6739 12 13.4021 12.5268 12.4645 13.4645C11.5268 14.4021 11 15.6739 11 17C11 18.3261 11.5268 19.5979 12.4645 20.5355C13.4021 21.4732 14.6739 22 16 22C17.3261 22 18.5979 21.4732 19.5355 20.5355C20.4732 19.5979 21 18.3261 21 17C21 15.6739 20.4732 14.4021 19.5355 13.4645C18.5979 12.5268 17.3261 12 16 12ZM16 20C14.9391 20 13.9217 19.5786 13.1716 18.8284C12.4214 18.0783 12 17.0609 12 16C12 14.9391 12.4214 13.9217 13.1716 13.1716C13.9217 12.4214 14.9391 12 16 12C17.0609 12 18.0783 12.4214 18.8284 13.1716C19.5786 13.9217 20 14.9391 20 16C20 17.0609 19.5786 18.0783 18.8284 18.8284C18.0783 19.586 17.0609 20 16 20Z" fill="white"/>
+                </svg>
+            </div>
+            <h1 class="welcome-title">Llama Monitor</h1>
+            <p class="welcome-subtitle">Real-time telemetry for your inference stack</p>
+        </div>
+
+        <div class="welcome-actions">
+            <div class="welcome-card" onclick="focusAttachInput()">
+                <div class="welcome-card-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                        <path d="M12 6v6l4 2"/>
+                        <path d="M2 12h2M20 12h2M12 2v2M12 20v2"/>
+                    </svg>
+                </div>
+                <h2 class="welcome-card-title">Attach to Endpoint</h2>
+                <p class="welcome-card-desc">Connect to a running llama.cpp server</p>
+                <div class="welcome-card-input">
+                    <input type="text" id="welcome-endpoint-input" placeholder="http://127.0.0.1:8080" onkeydown="if(event.key==='Enter')doAttachFromWelcome()">
+                    <button class="welcome-btn welcome-btn-primary" onclick="doAttachFromWelcome()">
+                        <span>Attach</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+                <button class="welcome-card-link" onclick="openSessionModal()">Browse saved sessions</button>
+            </div>
+
+            <div class="welcome-card">
+                <div class="welcome-card-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="18" rx="2"/>
+                        <path d="M8 3v18M16 3v18M2 9h20M2 15h20"/>
+                    </svg>
+                </div>
+                <h2 class="welcome-card-title">Spawn Local Server</h2>
+                <p class="welcome-card-desc">Start llama.cpp from a model preset</p>
+                <div class="welcome-card-hint">
+                    <span>Select a preset below, then click <strong>Start</strong></span>
+                </div>
+                <button class="welcome-card-link" onclick="openPresetManager()">Manage presets</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Metrics sections (hidden when no session) -->
+<div class="metrics-container" id="metrics-container" style="display:none;">
+<section class="metric-section" id="inference-section">
                     <h2 class="dashboard-section-title">Inference Metrics <span class="metric-badge" id="inference-historic-badge" style="display:none;">Historic</span></h2>
                     <div class="inference-grid" id="inference">
                         <!-- Throughput Card -->
@@ -386,6 +445,7 @@
                         </div>
                     </div>
                 </section>
+</div>
 
                 <!-- GPU Visualization Switcher -->
                 <div class="viz-switcher" id="gpu-viz-switcher" style="display:none;">
