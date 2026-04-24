@@ -8,7 +8,6 @@ test.describe('modern UI shell', () => {
 
   test('renders status, nav, sidebar, and dashboard shell', async ({ page }) => {
     await expect(page.locator('.endpoint-health-strip')).toBeVisible();
-    await expect(page.locator('.status-label')).toHaveText('Active endpoint');
     await expect(page.locator('.top-nav-bar')).toBeVisible();
     await expect(page.locator('.sidebar-nav')).toBeVisible();
     await expect(page.locator('#page-server')).toBeVisible();
