@@ -2942,6 +2942,16 @@ body.sidebar-collapsed .content-area {
     animation: hw-temp-breathe 2.4s ease-in-out infinite;
   }
 
+  /* Ambient temp gauge pulse (always visible) */
+  @keyframes hw-temp-ambient {
+    0%, 100% { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 8px rgba(136, 192, 209, 0.06); }
+    50% { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 0 16px rgba(136, 192, 209, 0.12); }
+  }
+
+  .hw-temp-gauge {
+    animation: hw-temp-ambient 3s ease-in-out infinite;
+  }
+
   /* Bar shimmer sweep (matches inference card style) */
   @keyframes hw-bar-shimmer {
     0% { transform: translateX(-100%); }
@@ -2960,13 +2970,15 @@ body.sidebar-collapsed .content-area {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
     transform: translateX(-100%);
     pointer-events: none;
+    animation: hw-bar-shimmer 4s ease-in-out infinite;
   }
 
   .hw-bar-bg.is-hot::after {
-    animation: hw-bar-shimmer 2s ease-in-out infinite;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+    animation-duration: 1.8s;
   }
 
   .hw-stacked-bg {
@@ -2981,13 +2993,15 @@ body.sidebar-collapsed .content-area {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
     transform: translateX(-100%);
     pointer-events: none;
+    animation: hw-bar-shimmer 4s ease-in-out infinite;
   }
 
   .hw-stacked-bg.is-hot::after {
-    animation: hw-bar-shimmer 2s ease-in-out infinite;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
+    animation-duration: 1.8s;
   }
 
   /* Sparkline peak dot pulse */
@@ -3002,14 +3016,28 @@ body.sidebar-collapsed .content-area {
     transform-box: fill-box;
   }
 
+  /* Sparkline ambient line glow */
+  @keyframes hw-sparkline-glow {
+    0%, 100% { filter: drop-shadow(0 0 2px rgba(143, 188, 187, 0.2)); }
+    50% { filter: drop-shadow(0 0 6px rgba(143, 188, 187, 0.4)); }
+  }
+
+  .hw-sparkline {
+    animation: hw-sparkline-glow 3s ease-in-out infinite;
+  }
+
   /* Ring breathe (matches inference card) */
   @keyframes hw-ring-breathe {
     0%, 100% { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 24px rgba(136, 192, 209, 0.14); }
     50% { box-shadow: inset 0 0 0 1px rgba(143, 188, 187, 0.2), 0 0 36px rgba(136, 192, 209, 0.22); }
   }
 
+  .hw-ring-viz {
+    animation: hw-ring-breathe 3s ease-in-out infinite;
+  }
+
   .hw-ring-viz.is-warming {
-    animation: hw-ring-breathe 2.4s ease-in-out infinite;
+    animation: hw-ring-breathe 2s ease-in-out infinite;
   }
 
   /* Power cap pulse */
@@ -3022,11 +3050,32 @@ body.sidebar-collapsed .content-area {
     animation: hw-power-pulse 1.5s ease-in-out infinite;
   }
 
+  /* Metric block ambient border pulse */
+  @keyframes hw-block-ambient {
+    0%, 100% { border-color: rgba(255, 255, 255, 0.06); }
+    50% { border-color: rgba(255, 255, 255, 0.1); }
+  }
+
+  .hw-metric-block {
+    animation: hw-block-ambient 4s ease-in-out infinite;
+  }
+
   /* Metric block hover glow */
   .hw-metric-block:hover {
-    border-color: rgba(136, 192, 209, 0.15);
+    border-color: rgba(136, 192, 209, 0.2);
     background: rgba(136, 192, 209, 0.04);
-    box-shadow: 0 0 16px rgba(136, 192, 209, 0.06);
+    box-shadow: 0 0 20px rgba(136, 192, 209, 0.06);
+    animation: none;
+  }
+
+  /* Value text ambient pulse */
+  @keyframes hw-value-ambient {
+    0%, 100% { opacity: 0.92; }
+    50% { opacity: 1; }
+  }
+
+  .hw-metric-value {
+    animation: hw-value-ambient 3s ease-in-out infinite;
   }
 
 /* Hardware card empty state */
