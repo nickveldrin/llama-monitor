@@ -2680,15 +2680,40 @@ body.sidebar-collapsed .content-area {
  }
 
  .hw-bar-fill {
-   height: 100%;
-   border-radius: 3px;
-   background: linear-gradient(90deg, var(--bar-start, #8fbcbb), var(--bar-end, #88c0d1));
-   transition: width 300ms ease, background 300ms ease;
- }
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--bar-start, #8fbcbb), var(--bar-end, #88c0d1));
+    transition: width 300ms ease, background 300ms ease;
+    box-shadow: 0 0 10px var(--bar-start, #8fbcbb);
+    position: relative;
+    overflow: hidden;
+    animation: hw-bar-glow 3s ease-in-out infinite;
+  }
 
- .hw-bar-fill.is-hot {
-   animation: bar-shimmer 2s ease-in-out infinite;
- }
+  @keyframes hw-bar-glow {
+    0%, 100% { box-shadow: 0 0 8px var(--bar-start, #8fbcbb); }
+    50% { box-shadow: 0 0 16px var(--bar-start, #8fbcbb); }
+  }
+
+  .hw-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+    transform: translateX(-100%);
+    animation: hw-bar-shimmer 2.5s ease-in-out infinite;
+  }
+
+  .hw-bar-fill.is-hot {
+    animation-duration: 1.5s;
+  }
+
+  .hw-bar-fill.is-hot::after {
+    animation-duration: 1.2s;
+  }
 
  /* Ring visualization */
  .hw-ring-viz {
@@ -2722,12 +2747,14 @@ body.sidebar-collapsed .content-area {
    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
  }
 
- .hw-stacked-fill {
-   height: 100%;
-   border-radius: 3px;
-   background: linear-gradient(90deg, var(--bar-start, #8fbcbb), var(--bar-end, #88c0d1));
-   transition: width 300ms ease;
- }
+.hw-stacked-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--bar-start, #8fbcbb), var(--bar-end, #88c0d1));
+    transition: width 300ms ease;
+    box-shadow: 0 0 10px var(--bar-start, #8fbcbb);
+    animation: hw-bar-glow 3s ease-in-out infinite;
+  }
 
  .hw-stacked-free {
    height: 100%;
@@ -2966,45 +2993,30 @@ body.sidebar-collapsed .content-area {
     overflow: hidden;
   }
 
-  .hw-bar-bg::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
-    transform: translateX(-100%);
-    pointer-events: none;
-    animation: hw-bar-shimmer 4s ease-in-out infinite;
-  }
-
-  .hw-bar-bg.is-hot::after {
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
-    animation-duration: 1.8s;
-  }
-
   .hw-stacked-bg {
     position: relative;
     overflow: hidden;
   }
 
-  .hw-stacked-bg::after {
+  .hw-stacked-fill {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hw-stacked-fill::after {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
     transform: translateX(-100%);
-    pointer-events: none;
-    animation: hw-bar-shimmer 4s ease-in-out infinite;
+    animation: hw-bar-shimmer 2.5s ease-in-out infinite;
   }
 
-  .hw-stacked-bg.is-hot::after {
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
-    animation-duration: 1.8s;
+  .hw-stacked-fill.is-hot::after {
+    animation-duration: 1.2s;
   }
 
   /* Sparkline peak dot pulse */
