@@ -13,6 +13,11 @@ struct CounterSnapshot {
     predicted_seconds_total: f64,
 }
 
+// NOTE: Blocked state detection is disabled because we cannot reliably distinguish
+// "blocked on tool call" from "processing big context" using only n_decoded stagnation.
+// Both show is_processing=true, output_active=false, and stagnant n_decoded.
+// Re-enable when llama-server exposes a tool-calling state in /slots.
+
 impl CounterSnapshot {
     fn from_prometheus(values: &PrometheusValues) -> Self {
         Self {
@@ -148,13 +153,12 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
             continue;
         }
 
-        // Poll /metrics
         if let Ok(resp) = client.get(format!("{base}/metrics")).send().await
             && let Ok(body) = resp.text().await
         {
             let prom = parse_prometheus_metrics(&body);
-
             let current_counters = CounterSnapshot::from_prometheus(&prom);
+
             let (prompt_tps, gen_tps) = if previous_counter_session.as_deref()
                 == Some(active_id.as_str())
                 && let Some(previous) = &previous_counters

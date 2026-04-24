@@ -665,7 +665,7 @@ async fn detect_remote_os(target: &str) -> RemoteOs {
     detect_remote_os_with(&SshConnection::from_target(target)).await
 }
 
-async fn detect_remote_os_with(connection: &SshConnection) -> RemoteOs {
+pub(crate) async fn detect_remote_os_with(connection: &SshConnection) -> RemoteOs {
     let windows = remote_ssh::exec(connection.clone(), "cmd.exe /C ver".to_string());
 
     if let Ok(Ok(output)) = tokio::time::timeout(Duration::from_secs(5), windows).await
@@ -697,23 +697,38 @@ async fn detect_remote_os_with(connection: &SshConnection) -> RemoteOs {
 /// user's, causing "The system cannot find the path specified" on `schtasks /Run`.
 /// Expanding the path at install/start time avoids this entirely.
 pub(crate) async fn resolve_windows_appdata(connection: &SshConnection) -> Option<String> {
-    match tokio::time::timeout(
+    // Try %APPDATA% first
+    if let Ok(Ok(out)) = tokio::time::timeout(
         Duration::from_secs(5),
         remote_ssh::exec(connection.clone(), "cmd.exe /C echo %APPDATA%".to_string()),
     )
     .await
+        && out.status == 0
     {
-        Ok(Ok(out)) if out.status == 0 => {
-            let s = out.stdout.trim().to_string();
-            // Guard: if %APPDATA% isn't set in the SSH env it echoes literally
-            if s.is_empty() || s.starts_with('%') {
-                None
-            } else {
-                Some(s)
-            }
+        let s = out.stdout.trim().to_string();
+        if !s.is_empty() && !s.starts_with('%') {
+            return Some(s);
         }
-        _ => None,
     }
+
+    // Fallback: resolve %USERPROFILE% and construct AppData\Roaming
+    if let Ok(Ok(out)) = tokio::time::timeout(
+        Duration::from_secs(5),
+        remote_ssh::exec(
+            connection.clone(),
+            "cmd.exe /C echo %USERPROFILE%".to_string(),
+        ),
+    )
+    .await
+        && out.status == 0
+    {
+        let profile = out.stdout.trim().to_string();
+        if !profile.is_empty() && !profile.starts_with('%') {
+            return Some(format!("{}\\AppData\\Roaming", profile));
+        }
+    }
+
+    None
 }
 
 async fn detect_remote_temp_dir(connection: &SshConnection, os: RemoteOs) -> String {
@@ -776,7 +791,7 @@ fn asset_info_from_github_asset(asset: GithubAsset) -> Option<ReleaseAssetInfo> 
 }
 
 impl RemoteOs {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             RemoteOs::Windows => "windows",
             RemoteOs::Unix => "linux",
@@ -811,7 +826,7 @@ fn install_path_for_os(os: RemoteOs) -> Option<&'static str> {
     }
 }
 
-fn default_install_path_for_os(os: RemoteOs) -> String {
+pub(crate) fn default_install_path_for_os(os: RemoteOs) -> String {
     install_path_for_os(os)
         .unwrap_or("/tmp/llama-monitor")
         .to_string()
