@@ -5052,7 +5052,7 @@ ws.onmessage = e => {
         }
         
         if (agentLatencyEl) {
-            agentLatencyEl.textContent = d.remote_agent_url ? d.remote_agent_url : '';
+            agentLatencyEl.textContent = '';
         }
     }
 
@@ -5425,9 +5425,6 @@ ws.onmessage = e => {
     const isAttached = d.session_mode === 'attach' && d.active_session_endpoint;
 
     if (isAttached) {
-
-        // Skip "Running" since it's already shown in status-text
-        if (l.generation_tokens_per_sec > 0) badgeParts.push(l.generation_tokens_per_sec.toFixed(1) + 't/s');
 
         const gpuEntries = Object.entries(d.gpu || {});
 

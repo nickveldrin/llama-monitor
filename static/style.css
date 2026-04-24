@@ -407,7 +407,10 @@ svg {
   color: var(--color-success);
 }
 
-.endpoint-mode.remote,
+.endpoint-mode.remote {
+  color: var(--color-success);
+}
+
 .status-busy {
   color: var(--color-warning);
 }
@@ -427,9 +430,9 @@ svg {
   min-width: 0;
   flex: 1;
   overflow: hidden;
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
