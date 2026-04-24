@@ -2731,11 +2731,35 @@ body.sidebar-collapsed .content-area {
    animation: ring-breathe 2.4s ease-in-out infinite;
  }
 
- /* Sparkline visualization */
- .hw-sparkline {
-   width: 100%;
-   height: 24px;
- }
+/* Sparkline visualization (switcher option) */
+  .hw-sparkline {
+    width: 100%;
+    height: 24px;
+  }
+
+  /* Inline sparkline below bar metrics */
+  .hw-metric-sparkline {
+    width: 100%;
+    height: 20px;
+    margin-top: 4px;
+    overflow: visible;
+  }
+
+  .hw-metric-sparkline .sparkline-line {
+    fill: none;
+    stroke-width: 2.4;
+    vector-effect: non-scaling-stroke;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hw-metric-sparkline .sparkline-fill {
+    opacity: 0.16;
+  }
+
+  .hw-metric-sparkline {
+    animation: hw-sparkline-glow 3s ease-in-out infinite;
+  }
 
  /* Stacked bar visualization */
  .hw-stacked-bg {
