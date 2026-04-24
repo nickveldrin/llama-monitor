@@ -610,10 +610,8 @@ fn api_remote_agent_start(
                 let command = if let Some(ref conn) = ssh_connection {
                     // Detect OS via SSH for accurate command building
                     let remote_os = crate::agent::detect_remote_os_with(conn).await;
-                    eprintln!("[api] Detected remote OS via SSH: {}", remote_os.as_str());
                     // Derive install path from detected OS instead of trusting frontend
                     let resolved_install_path = crate::agent::default_install_path_for_os(remote_os);
-                    eprintln!("[api] Resolved install path: {}", resolved_install_path);
                     crate::agent::default_start_command_for_os_with(
                         conn,
                         remote_os,
@@ -631,7 +629,6 @@ fn api_remote_agent_start(
                         .await,
                     }
                 };
-                eprintln!("[api] Final start command: {}", command);
                 match crate::agent::start_remote_agent(
                     &ssh_target,
                     ssh_connection,

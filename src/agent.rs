@@ -640,19 +640,14 @@ pub(crate) async fn default_start_command_for_os_with(
 ) -> String {
     let resolved_path = if os == RemoteOs::Windows {
         if let Some(appdata) = resolve_windows_appdata(connection).await {
-            let resolved = install_path.replace("%APPDATA%", &appdata);
-            eprintln!("[agent] Resolved install path: {} -> {}", install_path, resolved);
-            resolved
+            install_path.replace("%APPDATA%", &appdata)
         } else {
-            eprintln!("[agent] Could not resolve APPDATA, using raw path: {}", install_path);
             install_path.to_string()
         }
     } else {
         install_path.to_string()
     };
-    let cmd = default_start_command_for_os(os, &resolved_path);
-    eprintln!("[agent] Start command built for {}: {}", os.as_str(), cmd);
-    cmd
+    default_start_command_for_os(os, &resolved_path)
 }
 
 const WINDOWS_AGENT_TASK_NAME: &str = "LlamaMonitorAgent";
@@ -711,7 +706,6 @@ pub(crate) async fn resolve_windows_appdata(connection: &SshConnection) -> Optio
         && out.status == 0
     {
         let s = out.stdout.trim().to_string();
-        eprintln!("[agent] APPDATA resolve: status={} stdout={:?} stderr={:?}", out.status, s, out.stderr);
         if !s.is_empty() && !s.starts_with('%') {
             return Some(s);
         }
@@ -726,13 +720,11 @@ pub(crate) async fn resolve_windows_appdata(connection: &SshConnection) -> Optio
         && out.status == 0
     {
         let profile = out.stdout.trim().to_string();
-        eprintln!("[agent] USERPROFILE fallback: status={} stdout={:?} stderr={:?}", out.status, profile, out.stderr);
         if !profile.is_empty() && !profile.starts_with('%') {
             return Some(format!("{}\\AppData\\Roaming", profile));
         }
     }
 
-    eprintln!("[agent] APPDATA resolution failed for target: {}", connection.target_label());
     None
 }
 
@@ -1309,7 +1301,6 @@ pub mod install {
         command: &str,
     ) -> Result<RemoteAgentStartResponse> {
         let connection = ssh_connection.unwrap_or_else(|| SshConnection::from_target(ssh_target));
-        eprintln!("[agent] Executing start command on {}: {}", ssh_target, command);
         let start_warning = match tokio::time::timeout(
             Duration::from_secs(3),
             remote_ssh::exec(connection.clone(), command.to_string()),
@@ -1318,7 +1309,6 @@ pub mod install {
         {
             Ok(Ok(output)) if output.status == 0 => None,
             Ok(Ok(output)) => {
-                eprintln!("[agent] Start command failed: status={} stdout={} stderr={}", output.status, output.stdout.trim(), output.stderr.trim());
                 let error_msg = if !output.stderr.is_empty() {
                     format!("Start command failed: {}", output.stderr.trim())
                 } else {
