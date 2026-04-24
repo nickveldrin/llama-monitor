@@ -785,7 +785,9 @@ body.sidebar-collapsed .content-area {
 
 .dashboard-header,
 .control-bar,
-.metric-section {
+.metric-section,
+.welcome-panel,
+.metrics-container {
   grid-column: 1 / -1;
 }
 
@@ -4292,11 +4294,11 @@ button:disabled {
 
 .welcome-panel {
   position: relative;
-  min-height: 500px;
+  min-height: 420px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 24px;
+  padding: 48px 24px;
   overflow: hidden;
 }
 
@@ -4349,25 +4351,26 @@ button:disabled {
 .welcome-content {
   position: relative;
   z-index: 1;
-  max-width: 800px;
+  max-width: 740px;
+  min-width: 600px;
   width: 100%;
   text-align: center;
 }
 
 /* Hero */
 .welcome-hero {
-  margin-bottom: 48px;
+  margin-bottom: 40px;
 }
 
 .welcome-logo-wrap {
   display: inline-grid;
   place-items: center;
-  width: 96px;
-  height: 96px;
+  width: 80px;
+  height: 80px;
   border-radius: 50%;
   background: rgba(143, 188, 187, 0.06);
   border: 1px solid rgba(143, 188, 187, 0.12);
-  margin-bottom: 24px;
+  margin: 0 auto 20px;
   animation: welcome-logo-breathe 4s ease-in-out infinite;
 }
 
@@ -4377,12 +4380,12 @@ button:disabled {
 }
 
 .welcome-logo {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
 }
 
 .welcome-title {
-  font-size: var(--text-3xl);
+  font-size: 28px;
   font-weight: 800;
   color: var(--color-text-primary);
   letter-spacing: -0.02em;
@@ -4390,27 +4393,27 @@ button:disabled {
 }
 
 .welcome-subtitle {
-  font-size: var(--text-sm);
+  font-size: 13px;
   color: var(--color-text-muted);
   font-weight: 400;
   letter-spacing: 0.02em;
   margin: 0;
+  white-space: nowrap;
 }
 
 /* Action cards */
 .welcome-actions {
   display: grid;
-  grid-template-columns: repeat(2, 340px);
-  gap: 24px;
-  justify-content: center;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
 .welcome-card {
   position: relative;
   text-align: left;
-  padding: 32px;
-  border-radius: var(--radius-card);
-  background: rgba(31, 35, 42, 0.5);
+  padding: 28px;
+  border-radius: 16px;
+  background: rgba(31, 35, 42, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(20px);
   cursor: pointer;
@@ -4443,13 +4446,13 @@ button:disabled {
 .welcome-card-icon {
   display: inline-grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   background: rgba(143, 188, 187, 0.08);
   border: 1px solid rgba(143, 188, 187, 0.15);
   color: #8fbcbb;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   animation: welcome-icon-pulse 3s ease-in-out infinite;
 }
 
@@ -4471,16 +4474,16 @@ button:disabled {
 }
 
 .welcome-card-title {
-  font-size: var(--text-lg);
+  font-size: 15px;
   font-weight: 700;
   color: var(--color-text-primary);
-  margin: 0 0 6px;
+  margin: 0 0 4px;
 }
 
 .welcome-card-desc {
-  font-size: var(--text-xs);
+  font-size: 12px;
   color: var(--color-text-muted);
-  margin: 0 0 20px;
+  margin: 0 0 16px;
   line-height: 1.45;
 }
 
@@ -4488,19 +4491,19 @@ button:disabled {
 .welcome-card-input {
   display: flex;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 #welcome-endpoint-input {
   flex: 1;
   min-width: 0;
-  padding: 9px 12px;
+  padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: var(--color-text-primary);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
+  font-size: 12px;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -4519,11 +4522,11 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 9px 18px;
+  padding: 8px 16px;
   border-radius: 8px;
   border: none;
   font-family: var(--font-main);
-  font-size: var(--text-xs);
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.2s ease;
@@ -4551,15 +4554,15 @@ button:disabled {
 
 /* Card hint */
 .welcome-card-hint {
-  padding: 14px 16px;
+  padding: 12px 14px;
   border-radius: 8px;
   background: rgba(163, 190, 140, 0.06);
   border: 1px solid rgba(163, 190, 140, 0.12);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .welcome-card-hint span {
-  font-size: var(--text-xs);
+  font-size: 12px;
   color: var(--color-text-secondary);
 }
 
@@ -4573,7 +4576,7 @@ button:disabled {
   background: none;
   border: none;
   color: var(--color-text-muted);
-  font-size: var(--text-2xs);
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -4640,10 +4643,11 @@ button:disabled {
 
 /* Responsive */
 @media (max-width: 740px) {
+  .welcome-content {
+    min-width: 0;
+  }
   .welcome-actions {
     grid-template-columns: 1fr;
-    max-width: 400px;
-    margin: 0 auto;
   }
 }
 }
