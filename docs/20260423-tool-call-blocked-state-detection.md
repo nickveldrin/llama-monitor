@@ -26,6 +26,19 @@ This pattern differs from:
 
 **Threshold:** 3+ consecutive polls (≈3 seconds at 1s poll interval) with stagnant `n_decoded` while `is_processing == true` and `output_active == false`.
 
+## ⚠️ Disabled — Unreliable
+
+**Blocked detection is currently disabled** because we cannot reliably distinguish "blocked on tool call" from "processing big context" using only `n_decoded` stagnation. Both states show:
+- `is_processing == true`
+- `output_active == false`
+- `n_decoded` stagnant
+
+Big context processing can take 30-60+ seconds, making any threshold either too sensitive (false positives during context processing) or too insensitive (missing actual tool calls).
+
+**Re-enable when llama-server exposes a tool-calling state** in `/slots` (e.g., a `tool_calling` boolean or `state` enum that distinguishes between prompt processing, generation, and tool waiting).
+
+**Current status:** The backend code is disabled (commented out in `src/llama/poller.rs`), but the frontend UI code remains intact (it will simply never see `tool_calling_blocked: true`). The `LlamaMetrics` struct still has `tool_calling_blocked`, `blocked_duration_sec`, and `blocked_task_id` fields for when detection is re-enabled.
+
 ## Backend Changes
 
 ### New Fields in `LlamaMetrics`
