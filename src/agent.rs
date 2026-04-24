@@ -670,7 +670,7 @@ async fn detect_remote_os(target: &str) -> RemoteOs {
     detect_remote_os_with(&SshConnection::from_target(target)).await
 }
 
-async fn detect_remote_os_with(connection: &SshConnection) -> RemoteOs {
+pub(crate) async fn detect_remote_os_with(connection: &SshConnection) -> RemoteOs {
     let windows = remote_ssh::exec(connection.clone(), "cmd.exe /C ver".to_string());
 
     if let Ok(Ok(output)) = tokio::time::timeout(Duration::from_secs(5), windows).await
@@ -796,7 +796,7 @@ fn asset_info_from_github_asset(asset: GithubAsset) -> Option<ReleaseAssetInfo> 
 }
 
 impl RemoteOs {
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             RemoteOs::Windows => "windows",
             RemoteOs::Unix => "linux",

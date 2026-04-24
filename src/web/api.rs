@@ -607,44 +607,27 @@ fn api_remote_agent_start(
                         ));
                     }
                 };
-                let command = match request.get("start_command") {
-                    Some(v) => v.as_str().unwrap_or("").to_string(),
-                    None => {
-                        let remote_os = crate::agent::detect_remote_os_simple(&ssh_target).await;
-                        if let Some(ref conn) = ssh_connection {
-                            crate::agent::default_start_command_for_os_with(
-                                conn,
-                                remote_os,
-                                &install_path,
-                            )
-                            .await
-                        } else {
-                            crate::agent::default_start_command_for_target(
-                                &ssh_target,
-                                &install_path,
-                            )
-                            .await
-                        }
-                    }
-                };
-                // Always resolve %APPDATA% for Windows targets
-                let command = if command.contains("%APPDATA%") {
-                    eprintln!("[api] Start command contains %%APPDATA%%, resolving...");
-                    if let Some(ref conn) = ssh_connection {
-                        if let Some(appdata) = crate::agent::resolve_windows_appdata(conn).await {
-                            let resolved = command.replace("%APPDATA%", &appdata);
-                            eprintln!("[api] Resolved command: {}", resolved);
-                            resolved
-                        } else {
-                            eprintln!("[api] Could not resolve %%APPDATA%%, using original command");
-                            command
-                        }
-                    } else {
-                        eprintln!("[api] No SSH connection, cannot resolve %%APPDATA%%");
-                        command
-                    }
+                let command = if let Some(ref conn) = ssh_connection {
+                    // Detect OS via SSH for accurate command building
+                    let remote_os = crate::agent::detect_remote_os_with(conn).await;
+                    eprintln!("[api] Detected remote OS via SSH: {}", remote_os.as_str());
+                    eprintln!("[api] Install path: {}", install_path);
+                    crate::agent::default_start_command_for_os_with(
+                        conn,
+                        remote_os,
+                        &install_path,
+                    )
+                    .await
                 } else {
-                    command
+                    // Fallback: use frontend's command or build default
+                    match request.get("start_command") {
+                        Some(v) => v.as_str().unwrap_or("").to_string(),
+                        None => crate::agent::default_start_command_for_target(
+                            &ssh_target,
+                            &install_path,
+                        )
+                        .await,
+                    }
                 };
                 eprintln!("[api] Final start command: {}", command);
                 match crate::agent::start_remote_agent(
