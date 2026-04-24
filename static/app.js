@@ -4611,9 +4611,14 @@ function renderHwSparkline(container, history) {
 }
 
 // Render inline sparkline below a bar metric (into existing SVG element)
-function renderHwMetricSparkline(svgId, history, color) {
+function renderHwMetricSparkline(svgId, history, color, show) {
     const svg = document.getElementById(svgId);
-    if (!svg || !history || history.length < 2) return;
+    if (!svg) return;
+    if (!show || !history || history.length < 2) {
+        svg.style.visibility = (show && history && history.length >= 2) ? '' : 'hidden';
+        return;
+    }
+    svg.style.visibility = '';
     const width = 120;
     const height = 28;
     const max = Math.max(...history, 1);
@@ -4855,7 +4860,7 @@ function renderGpuCard(gpuMap, visible) {
     if (loadStyle === 'ring') renderHwRing(loadViz, m.load, loadHot);
     else if (loadStyle === 'sparkline') renderHwSparkline(loadViz, gpuHistory.load);
     else renderHwBar(loadViz, m.load, loadHot);
-    renderHwMetricSparkline('gpu-load-spark', gpuHistory.load, loadColor);
+    renderHwMetricSparkline('gpu-load-spark', gpuHistory.load, loadColor, loadStyle !== 'sparkline');
     if (loadVal) loadVal.textContent = m.load + '%';
 
     // Power
@@ -4870,7 +4875,7 @@ function renderGpuCard(gpuMap, visible) {
     if (powerStyle === 'ring') renderHwRing(powerViz, powerPct, isCapped);
     else if (powerStyle === 'sparkline') renderHwSparkline(powerViz, gpuHistory.power);
     else renderHwBar(powerViz, powerPct, isCapped);
-    renderHwMetricSparkline('gpu-power-spark', gpuHistory.power, powerColor);
+    renderHwMetricSparkline('gpu-power-spark', gpuHistory.power, powerColor, powerStyle !== 'sparkline');
     if (powerVal) powerVal.textContent = m.power_consumption.toFixed(1) + 'W' + (isCapped ? '!' : '') + ' / ' + m.power_limit + 'W';
 
     // VRAM
@@ -4884,7 +4889,7 @@ function renderGpuCard(gpuMap, visible) {
     else if (vramStyle === 'sparkline') renderHwSparkline(vramViz, gpuHistory.vramPct);
     else if (vramStyle === 'stacked') renderHwStacked(vramViz, vramPct);
     else renderHwBar(vramViz, vramPct, vramPct >= 90);
-    renderHwMetricSparkline('gpu-vram-spark', gpuHistory.vramPct, vramColor);
+    renderHwMetricSparkline('gpu-vram-spark', gpuHistory.vramPct, vramColor, vramStyle !== 'sparkline');
     if (vramVal) vramVal.textContent = vramGb + ' / ' + vramTotalGb + ' GB';
 
     // Clocks
@@ -4958,7 +4963,7 @@ function renderSystemCard(sys, visible) {
     if (loadStyle === 'ring') renderHwRing(loadViz, cpuLoad, loadHot);
     else if (loadStyle === 'sparkline') renderHwSparkline(loadViz, sysHistory.cpuLoad);
     else renderHwBar(loadViz, cpuLoad, loadHot);
-    renderHwMetricSparkline('sys-load-spark', sysHistory.cpuLoad, loadColor);
+    renderHwMetricSparkline('sys-load-spark', sysHistory.cpuLoad, loadColor, loadStyle !== 'sparkline');
     if (loadVal) loadVal.textContent = cpuLoad > 0 ? cpuLoad + '%' : '\u2014';
 
     // RAM
@@ -4970,7 +4975,7 @@ function renderSystemCard(sys, visible) {
     else if (ramStyle === 'sparkline') renderHwSparkline(ramViz, sysHistory.ramPct);
     else if (ramStyle === 'stacked') renderHwStacked(ramViz, ramPct);
     else renderHwBar(ramViz, ramPct, ramPct >= 90);
-    renderHwMetricSparkline('sys-ram-spark', sysHistory.ramPct, ramColor);
+    renderHwMetricSparkline('sys-ram-spark', sysHistory.ramPct, ramColor, ramStyle !== 'sparkline');
     if (ramVal) ramVal.textContent = sys.ram_total_gb > 0 ? sys.ram_used_gb.toFixed(1) + ' / ' + sys.ram_total_gb.toFixed(0) + ' GB' : '\u2014';
 
     // Clock
