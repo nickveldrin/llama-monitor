@@ -2992,12 +2992,14 @@ body.sidebar-collapsed .content-area {
 
   /* Sparkline peak dot pulse */
   @keyframes hw-peak-pulse {
-    0%, 100% { r: 2; opacity: 0.8; }
-    50% { r: 3; opacity: 1; }
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.5); opacity: 1; }
   }
 
   .hw-sparkline circle:last-child {
     animation: hw-peak-pulse 2s ease-in-out infinite;
+    transform-origin: center;
+    transform-box: fill-box;
   }
 
   /* Ring breathe (matches inference card) */
@@ -3027,41 +3029,16 @@ body.sidebar-collapsed .content-area {
     box-shadow: 0 0 16px rgba(136, 192, 209, 0.06);
   }
 
- /* Hardware card entrance animation */
- @keyframes hw-card-entrance {
-   from { opacity: 0; transform: translateY(12px); }
-   to { opacity: 1; transform: translateY(0); }
- }
+/* Hardware card empty state */
+  .widget-hardware .inference-empty-state {
+    text-align: center;
+    padding: 20px 16px;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+    font-weight: 500;
+  }
 
- .widget-hardware {
-   animation: hw-card-entrance 0.35s ease forwards;
- }
-
- /* Hardware card empty state */
- .widget-hardware .inference-empty-state {
-   text-align: center;
-   padding: 20px 16px;
-   color: var(--color-text-muted);
-   font-size: var(--text-xs);
-   font-weight: 500;
- }
-
- /* Hardware card metric block entrance */
- @keyframes hw-block-entrance {
-   from { opacity: 0; transform: scale(0.96); }
-   to { opacity: 1; transform: scale(1); }
- }
-
- .hw-metric-block {
-   animation: hw-block-entrance 0.3s ease forwards;
- }
-
- .hw-metric-block:nth-child(1) { animation-delay: 0.05s; }
- .hw-metric-block:nth-child(2) { animation-delay: 0.1s; }
- .hw-metric-block:nth-child(3) { animation-delay: 0.15s; }
- .hw-metric-block:nth-child(4) { animation-delay: 0.2s; }
-
- .table-wrap {
+  .table-wrap {
   overflow-x: auto;
 }
 
