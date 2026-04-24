@@ -105,45 +105,6 @@ function setCardState(card, state) {
     if (state) card.classList.add('is-' + state);
 }
 
-// Welcome panel management
-function updateWelcomePanel(hasSession) {
-    const welcome = document.getElementById('welcome-panel');
-    const metrics = document.getElementById('metrics-container');
-    if (!welcome || !metrics) return;
-
-    if (hasSession) {
-        // Hide welcome, show metrics
-        if (welcome.style.display !== 'none') {
-            welcome.classList.add('exiting');
-            setTimeout(() => {
-                welcome.style.display = 'none';
-                welcome.classList.remove('exiting');
-                metrics.style.display = '';
-                metrics.classList.add('entering');
-                setTimeout(() => metrics.classList.remove('entering'), 800);
-            }, 350);
-        }
-    } else {
-        // Show welcome, hide metrics
-        metrics.style.display = 'none';
-        metrics.classList.remove('entering');
-        welcome.style.display = '';
-        welcome.classList.remove('exiting');
-    }
-}
-
-function doAttachFromWelcome() {
-    const input = document.getElementById('welcome-endpoint-input');
-    if (input && input.value.trim()) {
-        doAttach(input.value.trim());
-    }
-}
-
-function focusAttachInput() {
-    const input = document.getElementById('welcome-endpoint-input');
-    if (input) input.focus();
-}
-
 function pushSparklinePoint(name, value) {
     window.metricSeries[name].push(Number.isFinite(value) ? value : 0);
     const limit = name === 'liveOutput' ? 90 : 40;
@@ -1796,6 +1757,13 @@ async function refreshModels() {
 document.getElementById('config-modal').addEventListener('click', e => {
 
     if (e.target === e.currentTarget) closeConfigModal();
+
+});
+
+
+document.getElementById('session-modal').addEventListener('click', e => {
+
+    if (e.target === e.currentTarget) closeSessionModal();
 
 });
 
@@ -4117,7 +4085,13 @@ async function doStart() {
 
     const data = await resp.json();
 
-    if (!data.ok) showToast('Start failed: ' + (data.error || 'unknown'), 'error');
+    if (!data.ok) {
+        showToast('Start failed: ' + (data.error || 'unknown'), 'error');
+        hideConnectingState();
+    } else {
+        switchView('monitor');
+        hideConnectingState();
+    }
 
 }
 
@@ -4168,10 +4142,12 @@ async function doAttach() {
     if (!data.ok) {
 
         showToast('Attach failed: ' + (data.error || 'unknown'), 'error');
+        hideConnectingState();
 
     } else {
 
         showToast('Attached to server', 'success');
+        hideConnectingState();
 
         if (data.warning) {
 
@@ -4190,6 +4166,8 @@ async function doAttach() {
 
         // Reset speed max values for new session
         window.speedMax = { prompt: 0, generation: 0 };
+
+        switchView('monitor');
 
     }
 
@@ -4210,6 +4188,11 @@ async function doDetach() {
     } else {
 
         showToast('Detached from server', 'success');
+        saveLastSessionData({
+            promptRate: window.speedMax.prompt > 0 ? window.speedMax.prompt + ' t/s' : '—',
+            genRate: window.speedMax.generation > 0 ? window.speedMax.generation + ' t/s' : '—',
+            sessionName: currentSessionId || '—'
+        });
 
         // Immediately update button states without waiting for WebSocket
         const btnAttach = document.getElementById('btn-attach');
@@ -4252,6 +4235,8 @@ async function doDetach() {
 
         // Reset speed max values on detach
         window.speedMax = { prompt: 0, generation: 0 };
+
+        switchView('setup');
 
     }
 
@@ -4339,41 +4324,80 @@ async function loadSessions() {
 
 
 function renderSessionList() {
-
-    const list = document.getElementById('session-list');
-
+    const list = document.getElementById('sessions-list');
+    const empty = document.getElementById('sessions-empty');
     if (!list) return;
 
-    
+    if (sessions.length === 0) {
+        list.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        return;
+    }
+    if (empty) empty.style.display = 'none';
 
     list.innerHTML = sessions.map(s => {
-
         const is_active = s.id === activeSessionId;
+        const isAttach = s.mode && s.mode.Attach;
+        const isSpawn = s.mode && s.mode.Spawn;
+        const modeText = isSpawn ? 'Spawn' : 'Attach';
+        const modeIcon = isSpawn ? '🖥' : '🔗';
+        const endpoint = isAttach ? s.mode.Attach.endpoint : '';
+        const port = isSpawn ? s.mode.Spawn.port : '';
+        const presetId = s.preset_id || '';
+        const presetObj = presets.find(p => p.id === presetId);
+        const presetName = presetObj ? presetObj.name : (isSpawn ? '(no preset)' : '');
+        const statusText = s.status === 'Running' ? 'Running' :
+                           s.status === 'Stopped' ? 'Stopped' :
+                           s.status === 'Disconnected' ? 'Disconnected' : (s.status || '');
 
-        const modeText = s.mode && s.mode.Spawn ? 'Spawn' : 'Attach';
-
-        const statusText = s.status === 'Running' ? 'Running' : 
-
-                           s.status === 'Stopped' ? 'Stopped' : 
-
-                           s.status === 'Disconnected' ? 'Disconnected' : s.status;
-
-        return '<div class="session-item ' + s.status + (is_active ? ' active' : '') + 
-
-                '" onclick="switchSession(\'' + s.id + '\')">' +
-
-                '<span class="session-item-name">' + s.name + '</span>' +
-
-                '<span class="session-item-mode">' + modeText + '</span>' +
-
-                '<span class="session-item-port">' + (s.mode.Spawn ? s.mode.Spawn.port : activeSessionPort) + '</span>' +
-
-                '<span class="session-item-status">' + statusText + '</span>' +
-
-                '</div>';
-
+        return '<div class="session-item' + (is_active ? ' active' : '') + '">' +
+            '<div class="session-item-main" onclick="switchSession(\'' + s.id + '\')">' +
+            '<span class="session-item-icon">' + modeIcon + '</span>' +
+            '<div class="session-item-info">' +
+            '<span class="session-item-name">' + s.name + '</span>' +
+            '<span class="session-item-detail">' + modeText + (port ? ' : ' + port : '') + (isSpawn && presetName ? ' · ' + presetName : '') + (endpoint ? ' · ' + endpoint : '') + '</span>' +
+            '</div>' +
+            (statusText ? '<span class="session-item-status">' + statusText + '</span>' : '') +
+            '</div>' +
+            '<div class="session-item-actions">' +
+            (isAttach ? '<button class="btn-sm btn-preset" onclick="event.stopPropagation(); quickAttachSession(\'' + endpoint + '\')">Connect</button>' : '') +
+            (isSpawn ? '<button class="btn-sm btn-preset" onclick="event.stopPropagation(); quickStartSession(\'' + s.id + '\')">Start</button>' : '') +
+            '<button class="btn-sm btn-preset btn-preset-delete" onclick="event.stopPropagation(); deleteSession(\'' + s.id + '\')">✕</button>' +
+            '</div>' +
+            '</div>';
     }).join('');
+}
 
+function quickAttachSession(endpoint) {
+    const serverEndpoint = document.getElementById('server-endpoint');
+    if (serverEndpoint) serverEndpoint.value = endpoint;
+    localStorage.setItem('llama-monitor-last-endpoint', endpoint);
+    closeSessionModal();
+    showConnectingState();
+    doAttach();
+}
+
+function quickStartSession(sessionId) {
+    closeSessionModal();
+    switchSession(sessionId);
+    showConnectingState();
+    doStart();
+}
+
+async function deleteSession(sessionId) {
+    if (!confirm('Delete this session?')) return;
+    try {
+        const resp = await fetch('/api/sessions/' + encodeURIComponent(sessionId), { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.ok) {
+            showToast('Session deleted', 'success');
+            loadSessions();
+        } else {
+            showToast('Delete failed: ' + (data.error || 'unknown'), 'error');
+        }
+    } catch (e) {
+        showToast('Delete failed: ' + e.message, 'error');
+    }
 }
 
 
@@ -4425,28 +4449,64 @@ async function switchSession(sessionId) {
 function openSessionModal() {
     const modal = document.getElementById('session-modal');
     const title = document.getElementById('session-modal-title');
-    const form = document.getElementById('session-form');
-
-    form.reset();
-    title.textContent = 'New Session';
+    title.textContent = 'Sessions';
     modal.classList.add('open');
+    showSessionsList();
+}
+
+function showNewSessionForm() {
+    document.getElementById('sessions-list-view').style.display = 'none';
+    document.getElementById('sessions-new-form').style.display = 'block';
+    const newBtn = document.getElementById('btn-new-session');
+    if (newBtn) newBtn.style.display = 'none';
+    document.getElementById('session-form').reset();
+    document.getElementById('modal-session-mode').value = 'spawn';
     updateSessionModalMode();
+}
+
+function showSessionsList() {
+    document.getElementById('sessions-list-view').style.display = 'block';
+    document.getElementById('sessions-new-form').style.display = 'none';
+    const newBtn = document.getElementById('btn-new-session');
+    if (newBtn) newBtn.style.display = 'inline-block';
+    renderSessionList();
 }
 
 function updateSessionModalMode() {
     const mode = document.getElementById('modal-session-mode')?.value || 'spawn';
     const label = document.getElementById('modal-session-port-label');
     const input = document.getElementById('modal-session-port');
+    const spawnFields = document.getElementById('spawn-session-fields');
     if (!label || !input) return;
 
     if (mode === 'attach') {
         label.textContent = 'Endpoint';
         input.placeholder = 'http://127.0.0.1:8001';
         input.value = document.getElementById('server-endpoint')?.value || '';
+        if (spawnFields) spawnFields.style.display = 'none';
     } else {
         label.textContent = 'Port';
         input.placeholder = '8001';
         input.value = activeSessionPort || 8001;
+        if (spawnFields) {
+            spawnFields.style.display = 'block';
+            const presetSelect = document.getElementById('modal-session-preset');
+            if (presetSelect) {
+                presetSelect.innerHTML = '<option value="">(select a preset)</option>';
+                const mainSelect = document.getElementById('preset-select');
+                if (mainSelect) {
+                    const options = mainSelect.querySelectorAll('option');
+                    options.forEach(opt => {
+                        if (opt.value) {
+                            const clone = document.createElement('option');
+                            clone.value = opt.value;
+                            clone.textContent = opt.textContent;
+                            presetSelect.appendChild(clone);
+                        }
+                    });
+                }
+            }
+        }
     }
 }
 
@@ -4475,18 +4535,28 @@ function saveSession(event) {
 
     const target = document.getElementById('modal-session-port').value.trim();
     const presetId = document.getElementById('preset-select')?.value;
+    const modalPresetId = document.getElementById('modal-session-preset')?.value;
     const endpoint = target || document.getElementById('server-endpoint')?.value.trim();
     const url = mode === 'attach' ? '/api/attach' : '/api/sessions/spawn';
     const payload = mode === 'attach'
         ? { endpoint }
-        : { name, port: parseInt(target, 10) || 8001, preset_id: presetId };
+        : {
+            name,
+            port: parseInt(target, 10) || 8001,
+            preset_id: modalPresetId || presetId,
+            model_path: (document.getElementById('modal-session-model-path')?.value || '').trim() || undefined,
+            gpu_layers: document.getElementById('modal-session-gpu-layers')?.value ? parseInt(document.getElementById('modal-session-gpu-layers').value, 10) : undefined,
+            context_size: document.getElementById('modal-session-context-size')?.value ? parseInt(document.getElementById('modal-session-context-size').value, 10) : undefined,
+            no_mmap: document.getElementById('modal-session-no-mmap')?.checked || undefined,
+            mlock: document.getElementById('modal-session-mlock')?.checked || undefined,
+          };
 
     if (mode === 'attach' && !endpoint) {
         showToast('Please enter an endpoint', 'error');
         return;
     }
 
-    if (mode === 'spawn' && !presetId) {
+    if (mode === 'spawn' && !modalPresetId && !presetId) {
         showToast('Select a model preset before creating a spawn session', 'error');
         return;
     }
@@ -4661,13 +4731,22 @@ function renderHwMetricSparkline(svgId, history, color, show) {
     const width = 120;
     const height = 28;
     const max = Math.max(...history, 1);
+    const min = Math.min(...history, 0);
+    const range = Math.max(max - min, 1);
     const step = width / (history.length - 1);
+    const peakValue = Math.max(...history);
+    const peakIndex = history.lastIndexOf(peakValue);
+    const peakX = peakIndex * step;
+    const peakY = height - (((peakValue - min) / range) * (height - 4)) - 2;
     const path = history.map((value, index) => {
         const x = index * step;
-        const y = height - ((value / max) * (height - 4)) - 2;
+        const y = height - (((value - min) / range) * (height - 4)) - 2;
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
-    svg.innerHTML = '<path class="sparkline-fill" d="' + path + ' L 120 28 L 0 28 Z" fill="' + color + '" opacity="0.16"></path><path class="sparkline-line" d="' + path + '" stroke="' + color + '" fill="none" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 4px ' + color + ')"></path>';
+    svg.innerHTML =
+        '<path class="sparkline-fill" d="' + path + ' L 120 28 L 0 28 Z" fill="' + color + '" opacity="0.16"></path>' +
+        '<path class="sparkline-line" d="' + path + '" stroke="' + color + '" fill="none" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 4px ' + color + ')"></path>' +
+        '<circle class="sparkline-peak" cx="' + peakX.toFixed(2) + '" cy="' + peakY.toFixed(2) + '" r="2.3" fill="' + color + '" opacity="0.9"></circle>';
 }
 
 function renderHwStacked(container, pct) {
@@ -4683,36 +4762,134 @@ function renderHwChips(container, chips) {
 }
 
 // Render dual-ring gauge (GPU clocks: SCLK inner, MCLK outer)
-function renderHwDualRing(container, sclk, mclk, sclkRange, mclkRange) {
+function formatClockReadout(mhz) {
+    if (!Number.isFinite(mhz) || mhz <= 0) {
+        return { value: '\u2014', unit: 'MHz', detail: '\u2014' };
+    }
+    if (mhz >= 1000) {
+        var ghz = mhz >= 10000 ? (mhz / 1000).toFixed(1) : (mhz / 1000).toFixed(2);
+        return { value: ghz, unit: 'GHz', detail: mhz + ' MHz' };
+    }
+    return { value: String(mhz), unit: 'MHz', detail: mhz + ' MHz' };
+}
+
+function computeClockBand(history, current) {
+    var points = (history || []).filter(Number.isFinite);
+    if (Number.isFinite(current) && current > 0) points.push(current);
+    if (points.length === 0) {
+        return { min: 0, max: 0, pct: 0, peakPct: 0, lowPct: 0 };
+    }
+    var min = Math.min.apply(null, points);
+    var max = Math.max.apply(null, points);
+    var span = Math.max(max - min, 1);
+    var normalized = function(value) {
+        if (!Number.isFinite(value)) return 0;
+        return Math.max(0, Math.min(100, ((value - min) / span) * 100));
+    };
+    var pct = span <= 1 ? 100 : normalized(current);
+    return {
+        min: min,
+        max: max,
+        pct: pct,
+        peakPct: normalized(max),
+        lowPct: normalized(min)
+    };
+}
+
+function renderHwDualRing(container, sclk, mclk) {
     if (!container) return;
-    var sclkSpan = sclkRange.max - sclkRange.min || 1;
-    var mclkSpan = mclkRange.max - mclkRange.min || 1;
-    var sclkPct = ((sclk - sclkRange.min) / sclkSpan) * 100;
-    var mclkPct = ((mclk - mclkRange.min) / mclkSpan) * 100;
-    var sclkColor = getSeverityColor(sclkPct);
-    var mclkColor = getSeverityColor(mclkPct);
+    var sclkBand = computeClockBand(gpuHistory.sclk, sclk);
+    var mclkBand = computeClockBand(gpuHistory.mclk, mclk);
+    var sclkColor = getSeverityColor(sclkBand.pct);
+    var mclkColor = '#60a5fa';
+    var sclkPulse = (3.4 - Math.min(sclkBand.pct, 100) * 0.014).toFixed(2) + 's';
+    var mclkPulse = (3.8 - Math.min(mclkBand.pct, 100) * 0.016).toFixed(2) + 's';
     setVizContent(container,
-        '<div class="hw-dual-ring" style="--sclk-pct:' + sclkPct.toFixed(1) + ';--mclk-pct:' + mclkPct.toFixed(1) + ';--sclk-color:' + sclkColor + ';--mclk-color:' + mclkColor + ';">' +
-        '<div class="hw-dual-ring-core">' +
-        '<div class="hw-dual-ring-value">' + sclk + '</div>' +
-        '<div class="hw-dual-ring-label">SCLK</div>' +
-        '<div class="hw-dual-ring-value">' + mclk + '</div>' +
-        '<div class="hw-dual-ring-label">MCLK</div>' +
-        '</div></div>');
+        '<div class="hw-clock-gpu-layout">' +
+          '<div class="hw-clock-cluster hw-clock-gpu">' +
+            '<div class="hw-clock-orbit outer" style="--pct:' + mclkBand.pct.toFixed(1) + ';--peak-pct:' + mclkBand.peakPct.toFixed(1) + ';--low-pct:' + mclkBand.lowPct.toFixed(1) + ';--orbit-color:' + mclkColor + ';--dot-radius:-78px;--pulse-duration:' + mclkPulse + ';">' +
+              '<div class="hw-clock-orbit-track"></div>' +
+              '<div class="hw-clock-orbit-fill"></div>' +
+              '<div class="hw-clock-orbit-peak"></div>' +
+              '<div class="hw-clock-orbit-low"></div>' +
+              '<div class="hw-clock-orbit-dot"></div>' +
+            '</div>' +
+            '<div class="hw-clock-orbit inner" style="--pct:' + sclkBand.pct.toFixed(1) + ';--peak-pct:' + sclkBand.peakPct.toFixed(1) + ';--low-pct:' + sclkBand.lowPct.toFixed(1) + ';--orbit-color:' + sclkColor + ';--dot-radius:-55px;--pulse-duration:' + sclkPulse + ';">' +
+              '<div class="hw-clock-orbit-track"></div>' +
+              '<div class="hw-clock-orbit-fill"></div>' +
+              '<div class="hw-clock-orbit-peak"></div>' +
+              '<div class="hw-clock-orbit-low"></div>' +
+              '<div class="hw-clock-orbit-dot"></div>' +
+            '</div>' +
+            '<div class="hw-clock-core">' +
+              '<div class="hw-clock-unit">GPU</div>' +
+              '<div class="hw-clock-band">Clocks</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="hw-clock-gpu-readout">' +
+            '<div class="hw-clock-meter">' +
+              '<div class="hw-clock-meter-label">SCLK</div>' +
+              '<div class="hw-clock-meter-bar" style="--pct:' + sclkBand.pct.toFixed(1) + ';--peak-pct:' + sclkBand.peakPct.toFixed(1) + ';--low-pct:' + sclkBand.lowPct.toFixed(1) + ';">' +
+                '<div class="hw-clock-meter-fill" style="--pct:' + sclkBand.pct.toFixed(1) + ';--meter-color:' + sclkColor + ';--pulse-duration:' + sclkPulse + ';"></div>' +
+                '<div class="hw-clock-meter-marker"></div>' +
+                '<div class="hw-clock-meter-marker-low"></div>' +
+              '</div>' +
+              '<div class="hw-clock-meter-value">' + sclk + '</div>' +
+              '<div class="hw-clock-meter-band">' + sclkBand.min + '-' + sclkBand.max + '</div>' +
+            '</div>' +
+            '<div class="hw-clock-meter">' +
+              '<div class="hw-clock-meter-label">MCLK</div>' +
+              '<div class="hw-clock-meter-bar" style="--pct:' + mclkBand.pct.toFixed(1) + ';--peak-pct:' + mclkBand.peakPct.toFixed(1) + ';--low-pct:' + mclkBand.lowPct.toFixed(1) + ';">' +
+                '<div class="hw-clock-meter-fill" style="--pct:' + mclkBand.pct.toFixed(1) + ';--meter-color:' + mclkColor + ';--pulse-duration:' + mclkPulse + ';"></div>' +
+                '<div class="hw-clock-meter-marker"></div>' +
+                '<div class="hw-clock-meter-marker-low"></div>' +
+              '</div>' +
+              '<div class="hw-clock-meter-value">' + mclk + '</div>' +
+              '<div class="hw-clock-meter-band">' + mclkBand.min + '-' + mclkBand.max + '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>');
 }
 
 // Render single-ring gauge (System clock)
-function renderHwClockRing(container, clock, range) {
+function renderHwClockRing(container, clock) {
     if (!container) return;
-    var span = range.max - range.min || 1;
-    var pct = ((clock - range.min) / span) * 100;
-    var color = getSeverityColor(pct);
+    var band = computeClockBand(sysHistory.cpuClock, clock);
+    var display = formatClockReadout(clock);
+    var color = getSeverityColor(band.pct);
+    var pulse = (3.6 - Math.min(band.pct, 100) * 0.016).toFixed(2) + 's';
+    var footerSpark = sysHistory.cpuClock.length > 1
+        ? '<div class="hw-clock-footer sparkline-only"><div class="hw-clock-footer-spark">' + buildSparklineSVG(sysHistory.cpuClock, 'hw-clock-footer-spark', color) + '</div></div>'
+        : '';
     setVizContent(container,
-        '<div class="hw-clock-ring" style="--pct:' + pct.toFixed(1) + ';--gauge-color:' + color + ';">' +
-        '<div class="hw-clock-ring-core">' +
-        '<div class="hw-clock-ring-value">' + clock + '</div>' +
-        '<div class="hw-clock-ring-label">MHz</div>' +
-        '</div></div>');
+        '<div class="hw-clock-system-layout">' +
+          '<div class="hw-clock-cluster hw-clock-system">' +
+            '<div class="hw-clock-orbit outer" style="--pct:' + band.pct.toFixed(1) + ';--peak-pct:' + band.peakPct.toFixed(1) + ';--low-pct:' + band.lowPct.toFixed(1) + ';--orbit-color:' + color + ';--dot-radius:-61px;--pulse-duration:' + pulse + ';">' +
+              '<div class="hw-clock-orbit-track"></div>' +
+              '<div class="hw-clock-orbit-fill"></div>' +
+              '<div class="hw-clock-orbit-peak"></div>' +
+              '<div class="hw-clock-orbit-low"></div>' +
+              '<div class="hw-clock-orbit-dot"></div>' +
+            '</div>' +
+            '<div class="hw-clock-core">' +
+              '<div class="hw-clock-stack">' +
+                '<div class="hw-clock-row"><span class="hw-clock-row-value">' + display.value + '</span><span class="hw-clock-unit">' + display.unit + '</span></div>' +
+                '<div class="hw-clock-band">' + band.min + '-' + band.max + ' MHz</div>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="hw-clock-meter">' +
+            '<div class="hw-clock-meter-label">CLOCK</div>' +
+            '<div class="hw-clock-meter-bar" style="--pct:' + band.pct.toFixed(1) + ';--peak-pct:' + band.peakPct.toFixed(1) + ';--low-pct:' + band.lowPct.toFixed(1) + ';">' +
+              '<div class="hw-clock-meter-fill" style="--pct:' + band.pct.toFixed(1) + ';--meter-color:' + color + ';--pulse-duration:' + pulse + ';"></div>' +
+              '<div class="hw-clock-meter-marker"></div>' +
+              '<div class="hw-clock-meter-marker-low"></div>' +
+            '</div>' +
+            '<div class="hw-clock-meter-value">' + clock + '</div>' +
+            '<div class="hw-clock-meter-band">' + band.min + '-' + band.max + '</div>' +
+          '</div>' +
+        '</div>' +
+        footerSpark);
 }
 
 // Build sparkline SVG (reuses inference card pattern)
@@ -4740,34 +4917,20 @@ function buildSparklineSVG(points, cssClass, color) {
 
 // GPU metric history ring buffers
 var gpuHistory = { load: [], power: [], vramPct: [], sclk: [], mclk: [] };
-var gpuClockRange = { sclk: { min: Infinity, max: 0 }, mclk: { min: Infinity, max: 0 } };
-
 function pushGpuHistory(key, value) {
     if (!Number.isFinite(value)) return;
     gpuHistory[key].push(value);
     var limit = key === 'load' || key === 'power' || key === 'vramPct' ? 60 : 30;
     if (gpuHistory[key].length > limit) gpuHistory[key].shift();
-    if (key === 'sclk' || key === 'mclk') {
-        var range = gpuClockRange[key];
-        if (value < range.min) range.min = value;
-        if (value > range.max) range.max = value;
-    }
 }
 
 // System metric history ring buffers
 var sysHistory = { cpuLoad: [], ramPct: [], cpuClock: [] };
-var sysClockRange = { cpuClock: { min: Infinity, max: 0 } };
-
 function pushSysHistory(key, value) {
     if (!Number.isFinite(value)) return;
     sysHistory[key].push(value);
     var limit = 60;
     if (sysHistory[key].length > limit) sysHistory[key].shift();
-    if (key === 'cpuClock') {
-        var range = sysClockRange[key];
-        if (value < range.min) range.min = value;
-        if (value > range.max) range.max = value;
-    }
 }
 
 // Visualization preferences
@@ -4981,7 +5144,7 @@ function renderGpuCard(gpuMap, visible) {
     var clocksVal = document.getElementById('gpu-clocks-value');
     var clocksStyle = vizPrefs.gpu.clocks;
     if (clocksStyle === 'ring') {
-        renderHwDualRing(clocksViz, m.sclk_mhz, m.mclk_mhz, gpuClockRange.sclk, gpuClockRange.mclk);
+        renderHwDualRing(clocksViz, m.sclk_mhz, m.mclk_mhz);
         if (clocksVal) clocksVal.textContent = '';
     } else if (clocksStyle === 'chips') {
         renderHwChips(clocksViz, ['SCLK ' + m.sclk_mhz + 'MHz', 'MCLK ' + m.mclk_mhz + 'MHz']);
@@ -5072,10 +5235,11 @@ function renderSystemCard(sys, visible) {
     var clockMhz = sys.cpu_clock_mhz || 0;
     if (clockMhz > 0) pushSysHistory('cpuClock', clockMhz);
     if (clockStyle === 'ring') {
-        renderHwClockRing(clockViz, clockMhz, sysClockRange.cpuClock);
+        renderHwClockRing(clockViz, clockMhz);
         if (clockVal) clockVal.textContent = '';
     } else if (clockStyle === 'chip') {
-        renderHwChips(clockViz, [clockMhz > 0 ? (clockMhz / 1000).toFixed(1) + ' GHz' : '\u2014']);
+        var display = formatClockReadout(clockMhz);
+        renderHwChips(clockViz, [clockMhz > 0 ? display.value + ' ' + display.unit : '\u2014']);
         if (clockVal) clockVal.textContent = '';
     } else {
         if (clockViz) clockViz.innerHTML = '';
@@ -5102,20 +5266,12 @@ ws.onmessage = e => {
     const agentLatencyEl = document.getElementById('agent-latency');
 
     if (d.capabilities && d.endpoint_kind) {
-        const hasSession = !!d.active_session_id;
         let modeClass = 'unknown';
         let modeText = 'Unknown';
         let statusClass = 'ok';
         let statusText = 'OK';
 
-        if (!hasSession) {
-            if (endpointModeEl) {
-                endpointModeEl.textContent = 'Ready';
-                endpointModeEl.className = 'endpoint-mode local';
-            }
-            if (endpointUrlEl) endpointUrlEl.textContent = '';
-            if (endpointStatusEl) endpointStatusEl.innerHTML = '<span class="status-dot ok"></span>';
-        } else if (d.endpoint_kind === 'Local') {
+        if (d.endpoint_kind === 'Local') {
             modeClass = 'local';
             modeText = 'Local';
             if (!d.capabilities.system || !d.capabilities.gpu) {
@@ -5200,6 +5356,12 @@ ws.onmessage = e => {
         btnAttach.style.display = 'none';
         btnDetach.style.display = 'inline-block';
         if (btnDetachTop) btnDetachTop.style.display = 'inline-block';
+
+        // Switch to monitor view if not already there
+        if (appState.view === 'setup') {
+            hideConnectingState();
+            switchView('monitor');
+        }
     } else {
         // Not attached: show server header, hide detach buttons
         if (serverHeader) serverHeader.style.display = '';
@@ -5300,8 +5462,6 @@ ws.onmessage = e => {
     const promptDeltaEl = document.getElementById('m-prompt-delta');
     const genDeltaEl = document.getElementById('m-gen-delta');
     const hasActiveEndpoint = !!d.active_session_id;
-
-    updateWelcomePanel(hasActiveEndpoint);
 
     const promptRate = l?.prompt_tokens_per_sec || 0;
     const genRate = l?.generation_tokens_per_sec || 0;
@@ -6463,3 +6623,210 @@ document.addEventListener('keydown', e => {
         closeKeyboardShortcutsModal();
     }
 });
+
+// ============================================
+// Setup / Monitor View Management
+// ============================================
+
+const appState = {
+    view: 'setup',
+    sessionActive: false,
+    lastSessionData: null
+};
+
+function switchView(targetView) {
+    if (appState.view === 'transitioning') return;
+    appState.view = 'transitioning';
+
+    const currentViewEl = document.getElementById('view-' + (appState.view === 'transitioning' ? 'setup' : appState.view));
+    const targetViewEl = document.getElementById('view-' + targetView);
+    const setupStrip = document.getElementById('endpoint-strip-setup');
+    const monitorStrip = document.getElementById('endpoint-strip-monitor');
+
+    if (!currentViewEl || !targetViewEl) {
+        appState.view = targetView;
+        return;
+    }
+
+    if (targetView === 'monitor') {
+        currentViewEl.classList.add('exiting');
+        setTimeout(() => {
+            currentViewEl.style.display = 'none';
+            currentViewEl.classList.remove('exiting');
+            targetViewEl.style.display = '';
+            targetViewEl.classList.add('entering');
+            showFlashOverlay();
+            animateCardsEnter();
+            if (setupStrip) setupStrip.style.display = 'none';
+            if (monitorStrip) monitorStrip.style.display = '';
+            document.body.classList.remove('setup-active');
+            setTimeout(() => {
+                targetViewEl.classList.remove('entering');
+                appState.view = 'monitor';
+            }, 500);
+        }, 400);
+    } else {
+        animateCardsExit();
+        if (setupStrip) setupStrip.style.display = '';
+        if (monitorStrip) monitorStrip.style.display = 'none';
+        document.body.classList.add('setup-active');
+        setTimeout(() => {
+            currentViewEl.style.display = 'none';
+            currentViewEl.classList.remove('exiting');
+            targetViewEl.style.display = '';
+            targetViewEl.classList.add('entering');
+            animateSetupCardsEnter();
+            setTimeout(() => {
+                targetViewEl.classList.remove('entering');
+                appState.view = 'setup';
+            }, 400);
+        }, 600);
+    }
+}
+
+function showConnectingState() {
+    const connectingDots = document.getElementById('connecting-dots');
+    if (connectingDots) connectingDots.style.display = '';
+}
+
+function hideConnectingState() {
+    const connectingDots = document.getElementById('connecting-dots');
+    if (connectingDots) connectingDots.style.display = 'none';
+}
+
+function showFlashOverlay() {
+    const existing = document.querySelector('.view-flash');
+    if (existing) existing.remove();
+    const flash = document.createElement('div');
+    flash.className = 'view-flash';
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 800);
+}
+
+function animateCardsEnter() {
+    const cards = document.querySelectorAll('.view-monitor .widget-card');
+    cards.forEach((card, i) => {
+        card.classList.add('entrance');
+        setTimeout(() => card.classList.add('active'), 120 * i);
+    });
+}
+
+function animateCardsExit() {
+    const cards = [...document.querySelectorAll('.view-monitor .widget-card')].reverse();
+    cards.forEach((card, i) => {
+        card.style.transition = `opacity 0.3s ease ${60 * i}ms, transform 0.3s ease ${60 * i}ms`;
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(16px)';
+    });
+}
+
+function animateSetupCardsEnter() {
+    const cards = document.querySelectorAll('.view-setup .setup-card.entrance');
+    cards.forEach((card, i) => {
+        setTimeout(() => card.classList.add('active'), 80 * i);
+    });
+}
+
+function doAttachFromSetup() {
+    const input = document.getElementById('setup-endpoint-url');
+    const url = input ? input.value.trim() : '';
+    if (url) {
+        const serverEndpoint = document.getElementById('server-endpoint');
+        if (serverEndpoint) serverEndpoint.value = url;
+        localStorage.setItem('llama-monitor-last-endpoint', url);
+    }
+    showConnectingState();
+    doAttach();
+}
+
+function doStartFromSetup() {
+    const select = document.getElementById('setup-preset-select');
+    if (select) {
+        const presetSelect = document.getElementById('preset-select');
+        if (presetSelect) presetSelect.value = select.value;
+    }
+    showConnectingState();
+    doStart();
+}
+
+function saveLastSessionData(data) {
+    const payload = { ...data, timestamp: Date.now() };
+    localStorage.setItem('llama-monitor-last-session', JSON.stringify(payload));
+    appState.lastSessionData = payload;
+}
+
+function loadLastSessionData() {
+    try {
+        const raw = localStorage.getItem('llama-monitor-last-session');
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem('llama-monitor-last-session');
+            return null;
+        }
+        return data;
+    } catch {
+        return null;
+    }
+}
+
+function renderQuickStats() {
+    const data = loadLastSessionData();
+    const statsEl = document.getElementById('setup-stats');
+    if (!statsEl) return;
+
+    if (data) {
+        const promptRate = document.getElementById('setup-last-prompt-rate');
+        const genRate = document.getElementById('setup-last-gen-rate');
+        const session = document.getElementById('setup-last-session');
+        if (promptRate) promptRate.textContent = data.promptRate || '—';
+        if (genRate) genRate.textContent = data.genRate || '—';
+        if (session) session.textContent = data.sessionName || '—';
+        statsEl.style.display = 'flex';
+    } else {
+        statsEl.style.display = 'none';
+    }
+}
+
+function syncSetupPresetSelect() {
+    const setupSelect = document.getElementById('setup-preset-select');
+    const mainSelect = document.getElementById('preset-select');
+    if (!setupSelect || !mainSelect) return;
+
+    setupSelect.innerHTML = '';
+    const options = mainSelect.querySelectorAll('option');
+    options.forEach(opt => {
+        const clone = document.createElement('option');
+        clone.value = opt.value;
+        clone.textContent = opt.textContent;
+        setupSelect.appendChild(clone);
+    });
+    setupSelect.value = mainSelect.value;
+}
+
+// Initialize view state on load
+function initViewState() {
+    renderQuickStats();
+    syncSetupPresetSelect();
+    const lastEndpoint = localStorage.getItem('llama-monitor-last-endpoint');
+    if (lastEndpoint) {
+        const input = document.getElementById('setup-endpoint-url');
+        if (input) input.value = lastEndpoint;
+    }
+    document.body.classList.add('setup-active');
+    const setupView = document.getElementById('view-setup');
+    const monitorView = document.getElementById('view-monitor');
+    if (setupView) {
+        setupView.style.display = '';
+        setupView.classList.add('entering');
+        setTimeout(() => setupView.classList.remove('entering'), 600);
+    }
+    if (monitorView) monitorView.style.display = 'none';
+}
+
+// Call init on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initViewState);
+} else {
+    initViewState();
+}
