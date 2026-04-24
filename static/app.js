@@ -4573,6 +4573,11 @@ function getTempSeverityColor(temp) {
 }
 
 // Visualization rendering helpers
+function setVizContent(container, html) {
+    if (!container) return;
+    container.innerHTML = html;
+}
+
 function swapVizContent(container, html) {
     if (!container) return;
     container.classList.add('viz-fade-out');
@@ -4587,32 +4592,32 @@ function swapVizContent(container, html) {
 function renderHwBar(container, pct, isHot) {
     if (!container) return;
     const cls = isHot ? 'hw-bar-fill is-hot' : 'hw-bar-fill';
-    swapVizContent(container, '<div class="hw-bar-bg"><div class="' + cls + '" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div></div>');
+    setVizContent(container, '<div class="hw-bar-bg"><div class="' + cls + '" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div></div>');
 }
 
 function renderHwRing(container, pct, isHot) {
     if (!container) return;
     const cls = isHot ? 'hw-ring-viz is-warming' : 'hw-ring-viz';
-    swapVizContent(container, '<div class="' + cls + '" style="--pct:' + pct.toFixed(1) + ';--gauge-color:' + getSeverityColor(pct) + '"></div>');
+    setVizContent(container, '<div class="' + cls + '" style="--pct:' + pct.toFixed(1) + ';--gauge-color:' + getSeverityColor(pct) + '"></div>');
 }
 
 function renderHwSparkline(container, history) {
     if (!container || !history || history.length < 2) {
-        swapVizContent(container, '');
+        setVizContent(container, '');
         return;
     }
     const svg = buildSparklineSVG(history, 'hw-sparkline', '#8fbcbb');
-    swapVizContent(container, svg);
+    setVizContent(container, svg);
 }
 
 function renderHwStacked(container, pct) {
     if (!container) return;
-    swapVizContent(container, '<div class="hw-stacked-bg"><div class="hw-stacked-fill" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div><div class="hw-stacked-free" style="width:' + (100 - pct).toFixed(1) + '%"></div></div>');
+    setVizContent(container, '<div class="hw-stacked-bg"><div class="hw-stacked-fill" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div><div class="hw-stacked-free" style="width:' + (100 - pct).toFixed(1) + '%"></div></div>');
 }
 
 function renderHwChips(container, chips) {
     if (!container) return;
-    swapVizContent(container, '<div class="hw-chips">' + chips.map(function(c) { return '<span class="hw-chip">' + c + '</span>'; }).join('') + '</div>');
+    setVizContent(container, '<div class="hw-chips">' + chips.map(function(c) { return '<span class="hw-chip">' + c + '</span>'; }).join('') + '</div>');
 }
 
 // Build sparkline SVG (reuses inference card pattern)
@@ -4711,9 +4716,20 @@ function selectVizStyle(card, metric, style) {
             btn.classList.toggle('active', btn.getAttribute('data-style') === style && btn.closest('.viz-switcher-options').getAttribute('data-metric') === metric);
         });
     }
-    // Re-render the card
-    if (card === 'gpu') renderGpuCard(lastGpuData || {}, !!lastGpuData && Object.keys(lastGpuData).length > 0);
-    else renderSystemCard(lastSystemMetrics, !!lastSystemMetrics);
+    // Fade out viz containers, then re-render
+    var cardEl = document.getElementById(card === 'gpu' ? 'gpu-card' : 'system-card');
+    if (cardEl) {
+        cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) { el.classList.add('viz-fade-out'); });
+        setTimeout(function() {
+            if (card === 'gpu') renderGpuCard(lastGpuData || {}, !!lastGpuData && Object.keys(lastGpuData).length > 0);
+            else renderSystemCard(lastSystemMetrics, !!lastSystemMetrics);
+            cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) {
+                el.classList.remove('viz-fade-out');
+                el.classList.add('viz-fade-in');
+                setTimeout(function() { el.classList.remove('viz-fade-in'); }, 160);
+            });
+        }, 120);
+    }
 }
 
 function resetVizPrefs(card) {
@@ -4731,8 +4747,20 @@ function resetVizPrefs(card) {
             btn.classList.add('active');
         });
     }
-    if (card === 'gpu') renderGpuCard(lastGpuData || {}, !!lastGpuData && Object.keys(lastGpuData).length > 0);
-    else renderSystemCard(lastSystemMetrics, !!lastSystemMetrics);
+    // Fade out viz containers, then re-render
+    var cardEl = document.getElementById(card === 'gpu' ? 'gpu-card' : 'system-card');
+    if (cardEl) {
+        cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) { el.classList.add('viz-fade-out'); });
+        setTimeout(function() {
+            if (card === 'gpu') renderGpuCard(lastGpuData || {}, !!lastGpuData && Object.keys(lastGpuData).length > 0);
+            else renderSystemCard(lastSystemMetrics, !!lastSystemMetrics);
+            cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) {
+                el.classList.remove('viz-fade-out');
+                el.classList.add('viz-fade-in');
+                setTimeout(function() { el.classList.remove('viz-fade-in'); }, 160);
+            });
+        }, 120);
+    }
 }
 
 // Close switchers on outside click
