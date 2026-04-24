@@ -4573,35 +4573,46 @@ function getTempSeverityColor(temp) {
 }
 
 // Visualization rendering helpers
+function swapVizContent(container, html) {
+    if (!container) return;
+    container.classList.add('viz-fade-out');
+    setTimeout(function() {
+        container.innerHTML = html;
+        container.classList.remove('viz-fade-out');
+        container.classList.add('viz-fade-in');
+        setTimeout(function() { container.classList.remove('viz-fade-in'); }, 160);
+    }, 120);
+}
+
 function renderHwBar(container, pct, isHot) {
     if (!container) return;
     const cls = isHot ? 'hw-bar-fill is-hot' : 'hw-bar-fill';
-    container.innerHTML = '<div class="hw-bar-bg"><div class="' + cls + '" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div></div>';
+    swapVizContent(container, '<div class="hw-bar-bg"><div class="' + cls + '" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div></div>');
 }
 
 function renderHwRing(container, pct, isHot) {
     if (!container) return;
     const cls = isHot ? 'hw-ring-viz is-warming' : 'hw-ring-viz';
-    container.innerHTML = '<div class="' + cls + '" style="--pct:' + pct.toFixed(1) + ';--gauge-color:' + getSeverityColor(pct) + '"></div>';
+    swapVizContent(container, '<div class="' + cls + '" style="--pct:' + pct.toFixed(1) + ';--gauge-color:' + getSeverityColor(pct) + '"></div>');
 }
 
 function renderHwSparkline(container, history) {
     if (!container || !history || history.length < 2) {
-        if (container) container.innerHTML = '';
+        swapVizContent(container, '');
         return;
     }
     const svg = buildSparklineSVG(history, 'hw-sparkline', '#8fbcbb');
-    container.innerHTML = svg;
+    swapVizContent(container, svg);
 }
 
 function renderHwStacked(container, pct) {
     if (!container) return;
-    container.innerHTML = '<div class="hw-stacked-bg"><div class="hw-stacked-fill" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div><div class="hw-stacked-free" style="width:' + (100 - pct).toFixed(1) + '%"></div></div>';
+    swapVizContent(container, '<div class="hw-stacked-bg"><div class="hw-stacked-fill" style="width:' + pct.toFixed(1) + '%;--bar-start:' + getSeverityColor(pct) + ';--bar-end:' + getSeverityColor(Math.min(pct + 15, 100)) + '"></div><div class="hw-stacked-free" style="width:' + (100 - pct).toFixed(1) + '%"></div></div>');
 }
 
 function renderHwChips(container, chips) {
     if (!container) return;
-    container.innerHTML = '<div class="hw-chips">' + chips.map(function(c) { return '<span class="hw-chip">' + c + '</span>'; }).join('') + '</div>';
+    swapVizContent(container, '<div class="hw-chips">' + chips.map(function(c) { return '<span class="hw-chip">' + c + '</span>'; }).join('') + '</div>');
 }
 
 // Build sparkline SVG (reuses inference card pattern)
