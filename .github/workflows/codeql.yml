@@ -1,16 +1,6 @@
 name: CodeQL
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'static/**'
-      - 'sensor_bridge/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '.github/workflows/**.yml'
-      - '.github/codeql/**'
   pull_request:
     paths:
       - 'src/**'

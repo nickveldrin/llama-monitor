@@ -13,10 +13,43 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
+  paths-filter:
     if: github.event.pull_request.draft == false &&
         (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
          startsWith(github.actor, 'dependabot'))
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      ui: ${{ steps.filter.outputs.ui }}
+      release: ${{ steps.filter.outputs.release }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'sensor_bridge/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+            ui:
+              - 'static/**'
+              - 'tests/ui/**'
+            release:
+              - 'src/**'
+              - 'sensor_bridge/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'scripts/**'
+
+  check:
+    needs: paths-filter
+    if: >-
+      needs.paths-filter.outputs.code == 'true' &&
+      github.event.pull_request.draft == false &&
+      (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+       startsWith(github.actor, 'dependabot'))
     runs-on: arc-llama-monitor
     steps:
       - uses: actions/checkout@v6
@@ -37,10 +70,12 @@ jobs:
           path: target/release/llama-monitor
 
   ui:
-    needs: check
-    if: github.event.pull_request.draft == false &&
-        (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
-         startsWith(github.actor, 'dependabot'))
+    needs: [paths-filter, check]
+    if: >-
+      needs.paths-filter.outputs.ui == 'true' &&
+      github.event.pull_request.draft == false &&
+      (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+       startsWith(github.actor, 'dependabot'))
     runs-on: arc-llama-monitor
     steps:
       - uses: actions/checkout@v6
@@ -94,10 +129,12 @@ jobs:
           if-no-files-found: ignore
 
   release-smoke:
-    needs: check
-    if: github.event.pull_request.draft == false &&
-        (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
-         startsWith(github.actor, 'dependabot'))
+    needs: [paths-filter, check]
+    if: >-
+      needs.paths-filter.outputs.release == 'true' &&
+      github.event.pull_request.draft == false &&
+      (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+       startsWith(github.actor, 'dependabot'))
     name: release-smoke (${{ matrix.target }})
     runs-on: arc-llama-monitor
     strategy:
