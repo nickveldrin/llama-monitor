@@ -12,11 +12,99 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  paths-filter:
+    runs-on: arc-llama-monitor
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      ui: ${{ steps.filter.outputs.ui }}
+      release: ${{ steps.filter.outputs.release }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'src/**'
+              - 'sensor_bridge/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+            ui:
+              - 'static/**'
+              - 'tests/ui/**'
+            release:
+              - 'src/**'
+              - 'sensor_bridge/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'scripts/**'
+
   check:
-    if: github.event.pull_request.draft == false &&
-        (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
-         startsWith(github.actor, 'dependabot'))
+    needs: paths-filter
+    if: >-
+      github.event.pull_request.draft == false &&
+      (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+       startsWith(github.actor, 'dependabot'))
+    runs-on: arc-llama-monitor
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Rust
+        if: >-
+          needs.paths-filter.outputs.code == 'true' &&
+          (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+           startsWith(github.actor, 'dependabot'))
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        if: >-
+          needs.paths-filter.outputs.code == 'true' &&
+          (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+           startsWith(github.actor, 'dependabot'))
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v0-rust"
+          shared-key: "llama-monitor-${{ hashFiles('Cargo.lock') }}"
+
+      - name: Run checks
+        if: >-
+          needs.paths-filter.outputs.code == 'true' &&
+          (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+           startsWith(github.actor, 'dependabot'))
+        run: |
+          git diff --check
+          cargo fmt -- --check
+          cargo clippy -- -D warnings
+          cargo test
+          cargo build --release
+
+      - name: Upload binary for UI tests
+        if: >-
+          needs.paths-filter.outputs.code == 'true' &&
+          (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+           startsWith(github.actor, 'dependabot'))
+        uses: actions/upload-artifact@v7
+        with:
+          name: llama-monitor-binary
+          path: target/release/llama-monitor
+          retention-days: 1
+
+      - name: No code changes
+        if: needs.paths-filter.outputs.code != 'true'
+        run: echo "No code changes detected, skipping Rust checks"
+
+  ui:
+    needs: paths-filter
+    if: >-
+      needs.paths-filter.outputs.ui == 'true' &&
+      github.event.pull_request.draft == false &&
+      (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+       startsWith(github.actor, 'dependabot'))
     runs-on: arc-llama-monitor
     steps:
       - uses: actions/checkout@v6
@@ -25,30 +113,8 @@ jobs:
         with:
           prefix-key: "v0-rust"
           shared-key: "llama-monitor-${{ hashFiles('Cargo.lock') }}"
-      - run: git diff --check
-      - run: cargo fmt -- --check
-      - run: cargo clippy -- -D warnings
-      - run: cargo test
-      - run: cargo build --release
-      - name: Upload binary for UI tests
-        uses: actions/upload-artifact@v7
-        with:
-          name: llama-monitor-binary
-          path: target/release/llama-monitor
-
-  ui:
-    needs: check
-    if: github.event.pull_request.draft == false &&
-        (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
-         startsWith(github.actor, 'dependabot'))
-    runs-on: arc-llama-monitor
-    steps:
-      - uses: actions/checkout@v6
-      - name: Download binary
-        uses: actions/download-artifact@v8
-        with:
-          name: llama-monitor-binary
-          path: target/release/
+      - name: Build binary
+        run: cargo build --release
       - name: Make binary executable
         run: chmod +x target/release/llama-monitor
       - uses: actions/setup-node@v6.4.0
@@ -92,12 +158,15 @@ jobs:
           name: playwright-report
           path: tests/ui/playwright-report/
           if-no-files-found: ignore
+          retention-days: 1
 
   release-smoke:
-    needs: check
-    if: github.event.pull_request.draft == false &&
-        (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
-         startsWith(github.actor, 'dependabot'))
+    needs: paths-filter
+    if: >-
+      needs.paths-filter.outputs.release == 'true' &&
+      github.event.pull_request.draft == false &&
+      (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
+       startsWith(github.actor, 'dependabot'))
     name: release-smoke (${{ matrix.target }})
     runs-on: arc-llama-monitor
     strategy:
