@@ -1,9 +1,114 @@
-feature: 'feature:*'
-fix: 'fix:*'
-refactor: 'refactor:*'
-chore: 'chore:*'
-perf: 'perf:*'
-test: 'test:*'
-docs: 'docs:*'
-ci: 'ci:*'
-dependencies: 'dependencies:*'
+# GitHub Labeler configuration for PRs
+# https://github.com/actions/labeler
+
+# ── File path patterns ──────────────────────────────────────
+
+# Rust code
+rust:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - '**/*.rs'
+
+# C# / .NET
+csharp:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - '**/*.cs'
+
+# JavaScript
+javascript:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - '**/*.js'
+              - '**/*.jsx'
+
+# Frontend / UI (static assets)
+ui:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'static/**/*.html'
+              - 'static/**/*.css'
+              - 'static/**/*.js'
+
+# Shell scripts
+shell:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - '**/*.sh'
+
+# CI / CD
+ci:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - '.github/workflows/**'
+
+github-actions:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - '.github/workflows/**'
+
+# Documentation
+docs:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - '**/*.md'
+              - 'docs/**'
+
+# Dependencies (Rust)
+dependencies:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+
+# Node.js dependencies
+node-dependencies:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'package.json'
+              - 'package-lock.json'
+
+# Tests
+test:
+  - any:
+      - changed-files:
+          - any-glob-to-any-file:
+              - 'tests/**'
+              - '**/*.spec.js'
+              - '**/*.test.rs'
+
+# ── Commit message patterns (title) ─────────────────────────
+
+fix:
+  - title: '^fix('
+
+feat:
+  - title: '^feat('
+
+refactor:
+  - title: '^refactor('
+
+chore:
+  - title: '^chore('
+
+perf:
+  - title: '^perf('
+
+docs:
+  - title: '^docs('
+
+test:
+  - title: '^test('
+
+ci:
+  - title: '^ci('
