@@ -41,12 +41,13 @@ shell:
           - any-glob-to-any-file:
               - '**/*.sh'
 
-# CI / CD
+# CI / CD (file paths + commit title)
 ci:
   - any:
       - changed-files:
           - any-glob-to-any-file:
               - '.github/workflows/**'
+  - title: '^ci('
 
 github-actions:
   - any:
@@ -54,13 +55,14 @@ github-actions:
           - any-glob-to-any-file:
               - '.github/workflows/**'
 
-# Documentation
+# Documentation (file paths + commit title)
 docs:
   - any:
       - changed-files:
           - any-glob-to-any-file:
               - '**/*.md'
               - 'docs/**'
+  - title: '^docs('
 
 # Dependencies (Rust)
 dependencies:
@@ -78,7 +80,7 @@ node-dependencies:
               - 'package.json'
               - 'package-lock.json'
 
-# Tests
+# Tests (file paths + commit title)
 test:
   - any:
       - changed-files:
@@ -86,8 +88,9 @@ test:
               - 'tests/**'
               - '**/*.spec.js'
               - '**/*.test.rs'
+  - title: '^test('
 
-# ── Commit message patterns (title) ─────────────────────────
+# ── Commit message patterns (title only) ────────────────────
 
 fix:
   - title: '^fix('
@@ -103,12 +106,3 @@ chore:
 
 perf:
   - title: '^perf('
-
-docs:
-  - title: '^docs('
-
-test:
-  - title: '^test('
-
-ci:
-  - title: '^ci('
