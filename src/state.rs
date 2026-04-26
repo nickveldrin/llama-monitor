@@ -11,6 +11,17 @@ use crate::models::DiscoveredModel;
 use crate::presets::ModelPreset;
 use crate::system::SystemMetrics;
 
+fn sensor_bridge_setup_available() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        crate::lhm::is_sensor_bridge_available()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        false
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct MetricsCapabilities {
     pub inference: bool,
@@ -20,6 +31,7 @@ pub struct MetricsCapabilities {
     pub memory: bool,
     pub host_metrics: bool,
     pub tray: bool,
+    pub sensor_bridge_setup_available: bool,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
@@ -327,6 +339,7 @@ impl AppState {
             memory: false,
             host_metrics: false,
             tray: true,
+            sensor_bridge_setup_available: false,
         };
 
         let state = Self {
@@ -620,6 +633,7 @@ impl AppState {
                 memory: false,
                 host_metrics: false,
                 tray: true,
+                sensor_bridge_setup_available: sensor_bridge_setup_available(),
             };
         }
 
@@ -636,6 +650,7 @@ impl AppState {
             memory: true,
             host_metrics: true,
             tray: true,
+            sensor_bridge_setup_available: sensor_bridge_setup_available(),
         };
         let inference_only = MetricsCapabilities {
             inference: true,
@@ -645,6 +660,7 @@ impl AppState {
             memory: false,
             host_metrics: false,
             tray: true,
+            sensor_bridge_setup_available: false,
         };
 
         match session {
@@ -977,6 +993,7 @@ mod tests {
             memory: false,
             host_metrics: false,
             tray: true,
+            sensor_bridge_setup_available: false,
         };
         let json = serde_json::to_value(&caps).unwrap();
         assert_eq!(json["inference"], true);
