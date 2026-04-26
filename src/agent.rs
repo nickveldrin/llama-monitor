@@ -18,6 +18,9 @@ use crate::system::{self, SystemMetrics};
 ///
 /// Uses platform-appropriate quoting to prevent command injection when
 /// user-controlled paths are interpolated into shell commands executed over SSH.
+///
+/// For Windows, use `shell_quote_path_cmd` when the command runs under `cmd.exe`
+/// (e.g., schtasks), and `shell_quote_path` for PowerShell contexts.
 fn shell_quote_path(path: &str, os: RemoteOs) -> String {
     match os {
         RemoteOs::Unix | RemoteOs::Macos => {
@@ -37,6 +40,15 @@ fn shell_quote_path(path: &str, os: RemoteOs) -> String {
                 .unwrap_or_else(|_| path.to_string())
         }
     }
+}
+
+/// Quotes a path for `cmd.exe` contexts (schtasks, cmd.exe /C).
+///
+/// Unlike PowerShell, cmd.exe does not treat single quotes as special.
+/// Use double quotes with proper escaping for embedded quotes.
+fn shell_quote_path_cmd(path: &str) -> String {
+    // In cmd.exe, double quotes delimit strings; escape embedded quotes with ^
+    format!("\"{}\"", path.replace('"', "\"^\""))
 }
 
 /// Validates an install path to ensure it does not contain shell metacharacters
@@ -773,9 +785,13 @@ fn remote_host_from_agent_url(agent_url: &str) -> Option<String> {
 fn default_start_command_for_os(os: RemoteOs, install_path: &str) -> String {
     let quoted_path = shell_quote_path(install_path, os);
     match os {
-        RemoteOs::Windows => format!(
-            "cmd.exe /C schtasks /Delete /TN \"{WINDOWS_AGENT_LEGACY_TASK_NAME}\" /F >NUL 2>NUL & schtasks /Create /TN \"{WINDOWS_AGENT_TASK_NAME}\" /TR \"\\\"{quoted_path}\\\" --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}\" /SC ONSTART /RU SYSTEM /F && schtasks /Run /TN \"{WINDOWS_AGENT_TASK_NAME}\""
-        ),
+        RemoteOs::Windows => {
+            // schtasks runs under cmd.exe — use cmd-compatible quoting (double quotes)
+            let cmd_quoted = shell_quote_path_cmd(install_path);
+            format!(
+                "cmd.exe /C schtasks /Delete /TN \"{WINDOWS_AGENT_LEGACY_TASK_NAME}\" /F >NUL 2>NUL & schtasks /Create /TN \"{WINDOWS_AGENT_TASK_NAME}\" /TR \"{cmd_quoted} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}\" /SC ONSTART /RU SYSTEM /F && schtasks /Run /TN \"{WINDOWS_AGENT_TASK_NAME}\""
+            )
+        }
         RemoteOs::Unix | RemoteOs::Macos => format!(
             "nohup {quoted_path} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT} > ~/.config/llama-monitor/agent.log 2>&1 &"
         ),
@@ -2056,6 +2072,24 @@ mod tests {
         // Single quotes should be doubled inside the quoted string
         assert!(quoted.contains("''"));
         assert!(!quoted.contains(r#"\'"#));
+    }
+
+    #[test]
+    fn shell_quote_path_cmd_uses_double_quotes() {
+        // cmd.exe does NOT treat single quotes as special
+        let path = r#"C:\Program Files\llama-monitor"#;
+        let quoted = shell_quote_path_cmd(path);
+        assert!(quoted.starts_with('"'));
+        assert!(quoted.ends_with('"'));
+        assert!(!quoted.contains('\''));
+    }
+
+    #[test]
+    fn shell_quote_path_cmd_escapes_embedded_double_quotes() {
+        let path = r#"C:\Pro"gram Files\llama"#;
+        let quoted = shell_quote_path_cmd(path);
+        // Embedded double quotes should be escaped with ^
+        assert!(quoted.contains("^\""));
     }
 
     #[test]
