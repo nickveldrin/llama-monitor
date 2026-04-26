@@ -92,9 +92,7 @@ fn poll_local_sensor_bridge_temp() -> (f32, bool) {
     };
     let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
 
-    let _ = stream.write_all(
-        b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n",
-    );
+    let _ = stream.write_all(b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n");
 
     let mut response = Vec::new();
     let mut buf = [0u8; 8192];
@@ -159,9 +157,7 @@ pub fn install_local_sensor_bridge() -> Result<(), String> {
         .ok_or_else(|| "sensor_bridge.exe not found next to llama-monitor.exe".to_string())?;
 
     // Single-quote-escape the path for PowerShell string literal
-    let bridge_path_str = bridge_path
-        .to_string_lossy()
-        .replace('\'', "''");
+    let bridge_path_str = bridge_path.to_string_lossy().replace('\'', "''");
 
     let script = format!(
         r#"$ErrorActionPreference = 'Stop'

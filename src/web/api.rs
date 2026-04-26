@@ -233,7 +233,8 @@ fn api_lhm_uninstall() -> impl Filter<Extract = (impl warp::Reply,), Error = war
         })
 }
 
-fn api_sensor_bridge_status() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_sensor_bridge_status()
+-> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "sensor-bridge" / "status")
         .and(warp::get())
         .and_then(|| async move {
@@ -258,7 +259,8 @@ fn api_sensor_bridge_status() -> impl Filter<Extract = (impl warp::Reply,), Erro
         })
 }
 
-fn api_sensor_bridge_install() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_sensor_bridge_install()
+-> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "sensor-bridge" / "install")
         .and(warp::post())
         .and_then(|| async move {
@@ -285,7 +287,8 @@ fn api_sensor_bridge_install() -> impl Filter<Extract = (impl warp::Reply,), Err
         })
 }
 
-fn api_sensor_bridge_uninstall() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_sensor_bridge_uninstall()
+-> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "sensor-bridge" / "uninstall")
         .and(warp::post())
         .and_then(|| async move {
