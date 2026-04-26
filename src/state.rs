@@ -732,14 +732,12 @@ fn host_is_local(host: &str) -> bool {
     // outbound-to-internet probe in local_interface_ips() would miss it.
     let bind_addr = if ip.is_ipv6() { "[::]:0" } else { "0.0.0.0:0" };
     let target: SocketAddr = (ip, 80).into();
-    if let Ok(socket) = UdpSocket::bind(bind_addr) {
-        if socket.connect(target).is_ok() {
-            if let Ok(local_addr) = socket.local_addr() {
-                if local_addr.ip() == ip {
-                    return true;
-                }
-            }
-        }
+    if let Ok(socket) = UdpSocket::bind(bind_addr)
+        && socket.connect(target).is_ok()
+        && let Ok(local_addr) = socket.local_addr()
+        && local_addr.ip() == ip
+    {
+        return true;
     }
 
     // Fallback: check outbound IPs via probes to well-known external hosts
