@@ -123,6 +123,28 @@ pub async fn run_agent_server(app_config: Arc<AppConfig>) -> Result<()> {
         });
     }
 
+    let system_metrics: Arc<Mutex<system::SystemMetrics>> =
+        Arc::new(Mutex::new(system::SystemMetrics {
+            cpu_name: String::new(),
+            cpu_temp: 0.0,
+            cpu_temp_available: false,
+            cpu_load: 0,
+            cpu_clock_mhz: 0,
+            ram_total_gb: 0.0,
+            ram_used_gb: 0.0,
+            motherboard: String::new(),
+        }));
+
+    {
+        let system_metrics = Arc::clone(&system_metrics);
+        std::thread::spawn(move || {
+            loop {
+                *system_metrics.lock().unwrap() = system::get_system_metrics();
+                std::thread::sleep(Duration::from_secs(5));
+            }
+        });
+    }
+
     let auth =
         warp::any()
             .and(warp::header::headers_cloned())
@@ -170,10 +192,13 @@ pub async fn run_agent_server(app_config: Arc<AppConfig>) -> Result<()> {
             })
     };
 
-    let system_route = warp::path!("metrics" / "system")
-        .and(warp::get())
-        .and(auth.clone())
-        .map(|_| warp::reply::json(&system::get_system_metrics()));
+    let system_route = {
+        let system_metrics = Arc::clone(&system_metrics);
+        warp::path!("metrics" / "system")
+            .and(warp::get())
+            .and(auth.clone())
+            .map(move |_| warp::reply::json(&*system_metrics.lock().unwrap()))
+    };
 
     let gpu_route = {
         let gpu_metrics = Arc::clone(&gpu_metrics);
@@ -188,13 +213,14 @@ pub async fn run_agent_server(app_config: Arc<AppConfig>) -> Result<()> {
 
     let metrics_route = {
         let gpu_metrics = Arc::clone(&gpu_metrics);
+        let system_metrics = Arc::clone(&system_metrics);
         warp::path("metrics")
             .and(warp::path::end())
             .and(warp::get())
             .and(auth)
             .map(move |_| {
                 let metrics = AgentMetrics {
-                    system: system::get_system_metrics(),
+                    system: system_metrics.lock().unwrap().clone(),
                     gpu: gpu_metrics.lock().unwrap().clone(),
                 };
                 warp::reply::json(&metrics)
@@ -670,7 +696,7 @@ fn remote_host_from_agent_url(agent_url: &str) -> Option<String> {
 fn default_start_command_for_os(os: RemoteOs, install_path: &str) -> String {
     match os {
         RemoteOs::Windows => format!(
-            "cmd.exe /C schtasks /Delete /TN \"{WINDOWS_AGENT_LEGACY_TASK_NAME}\" /F >NUL 2>NUL & schtasks /Create /TN \"{WINDOWS_AGENT_TASK_NAME}\" /TR \"\\\"{install_path}\\\" --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}\" /SC ONLOGON /RL HIGHEST /F && schtasks /Run /TN \"{WINDOWS_AGENT_TASK_NAME}\""
+            "cmd.exe /C schtasks /Delete /TN \"{WINDOWS_AGENT_LEGACY_TASK_NAME}\" /F >NUL 2>NUL & schtasks /Create /TN \"{WINDOWS_AGENT_TASK_NAME}\" /TR \"\\\"{install_path}\\\" --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}\" /SC ONSTART /RU SYSTEM /F && schtasks /Run /TN \"{WINDOWS_AGENT_TASK_NAME}\""
         ),
         RemoteOs::Unix | RemoteOs::Macos => format!(
             "nohup {install_path} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT} > ~/.config/llama-monitor/agent.log 2>&1 &"
