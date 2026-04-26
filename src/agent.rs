@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -18,10 +18,14 @@ thread_local! {
     static LATEST_RELEASE_CACHE: Mutex<Option<(LatestReleaseInfo, Instant)>> = const { Mutex::new(None) };
 }
 
+static REMOTE_AGENT_AUTOSTART_SUPPRESS_UNTIL: LazyLock<Mutex<Option<Instant>>> =
+    LazyLock::new(|| Mutex::new(None));
+
 const REMOTE_AGENT_DEFAULT_PORT: u16 = 7779;
 const REMOTE_AGENT_POLL_INTERVAL: Duration = Duration::from_secs(2);
 const REMOTE_AGENT_AUTOSTART_COOLDOWN: Duration = Duration::from_secs(30);
 const REMOTE_AGENT_AUTOSTART_TIMEOUT: Duration = Duration::from_secs(15);
+const REMOTE_AGENT_AUTOSTART_SUPPRESS_DURATION: Duration = Duration::from_secs(120);
 const GITHUB_LATEST_RELEASE_URL: &str =
     "https://api.github.com/repos/nmorgowicz-org/llama-monitor/releases/latest";
 
@@ -500,6 +504,12 @@ pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
     }
 }
 
+pub fn suppress_remote_agent_autostart() {
+    if let Ok(mut until) = REMOTE_AGENT_AUTOSTART_SUPPRESS_UNTIL.lock() {
+        *until = Some(Instant::now() + REMOTE_AGENT_AUTOSTART_SUPPRESS_DURATION);
+    }
+}
+
 async fn maybe_autostart_remote_agent(
     state: &AppState,
     app_config: &AppConfig,
@@ -513,6 +523,15 @@ async fn maybe_autostart_remote_agent(
     }
 
     if state.current_endpoint_kind() != EndpointKind::Remote {
+        return;
+    }
+
+    if REMOTE_AGENT_AUTOSTART_SUPPRESS_UNTIL
+        .lock()
+        .ok()
+        .and_then(|until| *until)
+        .is_some_and(|until| Instant::now() < until)
+    {
         return;
     }
 
@@ -1281,7 +1300,7 @@ foreach ($name in $targets) {{ \
   if (Test-Path $src) {{ \
     for ($i = 0; $i -lt 10; $i++) {{ \
       if (Test-Path $dst) {{ Remove-Item -LiteralPath $dst -Force -ErrorAction SilentlyContinue }}; \
-      try {{ Move-Item -LiteralPath $src -Destination $dst -Force; break }} catch {{ if ($i -eq 9) {{ throw }}; Start-Sleep -Milliseconds 500 }} \
+      try {{ [System.IO.File]::Copy($src, $dst, $true); Remove-Item -LiteralPath $src -Force -ErrorAction SilentlyContinue; break }} catch {{ if ($i -eq 9) {{ throw }}; Start-Sleep -Milliseconds 500 }} \
     }} \
   }} \
 }}; \

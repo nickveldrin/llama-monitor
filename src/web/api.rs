@@ -495,6 +495,7 @@ fn api_remote_agent_install(
             move |mut request: crate::agent::RemoteAgentInstallRequest| {
                 let app_config = app_config.clone();
                 async move {
+                    crate::agent::suppress_remote_agent_autostart();
                     request.ssh_connection = match hydrate_ssh_connection(
                         request.ssh_connection.take(),
                         &request.ssh_target,
@@ -581,6 +582,7 @@ fn api_remote_agent_start(
         .and_then(move |request: serde_json::Map<String, serde_json::Value>| {
             let app_config = app_config.clone();
             async move {
+                crate::agent::suppress_remote_agent_autostart();
                 let ssh_target = match request.get("ssh_target") {
                     Some(v) => v.as_str().unwrap_or("").to_string(),
                     None => {
@@ -658,6 +660,7 @@ fn api_remote_agent_update(
         .and_then(move |request: serde_json::Map<String, serde_json::Value>| {
             let app_config = app_config.clone();
             async move {
+                crate::agent::suppress_remote_agent_autostart();
                 let ssh_target = match request.get("ssh_target") {
                     Some(v) => v.as_str().unwrap_or("").to_string(),
                     None => {
@@ -699,6 +702,7 @@ fn api_remote_agent_stop(
         .and_then(move |request: serde_json::Map<String, serde_json::Value>| {
             let app_config = app_config.clone();
             async move {
+                crate::agent::suppress_remote_agent_autostart();
                 let ssh_target = match request.get("ssh_target") {
                     Some(v) => v.as_str().unwrap_or("").to_string(),
                     None => {
@@ -740,6 +744,7 @@ fn api_remote_agent_remove(
         .and_then(move |request: serde_json::Map<String, serde_json::Value>| {
             let app_config = app_config.clone();
             async move {
+                crate::agent::suppress_remote_agent_autostart();
                 let ssh_target = match request.get("ssh_target") {
                     Some(v) => v.as_str().unwrap_or("").to_string(),
                     None => {
