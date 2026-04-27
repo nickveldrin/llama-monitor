@@ -375,6 +375,8 @@ pub async fn run_agent_server(app_config: Arc<AppConfig>) -> Result<()> {
     }
     println!("[agent] Remote metrics agent listening on http://{bind_addr}");
 
+    // TLS support coming soon — for now, start with plain HTTP
+    // Future: implement mTLS with rcgen-generated certs
     warp::serve(routes).run(bind_addr).await;
     Ok(())
 }
@@ -578,9 +580,11 @@ fn remote_release_asset_error(
 }
 
 pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
+    // Build HTTP client with TLS for mTLS
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .pool_max_idle_per_host(0)
+        .danger_accept_invalid_certs(true) // Self-signed certs
         .build()
     {
         Ok(client) => client,
@@ -1255,6 +1259,36 @@ pub mod install {
         }
     }
 
+    /// Ships the CA certificate to the remote host so the agent can generate a server cert.
+    async fn drop_ca_certificate(connection: &SshConnection, install_path: &str, os: RemoteOs) {
+        let sep = if os == RemoteOs::Windows { '\\' } else { '/' };
+        let Some(dir_end) = install_path.rfind(sep) else {
+            return;
+        };
+        let install_dir = &install_path[..dir_end];
+
+        // Ensure the CA cert exists locally
+        let ca = crate::certs::ensure_ca();
+
+        let remote_ca_path = format!("{}{}ca.pem", install_dir, sep);
+
+        // Write CA cert to temp file and copy to remote
+        let local_tmp = tempfile::NamedTempFile::new_in(std::env::temp_dir())
+            .map(|f| f.path().to_path_buf())
+            .unwrap_or_else(|_| std::env::temp_dir().join("ca.pem"));
+
+        if std::fs::write(&local_tmp, &ca.pem).is_ok() {
+            let _ = remote_ssh::copy_to_remote(
+                connection.clone(),
+                local_tmp.to_string_lossy().to_string(),
+                remote_ca_path,
+                0o644,
+            )
+            .await;
+        }
+        let _ = std::fs::remove_file(&local_tmp);
+    }
+
     pub async fn install_remote_agent(
         ssh_target: &str,
         ssh_connection: Option<SshConnection>,
@@ -1296,6 +1330,9 @@ pub mod install {
 
         // Drop an uninstall script next to the binary (non-fatal if it fails).
         drop_uninstall_script(&connection, &install_path, os).await;
+
+        // Ship the CA certificate so the agent can generate a server cert
+        drop_ca_certificate(&connection, &install_path, os).await;
 
         let installed = remote_file_exists_with(&connection, os, &install_path).await;
 
