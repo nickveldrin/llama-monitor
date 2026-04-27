@@ -1478,17 +1478,12 @@ pub mod install {
     }
 
     async fn extract_archive(path: &str, asset: &ReleaseAssetInfo) -> Result<String> {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis();
         let binary_name = asset.name.trim_end_matches(".tar.gz");
-        let temp_extracted = std::env::temp_dir().join(format!(
-            "{}-{}-{timestamp}",
-            binary_name,
-            std::process::id()
-        ));
-        fs::create_dir_all(&temp_extracted)?;
+        let temp_dir = tempfile::Builder::new()
+            .prefix(&format!("{binary_name}-"))
+            .tempdir_in(std::env::temp_dir())
+            .map_err(|e| io::Error::other(format!("Failed to create temp dir: {e}")))?;
+        let temp_extracted = temp_dir.path().to_path_buf();
 
         let output = tokio::process::Command::new("tar")
             .args(["-xzf", path, "-C", &temp_extracted.to_string_lossy()])
@@ -1498,7 +1493,10 @@ pub mod install {
         if !output.status.success() {
             Err(io::Error::other("Failed to extract archive").into())
         } else {
-            extracted_binary_path(&temp_extracted, binary_name)
+            let binary_path = extracted_binary_path(&temp_extracted, binary_name)?;
+            // Keep directory alive beyond scope — caller will move/copy the binary
+            let _ = temp_dir.into_path();
+            Ok(binary_path)
         }
     }
 
