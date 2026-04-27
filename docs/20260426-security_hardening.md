@@ -697,7 +697,7 @@ This ensures unique filenames per invocation and automatic cleanup when the hand
 
 - [x] **#9** Command injection via install paths — Fixed with input validation + shell quoting; validated end-to-end against remote host
 - [ ] **#10** Dashboard binds to 0.0.0.0, no auth — Add `--host` flag defaulting to `127.0.0.1`
-- [ ] **#11** SSRF via chat endpoint — Whitelist allowed ports
+- [x] **#11** SSRF via chat endpoint — Removed user-controlled `port` parameter; endpoint derived from active session (PR #95)
 - [ ] **#14** Agent token optional, no hard fail — Require token when binding to `0.0.0.0`
 - [ ] **#15** Insecure temp files (multiple) — Migrate to `tempfile` crate
 - [ ] **#2** No TLS — token/data in plaintext — Document SSH tunnel approach; consider optional TLS

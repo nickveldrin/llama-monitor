@@ -6206,7 +6206,7 @@ async function sendChat() {
 
         }
 
-        const chatUrl = '/api/chat?port=' + encodeURIComponent(activeSessionPort);
+        const chatUrl = '/api/chat'; // Port derived server-side from active session
 
         
 

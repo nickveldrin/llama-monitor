@@ -1210,69 +1210,70 @@ fn api_chat(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "chat")
         .and(warp::post())
-        .and(warp::query::<std::collections::HashMap<String, String>>())
         .and(warp::body::bytes())
-        .and_then(
-            move |query: std::collections::HashMap<String, String>, body: bytes::Bytes| {
-                let state = state.clone();
-                async move {
-                    let port = query
-                        .get("port")
-                        .and_then(|p| p.parse::<u16>().ok())
-                        .unwrap_or_else(|| {
-                            state
-                                .server_config
-                                .lock()
-                                .unwrap()
-                                .as_ref()
-                                .map(|c| c.port)
-                                .unwrap_or(8080)
-                        });
-                    let url = format!("http://127.0.0.1:{port}/v1/chat/completions");
+        .and_then(move |body: bytes::Bytes| {
+            let state = state.clone();
+            async move {
+                // Derive endpoint from active session — no user-controlled input
+                let session = state
+                    .get_active_session()
+                    .ok_or(warp::reject::not_found())?;
 
-                    let client = reqwest::Client::new();
-                    match client
-                        .post(&url)
-                        .header("Content-Type", "application/json")
-                        .body(body.to_vec())
-                        .send()
-                        .await
-                    {
-                        Ok(resp) => {
-                            let status = resp.status().as_u16();
-                            let ct = resp
-                                .headers()
-                                .get("content-type")
-                                .and_then(|v| v.to_str().ok())
-                                .unwrap_or("application/json")
-                                .to_string();
-                            let bytes = resp
-                                .bytes()
-                                .await
-                                .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
-                            Ok::<_, warp::Rejection>(
-                                warp::http::Response::builder()
-                                    .status(status)
-                                    .header("content-type", ct)
-                                    .body(bytes)
-                                    .unwrap(),
-                            )
-                        }
-                        Err(e) => {
-                            let err = format!(
-                                r#"{{"error":{{"message":"{}","type":"proxy_error"}}}}"#,
-                                e.to_string().replace('"', "'")
-                            );
-                            Ok(warp::http::Response::builder()
-                                .status(502)
-                                .header("content-type", "application/json")
-                                .body(Bytes::from(err))
-                                .unwrap())
-                        }
+                let url = match &session.mode {
+                    crate::state::SessionMode::Spawn { port } => {
+                        format!("http://127.0.0.1:{port}/v1/chat/completions")
+                    }
+                    crate::state::SessionMode::Attach { endpoint } => {
+                        format!("{endpoint}/v1/chat/completions")
+                    }
+                };
+
+                let client = reqwest::Client::builder()
+                    .timeout(std::time::Duration::from_secs(120))
+                    .build()
+                    .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
+
+                match client
+                    .post(&url)
+                    .header("Content-Type", "application/json")
+                    .body(body.to_vec())
+                    .send()
+                    .await
+                {
+                    Ok(resp) => {
+                        let status = resp.status().as_u16();
+                        let ct = resp
+                            .headers()
+                            .get("content-type")
+                            .and_then(|v| v.to_str().ok())
+                            .unwrap_or("application/json")
+                            .to_string();
+                        let bytes = resp
+                            .bytes()
+                            .await
+                            .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
+                        Ok::<_, warp::Rejection>(
+                            warp::http::Response::builder()
+                                .status(status)
+                                .header("content-type", ct)
+                                .body(bytes)
+                                .unwrap(),
+                        )
+                    }
+                    Err(e) => {
+                        let err = format!(
+                            r#"{{"error":{{"message":"{}","type":"proxy_error"}}}}"#,
+                            e.to_string().replace('"', "'")
+                        );
+                        Ok(warp::http::Response::builder()
+                            .status(502)
+                            .header("content-type", "application/json")
+                            .body(Bytes::from(err))
+                            .unwrap())
                     }
                 }
-            },
-        )
+            }
+        })
 }
 
 fn api_get_sessions(
