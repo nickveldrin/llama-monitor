@@ -5040,8 +5040,8 @@ function renderHwDualRing(container, sclk, mclk) {
     var mclkPulse = (3.8 - Math.min(mclkBand.pct, 100) * 0.016).toFixed(2) + 's';
     setVizContent(container,
         '<div class="hw-clock-gpu-layout">' +
-          '<div class="hw-clock-cluster hw-clock-gpu" style="--dot-radius:-68px;">' +
-            '<div class="hw-clock-orbit outer" style="--pct:' + mclkBand.pct.toFixed(1) + ';--peak-pct:' + mclkBand.peakPct.toFixed(1) + ';--low-pct:' + mclkBand.lowPct.toFixed(1) + ';--orbit-color:' + mclkColor + ';--dot-radius:-68px;--pulse-duration:' + mclkPulse + ';">' +
+          '<div class="hw-clock-cluster hw-clock-gpu" style="--dot-radius:-47px;">' +
+            '<div class="hw-clock-orbit outer" style="--pct:' + mclkBand.pct.toFixed(1) + ';--peak-pct:' + mclkBand.peakPct.toFixed(1) + ';--low-pct:' + mclkBand.lowPct.toFixed(1) + ';--orbit-color:' + mclkColor + ';--dot-radius:-47px;--pulse-duration:' + mclkPulse + ';">' +
               '<div class="hw-clock-orbit-track"></div>' +
               '<div class="hw-clock-orbit-fill"></div>' +
               '<div class="hw-clock-orbit-peak"></div>' +

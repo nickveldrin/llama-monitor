@@ -3014,7 +3014,7 @@ body.sidebar-collapsed .content-area {
   }
 
   .hw-clock-gpu-layout .hw-clock-cluster {
-    width: min(120px, 100%);
+    width: min(84px, 100%);
     margin: 0 auto;
   }
 
