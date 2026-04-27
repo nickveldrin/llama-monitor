@@ -438,6 +438,10 @@
                                 <div class="hw-temp-gauge" id="sys-temp-gauge" style="--pct:0;--gauge-color:#8fbcbb;">
                                     <span class="hw-temp-value" id="sys-temp-value"></span>
                                 </div>
+                                <div class="hw-temp-unavailable-badge" id="sys-temp-unavailable-badge" style="display:none;" title="">
+                                    <span class="hw-temp-badge-icon">⚠</span>
+                                    <span class="hw-temp-badge-text"></span>
+                                </div>
                                 <div id="sensor-bridge-setup-callout" style="display:none; margin-top:6px; padding:8px 10px; background:#3b4252; border-radius:6px; border-left:3px solid #ebcb8b; font-size:12px; color:#d8dee9;">
                                   CPU temperature requires a one-time service install.
                                   <button id="btn-sensor-bridge-setup" style="margin-left:8px; padding:3px 10px; background:#5e81ac; border:none; border-radius:4px; color:#eceff4; cursor:pointer; font-size:12px;">Setup</button>
@@ -793,6 +797,15 @@
             <button type="button" class="modal-close" onclick="closeRemoteAgentSetup()" aria-label="Close">&times;</button>
         </div>
         <div class="modal-body remote-agent-setup-body">
+            <!-- Status Alert (shown when there's an issue to fix) -->
+            <div class="agent-setup-status-alert" id="agent-setup-status-alert" style="display:none;">
+                <div class="agent-setup-status-alert-icon" id="agent-setup-status-alert-icon"></div>
+                <div class="agent-setup-status-alert-content">
+                    <div class="agent-setup-status-alert-title" id="agent-setup-status-alert-title"></div>
+                    <div class="agent-setup-status-alert-message" id="agent-setup-status-alert-message"></div>
+                </div>
+            </div>
+
             <!-- Hero Section -->
             <div class="agent-setup-hero">
                 <div class="agent-setup-hero-icon">

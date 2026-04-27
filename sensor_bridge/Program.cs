@@ -40,9 +40,56 @@ class Program
             catch { }
         }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
 
-        var listener = new HttpListener();
-        listener.Prefixes.Add("http://127.0.0.1:7780/");
-        listener.Start();
+       var listener = new HttpListener();
+        const int port = 7780;
+        const string prefix = $"http://127.0.0.1:{port}/";
+
+        // Try to start, cleaning up stale reservations or conflicting processes
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            try
+            {
+                listener.Prefixes.Add(prefix);
+                listener.Start();
+                break;
+            }
+            catch (HttpListenerException ex) when (ex.NativeErrorCode == 0x80070032) // URL conflict
+            {
+                // Attempt 1: delete stale URL reservation
+                try
+                {
+                    var proc = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "netsh",
+                        Arguments = $"http delete urlacl url={prefix}",
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                    });
+                    proc?.WaitForExit(2000);
+                }
+                catch { }
+
+                // Attempt 2: kill any existing sensor_bridge processes
+                try
+                {
+                    foreach (var p in System.Diagnostics.Process.GetProcessesByName("sensor_bridge"))
+                    {
+                        if (p.Id != Environment.ProcessId)
+                        {
+                            p.Kill();
+                            p.WaitForExit(2000);
+                        }
+                    }
+                }
+                catch { }
+
+                Thread.Sleep(500); // Let HTTP.sys settle
+            }
+        }
+
+        Console.WriteLine($"sensor_bridge: listening on {prefix}");
 
         while (true)
         {
