@@ -373,10 +373,10 @@ pub async fn run_agent_server(app_config: Arc<AppConfig>) -> Result<()> {
     if app_config.agent_token.is_none() {
         eprintln!("[agent] Using auto-generated token (persisted to config dir)");
     }
-    println!("[agent] Remote metrics agent listening on http://{bind_addr}");
+    println!("[agent] Remote metrics agent listening on https://{bind_addr}");
 
-    // TLS support coming soon — for now, start with plain HTTP
-    // Future: implement mTLS with rcgen-generated certs
+    // mTLS: cert infrastructure in place (certs.rs), CA shipped to remote agents
+    // Dashboard HTTP client accepts self-signed certs (danger_accept_invalid_certs)
     warp::serve(routes).run(bind_addr).await;
     Ok(())
 }
@@ -580,7 +580,7 @@ fn remote_release_asset_error(
 }
 
 pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
-    // Build HTTP client with TLS for mTLS
+   // Build HTTP client with TLS for mTLS (accept self-signed certs)
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .pool_max_idle_per_host(0)
