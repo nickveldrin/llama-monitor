@@ -567,17 +567,21 @@ No security headers are set on any response. Specifically missing:
 
 **Initial approach (incorrect):** Adding custom middleware via warp filters. Warp lacks true response middleware, making this approach unworkable without touching every route.
 
-**Correct approach:** Use `warp-helmet` crate — an actively maintained security middleware that wraps all routes and sets 15+ security headers automatically. Added dependency and wrapped routes in `build_routes()`:
+**Correct approach:** Use `warp-helmet` crate — an actively maintained security middleware that wraps all routes and sets security headers automatically.
+
+**CSP customization required:** `Helmet::default()` sets restrictive CSP (`script-src 'self'`, `script-src-attr 'none'`) that blocks the app's inline `onclick` handlers and external CDN scripts. Customized CSP to allow `'unsafe-inline'` for scripts/styles and CDN sources while keeping other headers secure.
 
 ```rust
-use warp_helmet::{Helmet, HelmetFilter};
+use warp_helmet::{Helmet, HelmetFilter, ContentSecurityPolicy};
 
 // In build_routes():
-let helmet: HelmetFilter = Helmet::default().try_into().unwrap();
+let csp = ContentSecurityPolicy::new()
+    .default_src(vec!["'self'"])
+    .script_src(vec!["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"])
+    .style_src(vec!["'self'", "'unsafe-inline'"]);
+let helmet: HelmetFilter = Helmet::new().add(csp).try_into().unwrap();
 helmet.wrap(routes)
 ```
-
-This sets all security headers with sensible defaults (CSP, HSTS, X-Frame-Options, etc.) without modifying individual endpoints.
 ```
 
 ---
@@ -695,7 +699,7 @@ This ensures unique filenames per invocation and automatic cleanup when the hand
 - [x] **#15** Insecure temp files (multiple) — `extract_archive` migrated to `tempfile::Builder` for random names + auto-cleanup
 - [x] **#2** No TLS — token/data in plaintext — Cert infrastructure in place (certs.rs), CA distribution via install payload, dashboard accepts self-signed certs
 - [x] **#12** SSRF via attach endpoint — Validate scheme (http/https only) and restrict to private/loopback IPs
-- [x] **#13** Missing HTTP security headers — Added `warp-helmet` crate to set 15+ security headers globally via route wrapping
+- [x] **#13** Missing HTTP security headers — Added `warp-helmet` with custom CSP to allow inline handlers and CDN scripts
 - [ ] **#3** TOCTOU on install script temp files — Use randomized filenames
 - [ ] **#1** Non-constant-time token comparison — Add `subtle` crate
 - [ ] **#4** `lastJson` data race (C#) — Add `volatile` keyword
