@@ -5119,9 +5119,9 @@ function renderHwClockRing(container, clock) {
             '</div>' +
             '<div class="hw-clock-meter-value">' + clock + '</div>' +
             '<div class="hw-clock-meter-band">' + band.min + '-' + band.max + '</div>' +
+            (sysHistory.cpuClock.length > 1 ? '<div class="hw-clock-footer-spark">' + buildSparklineSVG(sysHistory.cpuClock, 'hw-clock-footer-spark', color) + '</div>' : '') +
           '</div>' +
-        '</div>' +
-        footerSpark);
+        '</div>');
 }
 
 // Build sparkline SVG (reuses inference card pattern)
