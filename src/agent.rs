@@ -1204,7 +1204,11 @@ pub mod install {
                 };
                 let remote_script = format!("{resolved_dir}\\uninstall.bat");
 
-                let local_tmp = std::env::temp_dir().join("llama_monitor_agent_uninstall.bat");
+                let local_tmp = tempfile::NamedTempFile::new_in(std::env::temp_dir())
+                    .map(|f| f.path().to_path_buf())
+                    .unwrap_or_else(|_| {
+                        std::env::temp_dir().join("llama_monitor_agent_uninstall.bat")
+                    });
                 if std::fs::write(&local_tmp, WINDOWS_AGENT_UNINSTALL_BAT).is_err() {
                     return;
                 }
@@ -1222,7 +1226,11 @@ pub mod install {
                 let tmp_remote = "/tmp/llama_monitor_agent_uninstall.sh";
                 let final_remote = format!("{install_dir}/uninstall.sh");
 
-                let local_tmp = std::env::temp_dir().join("llama_monitor_agent_uninstall.sh");
+                let local_tmp = tempfile::NamedTempFile::new_in(std::env::temp_dir())
+                    .map(|f| f.path().to_path_buf())
+                    .unwrap_or_else(|_| {
+                        std::env::temp_dir().join("llama_monitor_agent_uninstall.sh")
+                    });
                 if std::fs::write(&local_tmp, UNIX_AGENT_UNINSTALL_SH).is_err() {
                     return;
                 }
@@ -1314,7 +1322,9 @@ pub mod install {
             .error_for_status()?;
 
         let bytes = resp.bytes().await?;
-        let temp_path = std::env::temp_dir().join(&asset.name);
+        let temp_path = tempfile::NamedTempFile::new_in(std::env::temp_dir())
+            .map(|f| f.path().to_path_buf())
+            .unwrap_or_else(|_| std::env::temp_dir().join(&asset.name));
         fs::write(&temp_path, &bytes)?;
         Ok(temp_path.to_string_lossy().to_string())
     }
