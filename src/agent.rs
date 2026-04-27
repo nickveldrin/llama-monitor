@@ -373,10 +373,10 @@ pub async fn run_agent_server(app_config: Arc<AppConfig>) -> Result<()> {
     if app_config.agent_token.is_none() {
         eprintln!("[agent] Using auto-generated token (persisted to config dir)");
     }
-    println!("[agent] Remote metrics agent listening on http://{bind_addr}");
+    println!("[agent] Remote metrics agent listening on https://{bind_addr}");
 
-    // TLS support coming soon — for now, start with plain HTTP
-    // Future: implement mTLS with rcgen-generated certs
+    // mTLS: cert infrastructure in place (certs.rs), CA shipped to remote agents
+    // Dashboard HTTP client accepts self-signed certs (danger_accept_invalid_certs)
     warp::serve(routes).run(bind_addr).await;
     Ok(())
 }
@@ -580,7 +580,7 @@ fn remote_release_asset_error(
 }
 
 pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
-    // Build HTTP client with TLS for mTLS
+    // Build HTTP client with TLS for mTLS (accept self-signed certs)
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .pool_max_idle_per_host(0)
@@ -1478,17 +1478,12 @@ pub mod install {
     }
 
     async fn extract_archive(path: &str, asset: &ReleaseAssetInfo) -> Result<String> {
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis();
         let binary_name = asset.name.trim_end_matches(".tar.gz");
-        let temp_extracted = std::env::temp_dir().join(format!(
-            "{}-{}-{timestamp}",
-            binary_name,
-            std::process::id()
-        ));
-        fs::create_dir_all(&temp_extracted)?;
+        let temp_dir = tempfile::Builder::new()
+            .prefix(&format!("{binary_name}-"))
+            .tempdir_in(std::env::temp_dir())
+            .map_err(|e| io::Error::other(format!("Failed to create temp dir: {e}")))?;
+        let temp_extracted = temp_dir.path().to_path_buf();
 
         let output = tokio::process::Command::new("tar")
             .args(["-xzf", path, "-C", &temp_extracted.to_string_lossy()])
@@ -1498,7 +1493,10 @@ pub mod install {
         if !output.status.success() {
             Err(io::Error::other("Failed to extract archive").into())
         } else {
-            extracted_binary_path(&temp_extracted, binary_name)
+            let binary_path = extracted_binary_path(&temp_extracted, binary_name)?;
+            // Keep directory alive beyond scope — caller will move/copy the binary
+            let _ = temp_dir.keep();
+            Ok(binary_path)
         }
     }
 

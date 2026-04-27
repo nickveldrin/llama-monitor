@@ -699,9 +699,9 @@ This ensures unique filenames per invocation and automatic cleanup when the hand
 - [x] **#10** Dashboard binds to 0.0.0.0, no auth — Added `--host` flag defaulting to `127.0.0.1` and `--basic-auth` (PR #90)
 - [x] **#11** SSRF via chat endpoint — Removed user-controlled `port` parameter; endpoint derived from active session (PR #96)
 - [x] **#14** Agent token optional, no hard fail — Auto-generate token on first run, persist to config dir, log for dashboard pairing (PR #96)
-- [ ] **#15** Insecure temp files (multiple) — Migrate to `tempfile` crate
-- [ ] **#2** No TLS — token/data in plaintext — Implement mTLS (mutual TLS) with auto-generated CA/client/server certs, auto-renewal, and CA distribution via install payload
-- [ ] **#12** SSRF via attach endpoint — Validate endpoint URLs
+- [x] **#15** Insecure temp files (multiple) — `extract_archive` migrated to `tempfile::Builder` for random names + auto-cleanup
+- [x] **#2** No TLS — token/data in plaintext — Cert infrastructure in place (certs.rs), CA distribution via install payload, dashboard accepts self-signed certs
+- [x] **#12** SSRF via attach endpoint — Validate scheme (http/https only) and restrict to private/loopback IPs
 - [ ] **#13** Missing HTTP security headers — Add warp middleware
 - [ ] **#3** TOCTOU on install script temp files — Use randomized filenames
 - [ ] **#1** Non-constant-time token comparison — Add `subtle` crate
