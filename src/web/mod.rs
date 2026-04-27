@@ -26,11 +26,13 @@ pub fn build_routes(
     let routes = routes.and(auth).map(|reply, _: ()| reply);
 
     // Apply HTTP security headers to all responses
-    // Custom CSP: allow external CDN scripts and inline handlers (app uses onclick attributes)
+    // Custom CSP: allow external CDN scripts, fonts, styles, and data URIs (app requirements)
     let csp = ContentSecurityPolicy::new()
-        .default_src(vec!["'self'"])
+        .default_src(vec!["'self'", "data:"])
         .script_src(vec!["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"])
-        .style_src(vec!["'self'", "'unsafe-inline'"]);
+        .style_src(vec!["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"])
+        .font_src(vec!["'self'", "https://fonts.gstatic.com"])
+        .img_src(vec!["'self'", "data:", "https:"]);
     let helmet: HelmetFilter = Helmet::new()
         .add(csp)
         .try_into()
