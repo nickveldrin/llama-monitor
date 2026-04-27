@@ -3,7 +3,7 @@ import fs from 'fs';
 import { execSync } from 'child_process';
 
 const BASE_URL = process.env.LLAMA_MONITOR_URL || 'http://localhost:7778';
-const REMOTE_SERVER = 'http://192.168.2.16:8001';
+const REMOTE_SERVER = process.env.REMOTE_SERVER || 'http://192.168.2.16:8001';
 const FRAME_DIR = './frames';
 const FPS = 10;
 const DURATION_SEC = 5;
@@ -59,6 +59,22 @@ async function framesToGif(prefix, output) {
     console.log('\nCapturing inference metrics...');
     await page.click('button[onclick="switchTab(\'server\')"]');
     await sleep(3000);
+
+    // Send a chat request to generate real metrics
+    console.log('  Sending chat request...');
+    await fetch(REMOTE_SERVER + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'default',
+        messages: [{ role: 'user', content: 'Write a short essay about the history of computing.' }],
+        stream: true,
+        temperature: 0.7,
+        max_tokens: 500,
+      }),
+    });
+    await sleep(1000);
+
     await captureFrames(page, 'inference', TOTAL_FRAMES);
     await framesToGif('inference', '../../docs/screenshots/inference-metrics.gif');
 

@@ -5040,24 +5040,20 @@ function renderHwDualRing(container, sclk, mclk) {
     var mclkPulse = (3.8 - Math.min(mclkBand.pct, 100) * 0.016).toFixed(2) + 's';
     setVizContent(container,
         '<div class="hw-clock-gpu-layout">' +
-          '<div class="hw-clock-cluster hw-clock-gpu">' +
-            '<div class="hw-clock-orbit outer" style="--pct:' + mclkBand.pct.toFixed(1) + ';--peak-pct:' + mclkBand.peakPct.toFixed(1) + ';--low-pct:' + mclkBand.lowPct.toFixed(1) + ';--orbit-color:' + mclkColor + ';--dot-radius:-78px;--pulse-duration:' + mclkPulse + ';">' +
+          '<div class="hw-clock-cluster hw-clock-gpu" style="--dot-radius:-47px;">' +
+            '<div class="hw-clock-orbit outer" style="--pct:' + mclkBand.pct.toFixed(1) + ';--peak-pct:' + mclkBand.peakPct.toFixed(1) + ';--low-pct:' + mclkBand.lowPct.toFixed(1) + ';--orbit-color:' + mclkColor + ';--dot-radius:-47px;--pulse-duration:' + mclkPulse + ';">' +
               '<div class="hw-clock-orbit-track"></div>' +
               '<div class="hw-clock-orbit-fill"></div>' +
               '<div class="hw-clock-orbit-peak"></div>' +
               '<div class="hw-clock-orbit-low"></div>' +
               '<div class="hw-clock-orbit-dot"></div>' +
             '</div>' +
-            '<div class="hw-clock-orbit inner" style="--pct:' + sclkBand.pct.toFixed(1) + ';--peak-pct:' + sclkBand.peakPct.toFixed(1) + ';--low-pct:' + sclkBand.lowPct.toFixed(1) + ';--orbit-color:' + sclkColor + ';--dot-radius:-55px;--pulse-duration:' + sclkPulse + ';">' +
+            '<div class="hw-clock-orbit inner" style="--pct:' + sclkBand.pct.toFixed(1) + ';--peak-pct:' + sclkBand.peakPct.toFixed(1) + ';--low-pct:' + sclkBand.lowPct.toFixed(1) + ';--orbit-color:' + sclkColor + ';--dot-radius:-45px;--pulse-duration:' + sclkPulse + ';">' +
               '<div class="hw-clock-orbit-track"></div>' +
               '<div class="hw-clock-orbit-fill"></div>' +
               '<div class="hw-clock-orbit-peak"></div>' +
               '<div class="hw-clock-orbit-low"></div>' +
               '<div class="hw-clock-orbit-dot"></div>' +
-            '</div>' +
-            '<div class="hw-clock-core">' +
-              '<div class="hw-clock-unit">GPU</div>' +
-              '<div class="hw-clock-band">Clocks</div>' +
             '</div>' +
           '</div>' +
           '<div class="hw-clock-gpu-readout">' +
@@ -5070,6 +5066,7 @@ function renderHwDualRing(container, sclk, mclk) {
               '</div>' +
               '<div class="hw-clock-meter-value">' + formatClockReadout(sclk).value + ' ' + formatClockReadout(sclk).unit + '</div>' +
               '<div class="hw-clock-meter-band">' + sclkBand.min + '-' + sclkBand.max + '</div>' +
+              (gpuHistory.sclk.length > 1 ? '<div class="hw-clock-footer-spark">' + buildSparklineSVG(gpuHistory.sclk, 'hw-clock-footer-spark', sclkColor) + '</div>' : '') +
             '</div>' +
             '<div class="hw-clock-meter">' +
               '<div class="hw-clock-meter-label">MCLK</div>' +
@@ -5079,7 +5076,8 @@ function renderHwDualRing(container, sclk, mclk) {
                 '<div class="hw-clock-meter-marker-low"></div>' +
               '</div>' +
               '<div class="hw-clock-meter-value">' + formatClockReadout(mclk).value + ' ' + formatClockReadout(mclk).unit + '</div>' +
-              '<div class="hw-clock-meter-band">' + mclkBand.min + '-' + mclkBand.max + '</div>' +
+              '<div class="hw-clock-meter-band">' + formatClockReadout(mclkBand.min).value + '-' + formatClockReadout(mclkBand.max).value + ' ' + formatClockReadout(mclkBand.max).unit + '</div>' +
+              (gpuHistory.mclk.length > 1 ? '<div class="hw-clock-footer-spark">' + buildSparklineSVG(gpuHistory.mclk, 'hw-clock-footer-spark', mclkColor) + '</div>' : '') +
             '</div>' +
           '</div>' +
         '</div>');
@@ -5105,11 +5103,9 @@ function renderHwClockRing(container, clock) {
               '<div class="hw-clock-orbit-low"></div>' +
               '<div class="hw-clock-orbit-dot"></div>' +
             '</div>' +
-            '<div class="hw-clock-core">' +
-              '<div class="hw-clock-stack">' +
-                '<div class="hw-clock-row"><span class="hw-clock-row-value">' + display.value + '</span><span class="hw-clock-unit">' + display.unit + '</span></div>' +
-                '<div class="hw-clock-band">' + band.min + '-' + band.max + ' MHz</div>' +
-              '</div>' +
+            '<div class="hw-clock-core hw-clock-system-core">' +
+              '<div class="hw-clock-row-value">' + display.value + '</div>' +
+              '<div class="hw-clock-unit">' + display.unit + '</div>' +
             '</div>' +
           '</div>' +
           '<div class="hw-clock-meter">' +
@@ -5119,11 +5115,11 @@ function renderHwClockRing(container, clock) {
               '<div class="hw-clock-meter-marker"></div>' +
               '<div class="hw-clock-meter-marker-low"></div>' +
             '</div>' +
-            '<div class="hw-clock-meter-value">' + clock + '</div>' +
-            '<div class="hw-clock-meter-band">' + band.min + '-' + band.max + '</div>' +
+            '<div class="hw-clock-meter-value">' + formatClockReadout(clock).value + ' ' + formatClockReadout(clock).unit + '</div>' +
+            '<div class="hw-clock-meter-band">' + formatClockReadout(band.min).value + '-' + formatClockReadout(band.max).value + ' ' + formatClockReadout(band.max).unit + '</div>' +
+            (sysHistory.cpuClock.length > 1 ? '<div class="hw-clock-footer-spark">' + buildSparklineSVG(sysHistory.cpuClock, 'hw-clock-footer-spark', color) + '</div>' : '') +
           '</div>' +
-        '</div>' +
-        footerSpark);
+        '</div>');
 }
 
 // Build sparkline SVG (reuses inference card pattern)

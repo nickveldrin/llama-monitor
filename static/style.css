@@ -2994,8 +2994,7 @@ body.sidebar-collapsed .content-area {
     margin-inline: auto;
     border-radius: 999px;
     isolation: isolate;
-    background:
-      radial-gradient(circle at center, rgba(12, 14, 19, 0.95) 0 30%, rgba(12, 14, 19, 0.22) 42%, transparent 72%);
+    background: transparent;
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.05),
       0 0 28px rgba(136, 192, 209, 0.08);
@@ -3004,17 +3003,19 @@ body.sidebar-collapsed .content-area {
 
   .hw-clock-gpu-layout {
     display: grid;
-    grid-template-columns: minmax(60px, 80px) minmax(82px, 98px);
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 16px;
     width: 100%;
     max-width: 100%;
-    padding-inline: 4px;
+    padding-inline: 8px;
   }
 
   .hw-clock-gpu-layout .hw-clock-cluster {
-    width: min(132px, 100%);
+    width: min(84px, 100%);
+    margin: 0 auto;
   }
 
   .hw-clock-cluster::before {
@@ -3163,16 +3164,20 @@ body.sidebar-collapsed .content-area {
   .hw-clock-system .hw-clock-core {
     width: 62%;
     gap: 5px;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .hw-clock-system-core .hw-clock-row-value {
+    font-size: clamp(1.2rem, 1.5vw, 1.5rem);
+  }
+
+  .hw-clock-system-core .hw-clock-unit {
+    font-size: 0.62rem;
   }
 
   .hw-clock-gpu .hw-clock-core {
-    width: 42%;
-    min-height: 42%;
-    gap: 4px;
-    background: linear-gradient(180deg, rgba(26, 30, 38, 0.86), rgba(14, 17, 22, 0.76));
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 10px 28px rgba(0, 0, 0, 0.28);
+    display: none; /* Remove cramped center text */
   }
 
   .hw-clock-stack {
@@ -3244,7 +3249,7 @@ body.sidebar-collapsed .content-area {
 
   .hw-clock-footer-spark {
     width: 100%;
-    height: 28px;
+    height: 60px;
     border-radius: 10px;
     overflow: hidden;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
@@ -3260,11 +3265,11 @@ body.sidebar-collapsed .content-area {
 
   .hw-clock-gpu-readout {
     display: grid;
-    grid-template-columns: repeat(2, minmax(34px, 1fr));
-    gap: 8px;
-    align-items: end;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+    align-items: start;
     align-self: stretch;
-    min-height: 50px;
+    width: 100%;
   }
 
   .hw-clock-meter {
@@ -3286,12 +3291,12 @@ body.sidebar-collapsed .content-area {
 
   .hw-clock-meter-bar {
     position: relative;
-    width: 6px;
+    width: 100%;
     flex: 1 1 auto;
-    min-height: 40px;
+    min-height: 16px;
     border-radius: 999px;
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.035));
+      linear-gradient(90deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.035));
     box-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.06),
       0 10px 24px rgba(0, 0, 0, 0.18),
@@ -3317,12 +3322,12 @@ body.sidebar-collapsed .content-area {
   .hw-clock-meter-fill {
     position: absolute;
     left: 2px;
-    right: 2px;
     bottom: 2px;
-    height: calc(var(--pct, 0) * 1%);
-    min-height: 6px;
+    top: 2px;
+    width: calc(var(--pct, 0) * 1%);
+    min-width: 4px;
     border-radius: 999px;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--meter-color, #8fbcbb) 82%, white 10%), var(--meter-color, #8fbcbb));
+    background: linear-gradient(90deg, var(--meter-color, #8fbcbb), color-mix(in srgb, var(--meter-color, #8fbcbb) 82%, white 10%));
     box-shadow:
       0 0 14px color-mix(in srgb, var(--meter-color, #8fbcbb) 55%, transparent),
       inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -3367,8 +3372,8 @@ body.sidebar-collapsed .content-area {
   .hw-clock-meter-value {
     color: var(--color-text-primary);
     font-family: var(--font-mono);
-    font-size: 0.52rem;
-    font-weight: 600;
+    font-size: 0.88rem;
+    font-weight: 700;
     line-height: 1;
     text-shadow: 0 0 10px rgba(255, 255, 255, 0.06);
     white-space: nowrap;
