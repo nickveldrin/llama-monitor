@@ -580,7 +580,7 @@ fn remote_release_asset_error(
 }
 
 pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
-   // Build HTTP client with TLS for mTLS (accept self-signed certs)
+    // Build HTTP client with TLS for mTLS (accept self-signed certs)
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(2))
         .pool_max_idle_per_host(0)
