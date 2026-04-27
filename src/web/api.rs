@@ -1576,6 +1576,27 @@ fn api_attach(
                 let endpoint: String = match payload.get("endpoint") {
                     Some(v) => {
                         if let Some(s) = v.as_str() {
+                            // Validate: must be http/https scheme with private/loopback host
+                            let parsed = url::Url::parse(s).map_err(|_| warp::reject::not_found())?;
+                            if !["http", "https"].contains(&parsed.scheme()) {
+                                return Ok::<_, warp::Rejection>(warp::reply::json(
+                                    &serde_json::json!({"ok": false, "error": "Endpoint must use http:// or https://"}),
+                                ));
+                            }
+                            if let Some(host) = parsed.host_str() {
+                                if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+                                    // is_private() is unstable; inline the check
+                                    let private = matches!(ip, std::net::IpAddr::V4(v4)
+                                        if v4.octets()[0] == 10
+                                            || (v4.octets()[0] == 172 && (4..=11).contains(&v4.octets()[1]))
+                                            || (v4.octets()[0] == 192 && v4.octets()[1] == 168));
+                                    if !ip.is_loopback() && !private {
+                                        return Ok::<_, warp::Rejection>(warp::reply::json(
+                                            &serde_json::json!({"ok": false, "error": "Endpoint must be on a private network"}),
+                                        ));
+                                    }
+                                }
+                            }
                             s.to_string()
                         } else {
                             return Ok::<_, warp::Rejection>(warp::reply::json(

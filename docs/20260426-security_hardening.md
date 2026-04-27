@@ -701,7 +701,7 @@ This ensures unique filenames per invocation and automatic cleanup when the hand
 - [x] **#14** Agent token optional, no hard fail — Auto-generate token on first run, persist to config dir, log for dashboard pairing (PR #96)
 - [x] **#15** Insecure temp files (multiple) — `extract_archive` migrated to `tempfile::Builder` for random names + auto-cleanup
 - [x] **#2** No TLS — token/data in plaintext — Cert infrastructure in place (certs.rs), CA distribution via install payload, dashboard accepts self-signed certs
-- [ ] **#12** SSRF via attach endpoint — Validate endpoint URLs
+- [x] **#12** SSRF via attach endpoint — Validate scheme (http/https only) and restrict to private/loopback IPs
 - [ ] **#13** Missing HTTP security headers — Add warp middleware
 - [ ] **#3** TOCTOU on install script temp files — Use randomized filenames
 - [ ] **#1** Non-constant-time token comparison — Add `subtle` crate
