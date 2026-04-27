@@ -64,7 +64,9 @@ Sessions persist to `~/.config/llama-monitor/sessions.json` and survive restarts
 - **SSH-Based Management** — Detect, install, start, stop, update, and remove agents on remote machines
 - **Auto-Start** — Attempts SSH autostart once when a remote agent becomes unreachable; if it fails, the header shows a Fix button to open the agent menu for manual intervention
 - **Version Detection** — Compares installed version against latest release; update available indicator
-- **Windows Task Scheduler** — Managed startup via Windows scheduled tasks running as SYSTEM, so the agent starts at boot with full hardware access and no console window
+- **Windows Task Scheduler** — Both the agent and sensor_bridge are installed as SYSTEM scheduled tasks, starting at boot with full hardware access and no console window
+- **Status Alert** — The remote agent popup shows a status header indicating current health: connected, firewall blocked, or specific issues like missing sensor_bridge
+- **Temperature Badge** — When CPU temperature is unavailable on a remote agent, a warning badge appears next to the temperature gauge with a tooltip explaining why
 - **Cross-Platform** — Linux, macOS, and Windows support with automatic OS/arch detection
 
 ### Chat & Logs
@@ -93,7 +95,7 @@ Local sessions show real-time hardware monitoring with sparkline graphs:
 | AMD | `rocm-smi` | Auto-detected |
 | NVIDIA | `nvidia-smi` | Auto-detected |
 | Apple Silicon | `mactop` | Auto-detected (Apple Silicon only) |
-| Windows (CPU temp) | `sensor_bridge.exe` | Bundled with Windows release |
+| Windows (CPU temp) | `sensor_bridge.exe` | Bundled with Windows release; auto-installed as scheduled task on remote agents |
 
 GPU backend is auto-detected at startup. Override with `--gpu-backend apple|rocm|nvidia|none`.
 
@@ -129,7 +131,7 @@ chmod +x llama-monitor-linux-x86_64
 
 Extract the ZIP. The bundle includes `llama-monitor.exe` and `sensor_bridge.exe` (for CPU temperature via LibreHardwareMonitor).
 
-When managed remotely via the dashboard, the agent runs as the SYSTEM account so `sensor_bridge.exe` has the kernel access needed to read CPU temperature. The SSH user performing the install must be a local administrator.
+When managed remotely via the dashboard, both the agent and sensor_bridge are installed as SYSTEM scheduled tasks that start at boot. The SSH user performing the install must be a local administrator. If CPU temperature shows as unavailable after install, the sensor_bridge may need to be started — the dashboard will indicate this in the remote agent popup.
 
 ### From Source
 

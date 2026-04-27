@@ -1069,8 +1069,87 @@ function openRemoteAgentSetup() {
     
     // Check latest version
     checkRemoteAgentVersions();
-    
+
+    // Update status alert based on current agent state
+    updateAgentSetupStatusAlert();
+
     modal.classList.add('open');
+}
+
+function updateAgentSetupStatusAlert() {
+    const alert = document.getElementById('agent-setup-status-alert');
+    const icon = document.getElementById('agent-setup-status-alert-icon');
+    const title = document.getElementById('agent-setup-status-alert-title');
+    const message = document.getElementById('agent-setup-status-alert-message');
+
+    if (!alert) {
+        console.log('[Agent] Status alert element NOT found');
+        return;
+    }
+
+    const state = appState.wsData;
+    console.log('[Agent] Status alert update:', { wsData: !!state, state });
+    if (!state) {
+        alert.style.display = 'none';
+        return;
+    }
+
+    const isConnected = state.remote_agent_connected;
+    const isFirewallBlocked = state.remote_agent_connected && !state.remote_agent_health_reachable;
+    const hasRemoteEndpoint = state.session_mode === 'attach' && state.endpoint_kind === 'Remote';
+    const sys = state.system || {};
+    const hasCpuTemp = sys.cpu_temp_available && sys.cpu_temp > 0;
+
+    if (!hasRemoteEndpoint) {
+        alert.style.display = 'flex';
+        alert.className = 'agent-setup-status-alert';
+        icon.textContent = '\u2139\ufe0f';
+        title.textContent = 'No Remote Endpoint';
+        message.textContent = 'Configure a remote endpoint in Settings to enable agent management.';
+        return;
+    }
+
+    if (isFirewallBlocked) {
+        alert.style.display = 'flex';
+        alert.className = 'agent-setup-status-alert warning';
+        icon.textContent = '\u26a0\ufe0f';
+        title.textContent = 'Firewall Blocking Agent';
+        message.textContent = 'Agent running but HTTP port 7779 unreachable — check Windows Firewall inbound rules.';
+        return;
+    }
+
+    if (!isConnected) {
+        alert.style.display = 'flex';
+        alert.className = 'agent-setup-status-alert';
+        icon.textContent = '\ud83d\udd27';
+        title.textContent = 'Agent Not Connected';
+        message.textContent = 'Install or start the agent on the remote host to begin monitoring.';
+        return;
+    }
+
+    // Connected — check for partial issues
+    const issues = [];
+    if (!hasCpuTemp) {
+        issues.push(sys.cpu_temp_available
+            ? 'CPU temp sensor returned no data'
+            : 'sensor_bridge not installed (CPU temp unavailable)');
+    }
+
+    if (issues.length > 0) {
+        alert.style.display = 'flex';
+        alert.className = 'agent-setup-status-alert warning';
+        icon.textContent = '\u26a0\ufe0f';
+        title.textContent = 'Agent Running (with issues)';
+        message.textContent = issues.join('. ') + '.';
+        return;
+    }
+
+    // Fully healthy
+    alert.style.display = 'flex';
+    alert.className = 'agent-setup-status-alert success';
+    icon.textContent = '\u2705';
+    title.textContent = 'Agent Running';
+    message.textContent = 'Remote agent is connected and reporting all metrics.';
 }
 
 function closeRemoteAgentSetup() {
@@ -2351,24 +2430,24 @@ function toggleAgentMenu(event) {
 }
 
 function toggleAgentMenuFromBadge(event) {
-    const agentStatus = document.getElementById('agent-status');
-    const disconnected =
-        agentStatus && agentStatus.classList.contains('disconnected');
-
-    if (disconnected) {
-        event.preventDefault();
-        event.stopPropagation();
-        closeAgentMenu();
-        openRemoteAgentSetup();
-        return;
-    }
-
-    toggleAgentMenu(event);
+    event.preventDefault();
+    event.stopPropagation();
+    closeAgentMenu();
+    openRemoteAgentSetup();
 }
 
 function openRemoteAgentSetupFromBadge(event) {
     event.preventDefault();
     event.stopPropagation();
+    // DEBUG: log state when Fix button is clicked
+    console.log('[Agent] Fix button CLICKED:', {
+        wsData: appState.wsData,
+        session_mode: appState.wsData?.session_mode,
+        endpoint_kind: appState.wsData?.endpoint_kind,
+        remote_agent_connected: appState.wsData?.remote_agent_connected,
+        remote_agent_health_reachable: appState.wsData?.remote_agent_health_reachable,
+        cpu_temp_available: appState.wsData?.system?.cpu_temp_available,
+    });
     closeAgentMenu();
     openRemoteAgentSetup();
 }
@@ -5353,6 +5432,22 @@ function renderSystemCard(sys, visible) {
     }
     if (tempValue) tempValue.textContent = hasTemp ? sysTemp + '\u00B0' : '\u2014';
 
+    // Show temp unavailable badge when connected to remote agent without temp data
+    var tempBadge = document.getElementById('sys-temp-unavailable-badge');
+    if (tempBadge) {
+        var isRemoteAgent = appState.wsData && appState.wsData.endpoint_kind === 'Remote';
+        if (!hasTemp && isRemoteAgent) {
+            var reason = sys.cpu_temp_available
+                ? 'Sensor returned no data'
+                : 'sensor_bridge not installed';
+            tempBadge.style.display = 'inline-flex';
+            tempBadge.title = 'CPU temperature unavailable: ' + reason;
+            tempBadge.querySelector('.hw-temp-badge-text').textContent = 'No temp data';
+        } else {
+            tempBadge.style.display = 'none';
+        }
+    }
+
     // Show sensor_bridge setup callout on Windows when temp is unavailable
     var sbSetup = document.getElementById('sensor-bridge-setup-callout');
     var setupAvailable = lastCapabilities && lastCapabilities.sensor_bridge_setup_available;
@@ -5419,6 +5514,7 @@ function setMetricSectionVisibility(cardId, visible, sectionId) {
 ws.onmessage = e => {
 
     const d = JSON.parse(e.data);
+    appState.wsData = d; // Store for use by status alert and other components
 
     // Update endpoint health strip
     const endpointModeEl = document.getElementById('endpoint-mode');
@@ -5491,8 +5587,25 @@ ws.onmessage = e => {
             }
         }
         if (fixBtn) {
-            fixBtn.style.display = (!d.remote_agent_connected || firewallBlocked) ? '' : 'none';
+            // Only show Fix button when agent is NOT connected AND we have a remote endpoint configured
+            // (i.e., there's something to fix). Don't show it when everything is working.
+            const hasRemoteEndpoint = d.session_mode === 'attach' && d.endpoint_kind === 'Remote';
+            const needsFix = hasRemoteEndpoint && (!d.remote_agent_connected || firewallBlocked);
+            fixBtn.style.display = needsFix ? '' : 'none';
             fixBtn.title = firewallBlocked ? 'Repair remote agent connectivity' : 'Set up remote agent';
+            // DEBUG: log Fix button state changes
+            if (needsFix) {
+                console.log('[Agent] Fix button SHOWN:', {
+                    session_mode: d.session_mode,
+                    endpoint_kind: d.endpoint_kind,
+                    remote_agent_connected: d.remote_agent_connected,
+                    remote_agent_health_reachable: d.remote_agent_health_reachable,
+                    firewallBlocked,
+                    hasRemoteEndpoint,
+                    needsFix,
+                    cpu_temp_available: d.system ? d.system.cpu_temp_available : 'N/A',
+                });
+            }
         }
         
         if (d.remote_agent_connected && !remoteAgentHealthReachable) {

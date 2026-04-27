@@ -46,6 +46,7 @@ fn shell_quote_path(path: &str, os: RemoteOs) -> String {
 ///
 /// Unlike PowerShell, cmd.exe does not treat single quotes as special.
 /// Use double quotes with proper escaping for embedded quotes.
+#[allow(dead_code)] // kept for tests; was used before PowerShell migration
 fn shell_quote_path_cmd(path: &str) -> String {
     // In cmd.exe, double quotes delimit strings; escape embedded quotes with ^
     format!("\"{}\"", path.replace('"', "\"^\""))
@@ -786,10 +787,23 @@ fn default_start_command_for_os(os: RemoteOs, install_path: &str) -> String {
     let quoted_path = shell_quote_path(install_path, os);
     match os {
         RemoteOs::Windows => {
-            // schtasks runs under cmd.exe — use cmd-compatible quoting (double quotes)
-            let cmd_quoted = shell_quote_path_cmd(install_path);
+            // Use PowerShell to create scheduled tasks — handles path quoting
+            // reliably across SSH layers without backslash consumption.
+            let agent_path = install_path.replace('\'', "''");
+            let bridge_dir = install_path
+                .rsplit_once('\\')
+                .map(|(dir, _)| dir)
+                .unwrap_or("");
+            let bridge_path = format!("{}\\sensor_bridge.exe", bridge_dir).replace('\'', "''");
             format!(
-                "cmd.exe /C schtasks /Delete /TN \"{WINDOWS_AGENT_LEGACY_TASK_NAME}\" /F >NUL 2>NUL & schtasks /Create /TN \"{WINDOWS_AGENT_TASK_NAME}\" /TR \"{cmd_quoted} --agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}\" /SC ONSTART /RU SYSTEM /F && schtasks /Run /TN \"{WINDOWS_AGENT_TASK_NAME}\""
+                "powershell.exe -NoProfile -NonInteractive -Command \"$ErrorActionPreference='Stop'; \
+Unregister-ScheduledTask -TaskName '{WINDOWS_AGENT_LEGACY_TASK_NAME}' -Confirm:$false -ErrorAction SilentlyContinue; \
+Unregister-ScheduledTask -TaskName '{WINDOWS_AGENT_TASK_NAME}' -Confirm:$false -ErrorAction SilentlyContinue; \
+Unregister-ScheduledTask -TaskName '{WINDOWS_SENSOR_BRIDGE_TASK_NAME}' -Confirm:$false -ErrorAction SilentlyContinue; \
+Register-ScheduledTask -TaskName '{WINDOWS_AGENT_TASK_NAME}' -Trigger (New-ScheduledTaskTrigger -AtStartup) -Action (New-ScheduledTaskAction -Execute '{agent_path}' -Argument '--agent --agent-host 0.0.0.0 --agent-port {REMOTE_AGENT_DEFAULT_PORT}') -Settings (New-ScheduledTaskSettingsSet) -User 'SYSTEM' -RunLevel Highest -Force; \
+Register-ScheduledTask -TaskName '{WINDOWS_SENSOR_BRIDGE_TASK_NAME}' -Trigger (New-ScheduledTaskTrigger -AtStartup) -Action (New-ScheduledTaskAction -Execute '{bridge_path}' -Argument '--server') -Settings (New-ScheduledTaskSettingsSet) -User 'SYSTEM' -RunLevel Highest -Force; \
+Start-ScheduledTask -TaskName '{WINDOWS_AGENT_TASK_NAME}'; \
+Start-ScheduledTask -TaskName '{WINDOWS_SENSOR_BRIDGE_TASK_NAME}'\""
             )
         }
         RemoteOs::Unix | RemoteOs::Macos => format!(
@@ -820,6 +834,7 @@ pub(crate) async fn default_start_command_for_os_with(
 
 const WINDOWS_AGENT_TASK_NAME: &str = "LlamaMonitorAgent";
 const WINDOWS_AGENT_LEGACY_TASK_NAME: &str = "llama-monitor-agent";
+const WINDOWS_SENSOR_BRIDGE_TASK_NAME: &str = "LlamaMonitorSensorBridge";
 
 /// Batch script placed next to the Windows agent binary after install.
 /// Double-clicking it (or running from cmd) requests UAC elevation via VBScript
@@ -893,7 +908,25 @@ pub(crate) async fn detect_remote_os_with(connection: &SshConnection) -> RemoteO
 /// user's, causing "The system cannot find the path specified" on `schtasks /Run`.
 /// Expanding the path at install/start time avoids this entirely.
 pub(crate) async fn resolve_windows_appdata(connection: &SshConnection) -> Option<String> {
-    // Try %APPDATA% first
+    // Use PowerShell for reliable path resolution (preserves backslashes)
+    if let Ok(Ok(out)) = tokio::time::timeout(
+        Duration::from_secs(5),
+        remote_ssh::exec(
+            connection.clone(),
+            "powershell.exe -NoProfile -NonInteractive -Command \"$env:APPDATA\"".to_string(),
+        ),
+    )
+    .await
+        && out.status == 0
+    {
+        let s = out.stdout.trim().to_string();
+        // Verify: must contain backslashes (valid Windows path)
+        if !s.is_empty() && s.contains('\\') && !s.starts_with('%') {
+            return Some(s);
+        }
+    }
+
+    // Fallback: cmd.exe echo
     if let Ok(Ok(out)) = tokio::time::timeout(
         Duration::from_secs(5),
         remote_ssh::exec(connection.clone(), "cmd.exe /C echo %APPDATA%".to_string()),
@@ -902,25 +935,8 @@ pub(crate) async fn resolve_windows_appdata(connection: &SshConnection) -> Optio
         && out.status == 0
     {
         let s = out.stdout.trim().to_string();
-        if !s.is_empty() && !s.starts_with('%') {
+        if !s.is_empty() && s.contains('\\') && !s.starts_with('%') {
             return Some(s);
-        }
-    }
-
-    // Fallback: resolve %USERPROFILE% and construct AppData\Roaming
-    if let Ok(Ok(out)) = tokio::time::timeout(
-        Duration::from_secs(5),
-        remote_ssh::exec(
-            connection.clone(),
-            "cmd.exe /C echo %USERPROFILE%".to_string(),
-        ),
-    )
-    .await
-        && out.status == 0
-    {
-        let profile = out.stdout.trim().to_string();
-        if !profile.is_empty() && !profile.starts_with('%') {
-            return Some(format!("{}\\AppData\\Roaming", profile));
         }
     }
 
@@ -1554,13 +1570,13 @@ Remove-Item -LiteralPath '{archive}' -Force -ErrorAction SilentlyContinue\"",
 
     async fn prepare_windows_install_target(connection: &SshConnection) -> Result<()> {
         let command = format!(
-            "cmd.exe /C taskkill /IM llama-monitor.exe /F >NUL 2>NUL & \
-schtasks /End /TN \"{WINDOWS_AGENT_TASK_NAME}\" >NUL 2>NUL & \
-schtasks /End /TN \"{WINDOWS_AGENT_LEGACY_TASK_NAME}\" >NUL 2>NUL & \
-schtasks /Delete /TN \"{WINDOWS_AGENT_TASK_NAME}\" /F >NUL 2>NUL & \
-schtasks /Delete /TN \"{WINDOWS_AGENT_LEGACY_TASK_NAME}\" /F >NUL 2>NUL & \
-ping -n 3 127.0.0.1 >NUL & \
-exit /B 0"
+            "powershell.exe -NoProfile -NonInteractive -Command \" \
+Stop-Process -Name llama-monitor -Force -ErrorAction SilentlyContinue; \
+Stop-Process -Name sensor_bridge -Force -ErrorAction SilentlyContinue; \
+Unregister-ScheduledTask -TaskName '{WINDOWS_AGENT_TASK_NAME}' -Confirm:$false -ErrorAction SilentlyContinue; \
+Unregister-ScheduledTask -TaskName '{WINDOWS_AGENT_LEGACY_TASK_NAME}' -Confirm:$false -ErrorAction SilentlyContinue; \
+Unregister-ScheduledTask -TaskName '{WINDOWS_SENSOR_BRIDGE_TASK_NAME}' -Confirm:$false -ErrorAction SilentlyContinue; \
+Start-Sleep -Seconds 2\""
         );
 
         let output = remote_ssh::exec(connection.clone(), command)
