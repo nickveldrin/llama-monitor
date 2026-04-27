@@ -58,7 +58,8 @@ jobs:
           !startsWith(github.event.pull_request.head.ref, 'release-please--') &&
           (github.event.action != 'labeled' || github.event.label.name == 'ready-to-test') &&
           (contains(github.event.pull_request.labels.*.name, 'ready-to-test') ||
-           startsWith(github.actor, 'dependabot'))
+           startsWith(github.actor, 'dependabot')) &&
+          needs.paths-filter.outputs.code == 'true'
         )
       )
     runs-on: ${{ startsWith(github.event.pull_request.head.ref, 'release-please--') && 'arc-general' || 'arc-llama-monitor' }}
@@ -96,6 +97,13 @@ jobs:
           cargo clippy -- -D warnings
           cargo test
 
+      - name: Validate sensor_bridge compiles
+        if: >-
+          !startsWith(github.event.pull_request.head.ref, 'release-please--') &&
+          needs.paths-filter.outputs.code == 'true'
+        run: |
+          dotnet publish sensor_bridge/sensor_bridge.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -o sensor_bridge/publish
+
       - name: No code changes
         if: >-
           !startsWith(github.event.pull_request.head.ref, 'release-please--') &&
@@ -105,6 +113,7 @@ jobs:
   ui:
     needs: paths-filter
     if: >-
+      always() &&
       !startsWith(github.event.pull_request.head.ref, 'release-please--') &&
       (github.event.action != 'labeled' || github.event.label.name == 'ready-to-test') &&
       needs.paths-filter.outputs.ui == 'true' &&
@@ -184,6 +193,7 @@ jobs:
   release-smoke:
     needs: paths-filter
     if: >-
+      always() &&
       !startsWith(github.event.pull_request.head.ref, 'release-please--') &&
       (github.event.action != 'labeled' || github.event.label.name == 'ready-to-test') &&
       needs.paths-filter.outputs.release == 'true' &&
