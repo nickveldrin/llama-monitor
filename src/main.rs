@@ -1,6 +1,7 @@
 #![recursion_limit = "256"]
 
 mod agent;
+mod certs;
 mod cli;
 mod config;
 mod gpu;
