@@ -1,5 +1,14 @@
 pub const INDEX_HTML: &str = include_str!("../../static/index.html");
-pub const STYLE_CSS: &str = include_str!("../../static/style.css");
+pub const CSS_TOKENS: &str = include_str!("../../static/css/tokens.css");
+pub const CSS_BASE: &str = include_str!("../../static/css/base.css");
+pub const CSS_LAYOUT: &str = include_str!("../../static/css/layout.css");
+pub const CSS_CARDS_INFERENCE: &str = include_str!("../../static/css/cards-inference.css");
+pub const CSS_AGENT_MODAL: &str = include_str!("../../static/css/agent-modal.css");
+pub const CSS_CARDS_HARDWARE: &str = include_str!("../../static/css/cards-hardware.css");
+pub const CSS_COMPONENTS: &str = include_str!("../../static/css/components.css");
+pub const CSS_CHAT: &str = include_str!("../../static/css/chat.css");
+pub const CSS_SETUP_VIEW: &str = include_str!("../../static/css/setup-view.css");
+pub const CSS_SETTINGS_MODAL: &str = include_str!("../../static/css/settings-modal.css");
 pub const APP_JS: &str = include_str!("../../static/app.js");
 pub const LHM_JS: &str = include_str!("../../static/lhm.js");
 pub const MANIFEST_JSON: &str = include_str!("../../static/manifest.json");

@@ -213,6 +213,7 @@ All settings can be configured from the web UI (gear icon) or via CLI flags. UI 
 | `~/.config/llama-monitor/presets.json` | Model presets with all llama.cpp parameters |
 | `~/.config/llama-monitor/ui-settings.json` | Web UI preferences (paths, ports, presets, agent settings) |
 | `~/.config/llama-monitor/gpu-env.json` | GPU environment config (architecture, device indices) |
+| `~/.config/llama-monitor/chat-tabs.json` | Chat tab histories, system prompts, per-tab model parameters |
 
 Session data is saved every 30 seconds and on explicit save.
 
@@ -288,7 +289,7 @@ Real-time server log output.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/chat?port=` | Streaming proxy to `/v1/chat/completions` |
+| POST | `/api/chat` | Streaming SSE proxy to active session's `/v1/chat/completions` |
 
 ### WebSocket
 
@@ -306,7 +307,9 @@ src/
   state.rs             -- Shared AppState, Sessions, UiSettings, persistence
   agent.rs             -- Remote metrics agent server + polling + SSH management
   remote_ssh.rs        -- SSH connection handling, command execution, file transfer
+  certs.rs             -- Self-signed TLS certificate generation (rcgen)
   lhm.rs               -- LibreHardwareMonitor sensor bridge (Windows CPU temp)
+  lhm_persistence.rs   -- LHM scheduled-task state persistence
   system.rs            -- Cross-platform system metrics (CPU, RAM, motherboard)
   tray.rs              -- System tray (native-tray feature)
   gpu/
@@ -318,26 +321,81 @@ src/
     dummy.rs           -- No-op backend for headless/testing
   llama/
     metrics.rs         -- Prometheus text format parser
-    server.rs          -- Subprocess management (start/stop)
+    server.rs          -- Subprocess management (start/stop/kill)
     poller.rs          -- Async polling loop for /health, /metrics, /slots
+  system/
+    poller.rs          -- System metrics polling thread (CPU, RAM, temp)
   presets/
     mod.rs             -- ModelPreset, CRUD, file persistence
   models/
     mod.rs             -- GGUF file discovery and filename parsing
   web/
-    mod.rs             -- Warp route composition
-    api.rs             -- REST API handlers
-    ws.rs              -- WebSocket real-time metrics push
-    static_assets.rs   -- Embedded frontend
+    mod.rs             -- Warp route composition, CSP headers, basic auth
+    api.rs             -- REST API handlers (1400+ lines)
+    ws.rs              -- WebSocket real-time metrics push (server → client)
+    static_assets.rs   -- Embedded frontend assets (include_str! at compile time)
 static/
-  index.html           -- Dashboard HTML
-  style.css            -- Nord-themed CSS
-  app.js               -- Frontend JavaScript
+  index.html           -- Dashboard HTML (single-page app)
+  app.js               -- Frontend JavaScript (~7000 lines, vanilla JS)
+  compact.html         -- Compact tray popover view
   manifest.json        -- PWA manifest
-  sw.js                -- Service worker
+  sw.js                -- Service worker (PWA offline support)
+  lhm.js               -- LibreHardwareMonitor frontend integration
+  icon.svg             -- Application icon
+  css/                 -- Stylesheet modules (split for AI agent readability)
+    tokens.css         -- CSS custom properties, light theme variable overrides
+    base.css           -- Reset, body, typography, element defaults
+    layout.css         -- Health strip, nav bar, sidebar, page/content layout
+    cards-inference.css -- Inference metric cards (speed, context, generation, activity rail)
+    agent-modal.css    -- Remote agent setup modal
+    cards-hardware.css -- GPU/system hardware cards, ring/sparkline/chip visualizations
+    components.css     -- Buttons, modal shell, forms, models list
+    chat.css           -- Chat interface and toast notifications
+    setup-view.css     -- Setup/welcome view, analytics, shortcuts, responsive breakpoints
+    settings-modal.css -- Premium settings modal, form controls, light theme overrides
 sensor_bridge/
-  Program.cs           -- .NET sensor bridge for Windows CPU temperature
+  Program.cs           -- .NET sensor bridge for Windows CPU temperature (LibreHardwareMonitor)
+  sensor_bridge.csproj -- .NET project file
+scripts/
+  build-release-targets.sh  -- Multi-platform release build
+  build-single-target.sh    -- Single-target build helper
+  release-preflight.sh      -- Pre-release checks
+tests/
+  integration/
+    capabilities.rs    -- Capability detection integration tests
+  ui/                  -- Playwright UI test suite
+    *.spec.js          -- End-to-end UI tests
+    screenshot.mjs     -- Screenshot automation
+    gif.mjs            -- GIF capture for docs
+docs/
+  api.md                          -- REST API reference
+  cli-flags.md                    -- CLI flag reference
+  cross-compilation.md            -- Multi-platform build guide
+  20260426-security_hardening.md  -- Security audit findings and remediation status
+  20260427-chat_enhancements.md   -- Chat UI overhaul implementation plan
+  (+ additional design and implementation docs)
 ```
+
+### CSS Module Index
+
+Each CSS file has a `CONTAINS:` comment at the top listing its key selectors. To find where a class is styled:
+
+```bash
+grep -r "\.your-class" static/css/
+```
+
+| File | What to open it for |
+|------|---------------------|
+| `tokens.css` | Changing colors, spacing, font, radius, shadow variables |
+| `base.css` | Body background, typography scale, element resets |
+| `layout.css` | Navigation, sidebar, health strip, page structure, dashboard grid |
+| `cards-inference.css` | Speed/context/generation metric cards, activity rail, KV arc |
+| `agent-modal.css` | Remote agent setup flow modal |
+| `cards-hardware.css` | GPU/system metric cards, ring gauges, sparklines, chip bars |
+| `components.css` | Buttons, general modals, form fields, models list |
+| `chat.css` | Chat message thread, input area, toast notifications |
+| `setup-view.css` | Setup/welcome screen, shortcuts overlay, responsive breakpoints |
+| `settings-modal.css` | Settings modal internals, toggles, checkboxes, light theme |
 
 ### Data Flow
 

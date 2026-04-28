@@ -11,7 +11,16 @@
     <link rel='icon' href='/icon.svg' type='image/svg+xml'>
     <link rel='apple-touch-icon' href='/icon.svg'>
     <title>Llama Monitor</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/css/tokens.css">
+    <link rel="stylesheet" href="/css/base.css">
+    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/cards-inference.css">
+    <link rel="stylesheet" href="/css/agent-modal.css">
+    <link rel="stylesheet" href="/css/cards-hardware.css">
+    <link rel="stylesheet" href="/css/components.css">
+    <link rel="stylesheet" href="/css/chat.css">
+    <link rel="stylesheet" href="/css/setup-view.css">
+    <link rel="stylesheet" href="/css/settings-modal.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
@@ -559,7 +568,7 @@
                             <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m5 0V4a2 2 0 012-2h2a2 2 0 012 2v2"/>
                         </svg>
                     </button>
-                    <button class="btn-chat-control btn-chat-stop" id="btn-stop" onclick="stopChat()" title="Stop generating" style="display:none;">
+                    <button class="btn-chat-control btn-chat-stop" id="btn-chat-stop" onclick="stopChat()" title="Stop generating" style="display:none;">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="6" y="6" width="12" height="12" rx="2"/>
                         </svg>

@@ -6104,7 +6104,7 @@ function stopChat() {
 
     document.getElementById('btn-send').disabled = false;
 
-    document.getElementById('btn-stop').style.display = 'none';
+    document.getElementById('btn-chat-stop').style.display = 'none';
 
 }
 
@@ -6166,7 +6166,7 @@ async function sendChat() {
 
     document.getElementById('btn-send').disabled = true;
 
-    document.getElementById('btn-stop').style.display = 'flex';
+    document.getElementById('btn-chat-stop').style.display = 'flex';
 
     chatAbortController = new AbortController();
 
@@ -6286,9 +6286,9 @@ async function sendChat() {
 
             for (const line of lines) {
 
-                if (!line.startsWith('data: ')) continue;
+                if (!line.startsWith('data:')) continue;
 
-                const payload = line.slice(6).trim();
+                const payload = line.slice(5).trim();
 
                 if (payload === '[DONE]') continue;
 
@@ -6378,7 +6378,7 @@ async function sendChat() {
 
     document.getElementById('btn-send').disabled = false;
 
-    document.getElementById('btn-stop').style.display = 'none';
+    document.getElementById('btn-chat-stop').style.display = 'none';
 
     chatAbortController = null;
 
