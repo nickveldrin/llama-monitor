@@ -573,59 +573,128 @@
             <!-- Chat header -->
             <div class="chat-header" id="chat-header">
                 <div class="chat-header-left">
-                    <button class="chat-header-btn" id="btn-system-prompt" onclick="toggleSystemPromptPanel()" title="System prompt">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button class="chat-header-btn" id="btn-system-prompt" onclick="toggleSystemPromptPanel()" title="Change assistant behavior">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>
                         </svg>
+                        <span class="chat-header-label">Behavior</span>
                         <span id="system-prompt-indicator" class="chat-header-badge" style="display:none;">S</span>
                     </button>
-                    <button class="chat-header-btn" id="btn-model-params" onclick="toggleModelParamsPanel()" title="Model parameters">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button class="chat-header-btn" id="btn-model-params" onclick="toggleModelParamsPanel()" title="Adjust creativity and precision">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M4 6h16M8 12h8M11 18h2"/>
                         </svg>
+                        <span class="chat-header-label">Settings</span>
                     </button>
                 </div>
                 <div class="chat-header-right">
-                    <button class="chat-header-btn" onclick="exportChatTab()" title="Export conversation">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <button class="chat-header-btn" onclick="exportChatTab()" title="Save conversation as file">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                         </svg>
+                        <span class="chat-header-label">Export</span>
                     </button>
                 </div>
             </div>
 
             <!-- System prompt panel -->
             <div class="chat-system-panel" id="chat-system-panel" style="display:none;">
-                <label class="chat-system-label">System Prompt</label>
+                <div class="chat-system-header">
+                    <label class="chat-system-label">System Prompt</label>
+                    <div class="chat-system-actions">
+                        <button class="chat-copy-settings-btn" onclick="showCopySettingsDropdown()" title="Copy settings from another tab">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                            </svg>
+                            Copy Settings
+                        </button>
+                        <select class="chat-template-select" onchange="applySystemPromptTemplate(this.value)">
+                            <option value="">— Templates —</option>
+                            <option value="">None</option>
+                            <option value="You are a helpful, concise assistant. Provide clear, accurate answers.">Helpful Assistant</option>
+                            <option value="You are an expert programming assistant. Provide code examples with explanations. Follow best practices and security guidelines.">Coding Assistant</option>
+                            <option value="You are a creative writing assistant. Help with storytelling, poetry, and creative content. Be imaginative and expressive.">Creative Writer</option>
+                            <option value="You are a data analysis assistant. Help with data interpretation, statistics, and visualization recommendations.">Data Analyst</option>
+                            <option value="You are a patient teacher. Explain concepts clearly, use examples, and check understanding. Adapt to the learner's level.">Teacher/Tutor</option>
+                            <option value="You are a skilled debater. Present arguments logically, acknowledge counterpoints, and maintain respectful discourse.">Debater</option>
+                        </select>
+                    </div>
+                </div>
                 <textarea id="chat-system-input" rows="3" placeholder="You are a helpful assistant…" oninput="onSystemPromptChange()"></textarea>
             </div>
 
             <!-- Model params panel -->
             <div class="chat-params-panel" id="chat-params-panel" style="display:none;">
+                <div class="chat-params-header">
+                    <span class="chat-params-title">Response Settings</span>
+                    <div class="chat-params-actions">
+                        <button class="chat-advanced-toggle" onclick="toggleAdvancedParams()" title="Show advanced options">
+                            Advanced
+                            <svg class="chat-advanced-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 18l6-6-6-6"/>
+                            </svg>
+                        </button>
+                        <button class="chat-reset-btn" onclick="resetParamsToDefaults()" title="Reset to defaults">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.5 9A9 9 0 005.6 5.6L1 10m22 4l-4.6 4.4A9 9 0 013.5 15"/>
+                            </svg>
+                            Reset
+                        </button>
+                    </div>
+                </div>
                 <div class="chat-params-grid">
-                    <label>Temperature
+                    <label>
+                        <span class="chat-param-label">
+                            Creativity
+                            <span class="chat-param-tooltip" title="How random or focused the responses are (0 = focused, 2 = creative)">?</span>
+                        </span>
                         <input type="range" id="param-temperature" min="0" max="2" step="0.05" oninput="onParamChange('temperature', +this.value)">
-                        <span id="param-temperature-val">1.0</span>
+                        <span id="param-temperature-val">0.7</span>
                     </label>
-                    <label>Top P
+                    <label>
+                        <span class="chat-param-label">
+                            Variety
+                            <span class="chat-param-tooltip" title="Controls the range of words the model considers (0.9 = good balance)">?</span>
+                        </span>
                         <input type="range" id="param-top-p" min="0" max="1" step="0.01" oninput="onParamChange('top_p', +this.value)">
-                        <span id="param-top-p-val">0.95</span>
+                        <span id="param-top-p-val">0.9</span>
                     </label>
-                    <label>Top K
-                        <input type="range" id="param-top-k" min="0" max="200" step="1" oninput="onParamChange('top_k', +this.value)">
-                        <span id="param-top-k-val">40</span>
-                    </label>
-                    <label>Min P
-                        <input type="range" id="param-min-p" min="0" max="0.5" step="0.005" oninput="onParamChange('min_p', +this.value)">
-                        <span id="param-min-p-val">0.01</span>
-                    </label>
-                    <label>Repeat Penalty
-                        <input type="range" id="param-repeat-penalty" min="1" max="2" step="0.01" oninput="onParamChange('repeat_penalty', +this.value)">
-                        <span id="param-repeat-penalty-val">1.0</span>
-                    </label>
-                    <label>Max Tokens
-                        <input type="number" id="param-max-tokens" min="0" step="64" placeholder="Model default" oninput="onParamChange('max_tokens', this.value ? +this.value : null)">
-                    </label>
+                </div>
+                <div class="chat-params-advanced" id="chat-params-advanced" style="display:none;">
+                    <div class="chat-params-divider"></div>
+                    <div class="chat-params-grid">
+                        <label>
+                            <span class="chat-param-label">
+                                Top K
+                                <span class="chat-param-tooltip" title="Maximum number of tokens to consider at each step">?</span>
+                            </span>
+                            <input type="range" id="param-top-k" min="0" max="200" step="1" oninput="onParamChange('top_k', +this.value)">
+                            <span id="param-top-k-val">40</span>
+                        </label>
+                        <label>
+                            <span class="chat-param-label">
+                                Min P
+                                <span class="chat-param-tooltip" title="Minimum probability threshold for token selection">?</span>
+                            </span>
+                            <input type="range" id="param-min-p" min="0" max="0.5" step="0.005" oninput="onParamChange('min_p', +this.value)">
+                            <span id="param-min-p-val">0.01</span>
+                        </label>
+                        <label>
+                            <span class="chat-param-label">
+                                Repeat Penalty
+                                <span class="chat-param-tooltip" title="Discourages repeated phrases (1.0 = no penalty)">?</span>
+                            </span>
+                            <input type="range" id="param-repeat-penalty" min="1" max="2" step="0.01" oninput="onParamChange('repeat_penalty', +this.value)">
+                            <span id="param-repeat-penalty-val">1.0</span>
+                        </label>
+                        <label>
+                            <span class="chat-param-label">
+                                Max Length
+                                <span class="chat-param-tooltip" title="Maximum response length in tokens (leave empty for unlimited)">?</span>
+                            </span>
+                            <input type="number" id="param-max-tokens" min="0" step="64" placeholder="Unlimited" oninput="onParamChange('max_tokens', this.value ? +this.value : null)">
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -656,6 +725,7 @@
                 </div>
                 <div class="chat-textarea-wrap">
                     <textarea id="chat-input" rows="1" placeholder="Send a message… (Enter to send, Shift+Enter for newline)" oninput="autoResizeChatInput()"></textarea>
+                    <span class="chat-char-count" id="chat-char-count"></span>
                 </div>
                 <button class="btn-chat-send" id="btn-send" onclick="sendChat()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

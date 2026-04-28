@@ -53,8 +53,8 @@ pub struct ChatModelParams {
 impl Default for ChatModelParams {
     fn default() -> Self {
         Self {
-            temperature: 1.0,
-            top_p: 0.95,
+            temperature: 0.7,
+            top_p: 0.9,
             top_k: 40,
             min_p: 0.01,
             repeat_penalty: 1.0,
@@ -1344,9 +1344,8 @@ fn api_chat(
                     }
                 });
 
-               Ok::<_, warp::Rejection>(warp::sse::reply(stream))
+                Ok::<_, warp::Rejection>(warp::sse::reply(stream))
             }
-
         })
 }
 
@@ -1355,26 +1354,25 @@ fn api_chat_abort(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "chat" / "abort")
         .and(warp::post())
-        .and_then(move || {
-            async move {
-                Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
-            }
+        .and_then(move || async move {
+            Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
         })
 }
 
-fn api_get_chat_tabs() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_get_chat_tabs() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+{
     warp::path!("api" / "chat" / "tabs")
         .and(warp::get())
         .and_then(|| async move {
             let path = chat_tabs_path();
             if path.exists() {
                 match tokio::fs::read_to_string(&path).await {
-                    Ok(raw) => {
-                        match serde_json::from_str::<Vec<ChatTab>>(&raw) {
-                            Ok(tabs) => Ok::<_, warp::Rejection>(warp::reply::json(&tabs)),
-                            Err(_) => Ok::<_, warp::Rejection>(warp::reply::json(&Vec::<ChatTab>::new())),
+                    Ok(raw) => match serde_json::from_str::<Vec<ChatTab>>(&raw) {
+                        Ok(tabs) => Ok::<_, warp::Rejection>(warp::reply::json(&tabs)),
+                        Err(_) => {
+                            Ok::<_, warp::Rejection>(warp::reply::json(&Vec::<ChatTab>::new()))
                         }
-                    }
+                    },
                     Err(_) => Ok::<_, warp::Rejection>(warp::reply::json(&Vec::<ChatTab>::new())),
                 }
             } else {
@@ -1383,20 +1381,25 @@ fn api_get_chat_tabs() -> impl Filter<Extract = (impl warp::Reply,), Error = war
         })
 }
 
-fn api_put_chat_tabs() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn api_put_chat_tabs() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+{
     warp::path!("api" / "chat" / "tabs")
         .and(warp::put())
         .and(warp::body::json::<Vec<ChatTab>>())
         .and_then(|tabs: Vec<ChatTab>| async move {
             let path = chat_tabs_path();
             match serde_json::to_string_pretty(&tabs) {
-                Ok(json) => {
-                    match tokio::fs::write(&path, json).await {
-                        Ok(_) => Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true}))),
-                        Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": false, "error": e.to_string()}))),
-                    }
-                }
-                Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": false, "error": e.to_string()}))),
+                Ok(json) => match tokio::fs::write(&path, json).await {
+                    Ok(_) => Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"ok": true}),
+                    )),
+                    Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(
+                        &serde_json::json!({"ok": false, "error": e.to_string()}),
+                    )),
+                },
+                Err(e) => Ok::<_, warp::Rejection>(warp::reply::json(
+                    &serde_json::json!({"ok": false, "error": e.to_string()}),
+                )),
             }
         })
 }

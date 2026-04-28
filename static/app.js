@@ -6001,9 +6001,13 @@ ws.onmessage = e => {
 
     const badgeChat = document.getElementById('badge-chat');
 
-    if (chatHistory.length > 0) {
+    const tab = activeChatTab();
 
-        badgeChat.textContent = ' ' + chatHistory.length + ' msg';
+    const msgCount = tab ? tab.messages.filter(m => m.role !== 'system').length : 0;
+
+    if (msgCount > 0) {
+
+        badgeChat.textContent = ' ' + msgCount + ' msg';
 
         badgeChat.style.display = '';
 
@@ -6098,17 +6102,25 @@ async function initChatTabs() {
     activeChatTabId = chatTabs[0].id;
     renderChatTabs();
     renderChatMessages();
+
+    // Show welcome tip on first visit
+    if (!localStorage.getItem('llama-monitor-chat-welcomed')) {
+        localStorage.setItem('llama-monitor-chat-welcomed', 'true');
+        setTimeout(() => {
+            showToast('Tip: try a suggested prompt below to get started', 'info');
+        }, 800);
+    }
 }
 
 function newChatTab(name = 'New Chat') {
     return {
         id: crypto.randomUUID(),
         name,
-        system_prompt: '',
+        system_prompt: 'You are a helpful, concise assistant. Provide clear, accurate answers.',
         messages: [],
         model_params: {
-            temperature: 1.0,
-            top_p: 0.95,
+            temperature: 0.7,
+            top_p: 0.9,
             top_k: 40,
             min_p: 0.01,
             repeat_penalty: 1.0,
@@ -6236,16 +6248,29 @@ function renderChatMessages() {
     const tab = activeChatTab();
 
     if (!tab || tab.messages.filter(m => m.role !== 'system').length === 0) {
+        const prompts = [
+            { icon: '💡', text: 'Explain a complex topic simply', label: 'Learn something' },
+            { icon: '✍️', text: 'Help me write an email about...', label: 'Write something' },
+            { icon: '🔍', text: 'Compare the pros and cons of...', label: 'Analyze something' },
+            { icon: '🎨', text: 'Give me creative ideas for...', label: 'Brainstorm' },
+        ];
+        const promptCards = prompts.map(p => `
+            <button class="chat-empty-prompt" onclick="sendSuggestedPrompt('${escapeHtml(p.text)}')">
+                <span class="chat-empty-prompt-icon">${p.icon}</span>
+                <span class="chat-empty-prompt-text">${p.text}</span>
+            </button>`).join('');
+
         container.innerHTML = `
           <div class="chat-empty">
             <div class="chat-empty-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="1.5" opacity="0.3">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.2" opacity="0.25">
                 <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
               </svg>
             </div>
-            <p class="chat-empty-title">Start a conversation</p>
-            <p class="chat-empty-hint">Messages sent here go to the active llama-server session.</p>
+            <p class="chat-empty-title">How can I help you today?</p>
+            <p class="chat-empty-hint">Ask anything, or try a suggestion below</p>
+            <div class="chat-empty-prompts">${promptCards}</div>
           </div>`;
         return;
     }
@@ -6353,7 +6378,13 @@ function finalizeAssistantMessage(el, content) {
     }
 }
 
-async function sendChat() {
+async function sendSuggestedPrompt(text) {
+    const input = document.getElementById('chat-input');
+    if (input) input.value = text;
+    sendChat();
+}
+
+function sendChat() {
     if (chatBusy) return;
     const tab = activeChatTab();
     if (!tab) return;
@@ -6532,6 +6563,81 @@ function exportChatTab() {
     URL.revokeObjectURL(a.href);
 }
 
+function importChatTab() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.md';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            try {
+                if (file.name.endsWith('.json')) {
+                    const data = JSON.parse(ev.target.result);
+                    if (Array.isArray(data) && data.length > 0) {
+                        const newTab = data[0];
+                        newTab.id = crypto.randomUUID();
+                        newTab.created_at = Date.now();
+                        newTab.updated_at = Date.now();
+                        chatTabs.push(newTab);
+                        switchChatTab(newTab.id);
+                        scheduleChatPersist();
+                        showToast('Conversation imported', 'success');
+                    }
+                } else {
+                    const lines = ev.target.result.split(/\n---\n/);
+                    const messages = [];
+                    for (const block of lines) {
+                        const match = block.match(/\*\*(You|Assistant)\*\*\s*\n\n([\s\S]+)/);
+                        if (match) {
+                            messages.push({
+                                role: match[1] === 'You' ? 'user' : 'assistant',
+                                content: match[2].trim(),
+                                timestamp_ms: Date.now(),
+                            });
+                        }
+                    }
+                    if (messages.length > 0) {
+                        const tab = activeChatTab();
+                        tab.messages = [...tab.messages, ...messages];
+                        tab.updated_at = Date.now();
+                        renderChatMessages();
+                        scheduleChatPersist();
+                        showToast(`Imported ${messages.length} messages`, 'success');
+                    }
+                }
+            } catch (err) {
+                showToast('Import failed: ' + err.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+const SYSTEM_PROMPT_TEMPLATES = [
+    { label: 'None', value: '' },
+    { label: 'Helpful Assistant', value: 'You are a helpful, concise assistant. Provide clear, accurate answers.' },
+    { label: 'Coding Assistant', value: 'You are an expert programming assistant. Provide code examples with explanations. Follow best practices and security guidelines.' },
+    { label: 'Creative Writer', value: 'You are a creative writing assistant. Help with storytelling, poetry, and creative content. Be imaginative and expressive.' },
+    { label: 'Data Analyst', value: 'You are a data analysis assistant. Help with data interpretation, statistics, and visualization recommendations.' },
+    { label: 'Teacher/Tutor', value: 'You are a patient teacher. Explain concepts clearly, use examples, and check understanding. Adapt to the learner\'s level.' },
+    { label: 'Debater', value: 'You are a skilled debater. Present arguments logically, acknowledge counterpoints, and maintain respectful discourse.' },
+];
+
+function applySystemPromptTemplate(templateValue) {
+    const tab = activeChatTab();
+    if (!tab) return;
+    tab.system_prompt = templateValue;
+    tab.updated_at = Date.now();
+    document.getElementById('chat-system-input').value = templateValue;
+    const indicator = document.getElementById('system-prompt-indicator');
+    indicator.style.display = templateValue ? 'inline' : 'none';
+    scheduleChatPersist();
+    showToast('Template applied', 'success');
+}
+
 function toggleSystemPromptPanel() {
     const panel = document.getElementById('chat-system-panel');
     const visible = panel.style.display !== 'none';
@@ -6550,6 +6656,7 @@ function onSystemPromptChange() {
     const indicator = document.getElementById('system-prompt-indicator');
     indicator.style.display = tab.system_prompt ? 'inline' : 'none';
     scheduleChatPersist();
+    showToast('System prompt saved', 'success');
 }
 
 function toggleModelParamsPanel() {
@@ -6596,6 +6703,71 @@ function onParamChange(key, value) {
         if (el) el.textContent = value ?? '';
     }
     scheduleChatPersist();
+    showToast('Parameter saved', 'success');
+}
+
+function toggleAdvancedParams() {
+    const panel = document.getElementById('chat-params-advanced');
+    const chevron = document.querySelector('.chat-advanced-chevron');
+    const isVisible = panel.style.display !== 'none';
+    panel.style.display = isVisible ? 'none' : 'block';
+    if (chevron) {
+        chevron.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(90deg)';
+    }
+}
+
+function resetParamsToDefaults() {
+    const tab = activeChatTab();
+    if (!tab) return;
+    tab.model_params = {
+        temperature: 0.7,
+        top_p: 0.9,
+        top_k: 40,
+        min_p: 0.01,
+        repeat_penalty: 1.0,
+        max_tokens: null,
+    };
+    tab.updated_at = Date.now();
+    syncParamPanelToTab();
+    scheduleChatPersist();
+    showToast('Parameters reset to defaults', 'success');
+}
+
+function duplicateTabSettings(sourceId) {
+    const source = chatTabs.find(t => t.id === sourceId);
+    const target = activeChatTab();
+    if (!source || !target || source.id === target.id) return;
+    target.system_prompt = source.system_prompt;
+    target.model_params = JSON.parse(JSON.stringify(source.model_params));
+    target.updated_at = Date.now();
+    scheduleChatPersist();
+    syncParamPanelToTab();
+    const indicator = document.getElementById('system-prompt-indicator');
+    indicator.style.display = target.system_prompt ? 'inline' : 'none';
+    document.getElementById('chat-system-input').value = target.system_prompt;
+    showToast('Settings copied from "' + source.name + '"', 'success');
+}
+
+function showCopySettingsDropdown() {
+    const target = activeChatTab();
+    if (!target) return;
+    const others = chatTabs.filter(t => t.id !== target.id);
+    if (others.length === 0) {
+        showToast('No other tabs to copy from', 'info');
+        return;
+    }
+    const toast = showToastWithActions(
+        'Copy settings from',
+        'info',
+        'Select a tab to copy its system prompt and parameters',
+        others.map(t => ({
+            label: t.name,
+            primary: false,
+            action: () => duplicateTabSettings(t.id),
+        }))
+    );
+    if (!toast) return;
+    setTimeout(() => toast.remove(), 8000);
 }
 
 function startRenameTab(id) {
@@ -6631,6 +6803,12 @@ function autoResizeChatInput() {
     if (!ta) return;
     ta.style.height = 'auto';
     ta.style.height = Math.min(ta.scrollHeight, 200) + 'px';
+    const countEl = document.getElementById('chat-char-count');
+    if (countEl) {
+        const len = ta.value.length;
+        countEl.textContent = len > 0 ? `${len} chars` : '';
+        countEl.style.opacity = len > 0 ? '1' : '0';
+    }
 }
 
 if ('serviceWorker' in navigator) {

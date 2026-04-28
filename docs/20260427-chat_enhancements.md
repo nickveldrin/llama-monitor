@@ -1,9 +1,11 @@
 # Chat Enhancements — Full Implementation Plan
 
 **Date:** 2026-04-27  
-**Status:** Ready for implementation  
+**Status:** ✅ Implemented + Polished  
 **Priority:** High  
-**Target agent:** Claude Code (full implementation — no partial work)
+**Completed:** 2026-04-28 — All 7 phases implemented. One residual bug found and fixed (dead `chatHistory` reference in sidebar badge updater at `app.js:6004`).  
+**Polish:** 2026-04-28 — Added: visual feedback toasts, param reset button, system prompt templates, duplicate tab settings, import conversation, character counter, premium styling (micro-interactions, smooth panel transitions, enhanced focus states).  
+**UX Overhaul:** 2026-04-28 — Labeled all header buttons, removed jargon ("llama-server" → plain language), added suggested prompts in empty state, hid advanced params behind toggle, added param tooltips, set safe defaults (temp 0.7, top_p 0.9, helpful assistant prompt), added one-time welcome tip.
 
 ---
 
