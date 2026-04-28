@@ -52,9 +52,9 @@ This document is a complete, sequential implementation guide for a full chat ove
 </div>
 ```
 
-**Frontend — `static/style.css` (lines 4218–4372)**
+**Frontend — `static/css/chat.css` (lines 1–170)**
 - `.chat-messages` / `.log-panel`: `min-height: 360px`, `overflow: auto`
-- `.chat-input-row`: grid `auto / 1fr / auto`, glassmorphism border
+- `.chat-input-row`: grid `auto / minmax(0,1fr) / auto`, glassmorphism border
 - `.msg`: `padding: 12px 14px; border-radius: var(--radius-base)`
 - `.msg-user`: `margin-left: 12%; background: rgba(99, 102, 241, 0.14)`
 - `.msg-assistant`: `margin-right: 12%; background: rgba(255, 255, 255, 0.055)`
@@ -990,7 +990,7 @@ document.getElementById('chat-input').addEventListener('keydown', e => {
 
 ## Phase 4 — CSS: Premium Modern UI
 
-**File: `static/style.css`** — replace the entire chat section (currently lines 4218–4372) and the `.msg` / `.msg-user` / `.msg-assistant` block with the following. Add the new rules as a contiguous block in the same position.
+**File: `static/css/chat.css`** — replace the entire chat section (currently lines 1–170) with the following. The existing `.msg`, `.msg-user`, `.msg-assistant` rules will be removed and replaced with the new premium UI styles.
 
 ### Tab bar
 
@@ -1632,7 +1632,7 @@ document.getElementById('chat-input').addEventListener('keydown', e => {
 
 ## Phase 5 — Layout: Make `#page-chat` a Proper Flex Column
 
-**File: `static/style.css`** — find the `.page` rule and ensure it has:
+**File: `static/css/layout.css`** — find the `.page` rule and ensure it has:
 
 ```css
 .page {
@@ -1692,11 +1692,11 @@ document.addEventListener('DOMContentLoaded', () => {
 3. The `activeSessionPort` variable manipulation inside `sendChat()`
 4. The GET `/api/sessions/active` fetch inside `sendChat()` — the server already resolves the active session
 
-**File: `static/style.css`** — remove:
+**File: `static/css/chat.css`** — remove:
 
-- `.msg` rule (line ~4357)
-- `.msg-user` rule (line ~4363)
-- `.msg-assistant` rule (line ~4368)
+- `.msg` rule (line ~150)
+- `.msg-user` rule (line ~156)
+- `.msg-assistant` rule (line ~161)
 
 These are fully replaced by the `.chat-message-*` hierarchy.
 
@@ -1710,7 +1710,7 @@ These are fully replaced by the `.chat-message-*` hierarchy.
 | `src/web/mod.rs` | Register three new API filters |
 | `static/index.html` | Replace `#page-chat` block entirely (lines 552–575) |
 | `static/app.js` | Replace all chat state and functions; add tab management, persistence, render helpers, UI helpers |
-| `static/style.css` | Replace `.chat-messages` through `.msg-assistant` + add all new component rules |
+| `static/css/chat.css` | Replace `.chat-messages` through `.msg-assistant` + add all new component rules |
 
 ---
 
