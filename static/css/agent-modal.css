@@ -1,4 +1,12 @@
-/* llama-monitor — agent-modal */
+/* llama-monitor — agent-modal
+ * CONTAINS: .remote-agent-setup-modal, .remote-agent-setup-body,
+ *           .agent-setup-status-alert (+ .warning/.success variants),
+ *           .agent-setup-hero, .agent-setup-section, .agent-setup-grid,
+ *           .agent-setup-field, .agent-auth-section, .agent-setup-actions,
+ *           .agent-host-key-display, .agent-versions, .agent-setup-progress,
+ *           .agent-setup-status, .agent-setup-timeline,
+ *           @keyframes agentAlertSlideIn
+ */
 /* Remote Agent Setup Modal */
 .remote-agent-setup-modal {
   width: min(580px, 85vw);

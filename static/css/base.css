@@ -1,4 +1,7 @@
-/* llama-monitor — base */
+/* llama-monitor — base
+ * CONTAINS: *, html, body, body::before (ambient noise overlay),
+ *           button/input/select/textarea font reset, a, h1–h3, svg
+ */
 * {
   box-sizing: border-box;
 }

@@ -1,4 +1,18 @@
-/* llama-monitor — components */
+/* llama-monitor — components
+ * CONTAINS: Buttons: .btn, .btn-sm, .btn-primary, .btn-secondary, .btn-stop,
+ *               .btn-kill, .btn-preset, .btn-preset-delete, .btn-preset-reset,
+ *               .btn-start, .btn-attach, .btn-modal-save, .btn-modal-cancel,
+ *           Modal shell: .modal-overlay, .modal, .modal-header, .modal-body,
+ *               .modal-buttons, .modal-close, .modal-row, .modal-section,
+ *               .modal-help, .modal-field, .modal-checks, .field-error,
+ *           Settings tabs: .settings-modal-body, .settings-tabs, .settings-tab,
+ *               .settings-pane,
+ *           Models: .models-list, .model-item, .model-name, .model-meta,
+ *               .models-toolbar,
+ *           Remote agent progress: .remote-agent-progress-bar-container,
+ *               .remote-agent-progress-bar, .remote-agent-validation,
+ *               .remote-agent-guide, .remote-agent-plan, .fb-entries
+ */
 .btn,
 .btn-sm,
 .nav-btn,

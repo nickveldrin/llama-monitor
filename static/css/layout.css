@@ -1,4 +1,15 @@
-/* llama-monitor — layout */
+/* llama-monitor — layout
+ * CONTAINS: .endpoint-health-strip, .strip-left/.strip-right,
+ *           .endpoint-mode, .endpoint-status, .endpoint-url, .endpoint-url-container,
+ *           .agent-status, .status-dot, .status-text,
+ *           .badge-server, .badge-chat, .badge-logs, .capability-popover,
+ *           .top-nav-bar, .nav-left, .nav-right, .nav-logo, .nav-title,
+ *           .nav-center, .nav-search, .nav-user, .nav-user-menu, .nav-user-menu-item,
+ *           .sidebar-nav, .sidebar-btn, .sidebar-label, .sidebar-badge,
+ *           .sidebar-collapse-btn, .content-area, .page,
+ *           .dashboard-grid, .dashboard-header, .control-bar, .inference-grid,
+ *           .widget-card (glass shell + hover + live/idle states + @keyframes card-float)
+ */
 .endpoint-health-strip {
   position: sticky;
   top: 0;

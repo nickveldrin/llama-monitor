@@ -1,4 +1,14 @@
-/* llama-monitor — cards-inference */
+/* llama-monitor — cards-inference
+ * CONTAINS: .widget-card (metric-specific extensions),
+ *           Activity Rail: .activity-rail, .activity-segment, .activity-label,
+ *           Speed card: .widget-speed, .speed-header, .speed-bars, .speed-bar, .token-flow,
+ *           Context card: .widget-context, .kv-arc, .kv-ring, .kv-label,
+ *           Generation card: .widget-generation, .generation-ring, .generation-layout,
+ *                            .gen-arc, .gen-gauge, .gen-stat,
+ *           Inference config: .inference-config-panel, .sampler-params-inline, .config-kv,
+ *           Misc inference: .metric-live-chip, .widget-card-header, .stat-item,
+ *                           .stat-label, .stat-value, .num-sm, .preset-label
+ */
 }
 
 .dashboard-grid {

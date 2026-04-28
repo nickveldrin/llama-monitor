@@ -1,4 +1,19 @@
-/* llama-monitor — setup-view */
+/* llama-monitor — setup-view
+ * CONTAINS: Analytics: .analytics-dashboard, .analytics-metrics, .analytics-stats,
+ *               .analytics-metric, .analytics-stat-item, .analytics-metric-value,
+ *           Personalization: .personalization-panel, .personalization-section,
+ *               .export-options, .export-option, .export-panel,
+ *           Shortcuts modal: .keyboard-shortcut-overlay, .shortcuts-modal,
+ *               .shortcuts-header, .shortcuts-list, .shortcut-item,
+ *               .shortcut-key-combo,
+ *           Severity helpers: .severity-normal, .severity-warning, .severity-critical,
+ *           Responsive: @media (max-width: 1100px), @media (max-width: 820px),
+ *               @media (prefers-reduced-motion),
+ *           Setup/Welcome view: .view-container, .view-setup, .setup-ambient,
+ *               .setup-hero, .setup-action-cards, .setup-action-card,
+ *               .setup-quick-stats, view transitions, connecting state,
+ *               .sessions-list, .session-item
+ */
 
 .analytics-dashboard {
   grid-template-columns: minmax(0, 1fr) 280px;

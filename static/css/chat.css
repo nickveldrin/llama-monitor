@@ -1,4 +1,13 @@
-/* llama-monitor — chat */
+/* llama-monitor — chat
+ * CONTAINS: .chat-messages, .chat-input-row, .chat-textarea-wrap,
+ *           .chat-controls, .btn-chat-control, .btn-chat-stop, .btn-chat-send,
+ *           .msg, .msg-user, .msg-assistant, .msg-thinking,
+ *           Toast notifications: .toast-container, .toast, .toast-success,
+ *               .toast-error, .toast-warning, .toast-info,
+ *               .toast-icon, .toast-content, .toast-title, .toast-message,
+ *               .toast-close, @keyframes toast-slide-in
+ * NOTE: Full chat UI rebuild planned — see docs/20260427-chat_enhancements.md
+ */
 .chat-messages,
 .log-panel {
   min-height: 360px;

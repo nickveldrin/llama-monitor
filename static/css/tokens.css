@@ -1,4 +1,9 @@
-/* llama-monitor — tokens */
+/* llama-monitor — tokens
+ * CONTAINS: :root (CSS custom properties), [data-theme="light"] overrides
+ * KEY VARS:  --color-bg, --color-primary, --color-success, --color-error,
+ *            --font-body, --font-mono, --text-*, --radius-*, --gap-*,
+ *            --gradient-primary, --shadow-surface, --border-subtle
+ */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
 
 :root {

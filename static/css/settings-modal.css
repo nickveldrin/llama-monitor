@@ -1,4 +1,18 @@
-/* llama-monitor — settings-modal */
+/* llama-monitor — settings-modal
+ * CONTAINS: Premium settings modal shell: .settings-modal (glass + glow),
+ *           .settings-modal-overlay, .settings-modal-content,
+ *           Tab sidebar: .settings-sidebar, .settings-nav-item,
+ *           Form controls: input, select, textarea (elevated style),
+ *           Custom toggles: .toggle, .toggle-track, .toggle-thumb,
+ *           Custom checkboxes: .checkbox-custom, .checkbox-label,
+ *           Help callout: .help-callout,
+ *           Modal section: .modal-section (runtime config card),
+ *           Buttons & micro-interactions: .btn-save, .btn-cancel, .btn-danger,
+ *               ripple, success flash,
+ *           Dashboard widget checkboxes row,
+ *           Light theme overrides: [data-theme="light"] for all modal components,
+ *           Mobile responsive: @media (max-width: 820px) for settings modal
+ */
 /* ==========================================================================
    Settings Modal — 2026 Premium Glass Overhaul
    ========================================================================== */

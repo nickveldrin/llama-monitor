@@ -1,4 +1,17 @@
-/* llama-monitor — cards-hardware */
+/* llama-monitor — cards-hardware
+ * CONTAINS: Slots card: .widget-slots, .slots-values, .slot-pill (.idle/.busy), .slot-dot,
+ *           .btn-detach-top, .ripple, @keyframes ripple-animation,
+ *           Hardware cards: .widget-hardware, .hw-device-name, .hw-header,
+ *           .hw-metric-row, .hw-metric-block, .hw-metric-label, .hw-metric-value,
+ *           .hw-bar-fill, .hw-stacked-bar, .hw-temp-gauge, .hw-ring-viz,
+ *           Ring viz: .ring-track, .ring-fill, .ring-label,
+ *           Sparkline: .sparkline-container, .hw-sparkline,
+ *           Chip viz: .chip-row, .chip-block, .chip-bar,
+ *           GPU table: .hw-gpu-table, .gpu-table-header, .gpu-table-row,
+ *           Viz switcher: .viz-switcher, .viz-option, .viz-thumb,
+ *           Severity: .hw-severity-*, @keyframes hw-*,
+ *           Empty state: .hw-empty, .hw-empty-icon
+ */
 /* Slots Card */
 .widget-slots {
   display: flex;
