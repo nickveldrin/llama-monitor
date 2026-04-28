@@ -25,8 +25,10 @@ webview-popover = ["dep:wry"]
     sysinfo = "0.38"
     tempfile = "3"
     tokio = { version = "1.51", features = ["full"] }
+    tokio-stream = "0.1"
     url = "2"
     warp = { version = "0.4", features = ["server", "websocket"] }
+    warp-helmet = "1.0"
     tray-icon = { version = "0.22", optional = true }
     winit = { version = "0.31.0-beta.2", default-features = false, features = ["x11", "wayland"], optional = true }
 

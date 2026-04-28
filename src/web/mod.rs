@@ -4,6 +4,7 @@ pub mod ws;
 
 use std::sync::Arc;
 use warp::Filter;
+use warp_helmet::{ContentSecurityPolicy, Helmet, HelmetFilter};
 
 use crate::config::AppConfig;
 use crate::state::AppState;
@@ -22,7 +23,26 @@ pub fn build_routes(
 
     // Always apply auth filter; when credentials are None it passes through
     let auth = basic_auth_guard(basic_auth);
-    routes.and(auth).map(|reply, _: ()| reply)
+    let routes = routes.and(auth).map(|reply, _: ()| reply);
+
+    // Apply HTTP security headers to all responses
+    // Custom CSP: allow external CDN scripts, fonts, styles, and data URIs (app requirements)
+    let csp = ContentSecurityPolicy::new()
+        .default_src(vec!["'self'", "data:"])
+        .script_src(vec![
+            "'self'",
+            "'unsafe-inline'",
+            "https://cdn.jsdelivr.net",
+        ])
+        .style_src(vec![
+            "'self'",
+            "'unsafe-inline'",
+            "https://fonts.googleapis.com",
+        ])
+        .font_src(vec!["'self'", "https://fonts.gstatic.com"])
+        .img_src(vec!["'self'", "data:", "https:"]);
+    let helmet: HelmetFilter = Helmet::new().add(csp).try_into().unwrap();
+    helmet.wrap(routes)
 }
 
 /// Basic Auth guard — returns Ok(()) when credentials are valid or auth is disabled.

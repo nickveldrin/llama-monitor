@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use std::fmt;
 use std::path::PathBuf;
 use std::process::Command;
@@ -1233,45 +1232,62 @@ fn api_chat(
                     .build()
                     .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
 
-                match client
+                // Stream response from upstream — Tokio cancels automatically on client disconnect
+                let resp = client
                     .post(&url)
                     .header("Content-Type", "application/json")
                     .body(body.to_vec())
                     .send()
                     .await
-                {
-                    Ok(resp) => {
-                        let status = resp.status().as_u16();
-                        let ct = resp
-                            .headers()
-                            .get("content-type")
-                            .and_then(|v| v.to_str().ok())
-                            .unwrap_or("application/json")
-                            .to_string();
-                        let bytes = resp
-                            .bytes()
-                            .await
-                            .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
-                        Ok::<_, warp::Rejection>(
-                            warp::http::Response::builder()
-                                .status(status)
-                                .header("content-type", ct)
-                                .body(bytes)
-                                .unwrap(),
-                        )
+                    .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
+
+                let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+                let stream = tokio_stream::wrappers::UnboundedReceiverStream::new(rx);
+
+                // Forward SSE events to client — stops if client disconnects (tx closed)
+                tokio::spawn(async move {
+                    use futures_util::StreamExt;
+                    let mut stream = resp.bytes_stream();
+                    let mut buf = String::new();
+
+                    while let Some(chunk) = stream.next().await {
+                        match chunk {
+                            Ok(bytes) => {
+                                // Stop if client disconnected
+                                if tx.is_closed() {
+                                    return;
+                                }
+
+                                buf.push_str(&String::from_utf8_lossy(&bytes));
+
+                                // Process complete lines
+                                while let Some(pos) = buf.find('\n') {
+                                    let line = buf[..pos].to_string();
+                                    buf = buf[pos + 1..].to_string();
+
+                                    if let Some(data) = line.strip_prefix("data: ")
+                                        && !data.trim().is_empty()
+                                    {
+                                        let _ = tx.send(Ok::<_, warp::Error>(
+                                            warp::sse::Event::default().data(data.to_string()),
+                                        ));
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                let _ = tx.send(Ok::<_, warp::Error>(
+                                    warp::sse::Event::default().data(format!(
+                                        "{{\"error\":\"{}\"}}",
+                                        e.to_string().replace('"', "'")
+                                    )),
+                                ));
+                                break;
+                            }
+                        }
                     }
-                    Err(e) => {
-                        let err = format!(
-                            r#"{{"error":{{"message":"{}","type":"proxy_error"}}}}"#,
-                            e.to_string().replace('"', "'")
-                        );
-                        Ok(warp::http::Response::builder()
-                            .status(502)
-                            .header("content-type", "application/json")
-                            .body(Bytes::from(err))
-                            .unwrap())
-                    }
-                }
+                });
+
+                Ok::<_, warp::Rejection>(warp::sse::reply(stream))
             }
         })
 }
