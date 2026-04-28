@@ -4,7 +4,7 @@ pub mod ws;
 
 use std::sync::Arc;
 use warp::Filter;
-use warp_helmet::{Helmet, HelmetFilter, ContentSecurityPolicy};
+use warp_helmet::{ContentSecurityPolicy, Helmet, HelmetFilter};
 
 use crate::config::AppConfig;
 use crate::state::AppState;
@@ -29,14 +29,19 @@ pub fn build_routes(
     // Custom CSP: allow external CDN scripts, fonts, styles, and data URIs (app requirements)
     let csp = ContentSecurityPolicy::new()
         .default_src(vec!["'self'", "data:"])
-        .script_src(vec!["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"])
-        .style_src(vec!["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"])
+        .script_src(vec![
+            "'self'",
+            "'unsafe-inline'",
+            "https://cdn.jsdelivr.net",
+        ])
+        .style_src(vec![
+            "'self'",
+            "'unsafe-inline'",
+            "https://fonts.googleapis.com",
+        ])
         .font_src(vec!["'self'", "https://fonts.gstatic.com"])
         .img_src(vec!["'self'", "data:", "https:"]);
-    let helmet: HelmetFilter = Helmet::new()
-        .add(csp)
-        .try_into()
-        .unwrap();
+    let helmet: HelmetFilter = Helmet::new().add(csp).try_into().unwrap();
     helmet.wrap(routes)
 }
 
