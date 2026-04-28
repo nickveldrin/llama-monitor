@@ -1,0 +1,287 @@
+/* llama-monitor — chat */
+.chat-messages,
+.log-panel {
+  min-height: 360px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.chat-input-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--gap-sm);
+  margin-top: var(--gap-md);
+  padding: var(--gap-sm) var(--gap-md);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-base);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.chat-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.btn-chat-control {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-chat-control svg {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-chat-control:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);
+}
+
+.btn-chat-control:hover svg {
+  transform: scale(1.1);
+}
+
+.btn-chat-control:active {
+  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 6px rgba(255, 255, 255, 0.03);
+}
+
+.btn-chat-control:active svg {
+  transform: scale(0.95);
+}
+
+.btn-chat-stop {
+  color: rgba(244, 63, 94, 0.8);
+  border-color: rgba(244, 63, 94, 0.15);
+}
+
+.btn-chat-stop:hover {
+  color: #f43f5e;
+  background: rgba(244, 63, 94, 0.08);
+  border-color: rgba(244, 63, 94, 0.25);
+}
+
+.btn-chat-send {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: none;
+  background: var(--gradient-primary);
+  color: white;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.25);
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-chat-send svg {
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-chat-send:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+.btn-chat-send:hover:not(:disabled) svg {
+  transform: scale(1.05);
+}
+
+.btn-chat-send:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+}
+
+.btn-chat-send:active:not(:disabled) svg {
+  transform: scale(0.95);
+}
+
+.btn-chat-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-input-row textarea {
+  min-height: 44px;
+  resize: vertical;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.msg {
+  margin-bottom: var(--gap-md);
+  padding: 12px 14px;
+  border-radius: var(--radius-base);
+}
+
+.msg-user {
+  margin-left: 12%;
+  background: rgba(99, 102, 241, 0.14);
+}
+
+.msg-assistant {
+  margin-right: 12%;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.log-panel {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: pre-wrap;
+}
+
+.toast-container {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 700;
+  display: grid;
+  gap: var(--gap-sm);
+  width: min(420px, calc(100vw - 40px));
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(40, 48, 58, 0.95), rgba(30, 36, 43, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 2px 10px rgba(0, 0, 0, 0.3);
+  animation: toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(20px);
+}
+
+.toast.toast-success {
+  border-color: rgba(163, 190, 140, 0.4);
+  background: linear-gradient(145deg, rgba(35, 47, 38, 0.95), rgba(28, 38, 30, 0.98));
+}
+
+.toast.toast-error {
+  border-color: rgba(191, 97, 106, 0.4);
+  background: linear-gradient(145deg, rgba(47, 35, 35, 0.95), rgba(38, 28, 28, 0.98));
+}
+
+.toast.toast-warning {
+  border-color: rgba(235, 203, 139, 0.4);
+  background: linear-gradient(145deg, rgba(47, 43, 35, 0.95), rgba(38, 35, 28, 0.98));
+}
+
+.toast.toast-info {
+  border-color: rgba(136, 192, 209, 0.4);
+  background: linear-gradient(145deg, rgba(35, 43, 47, 0.95), rgba(28, 35, 38, 0.98));
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.toast.toast-success .toast-icon {
+  background: linear-gradient(135deg, #a3be8c, #b4c69a);
+  color: #1a1f24;
+}
+
+.toast.toast-error .toast-icon {
+  background: linear-gradient(135deg, #bf616a, #d47981);
+  color: #1a1f24;
+}
+
+.toast.toast-warning .toast-icon {
+  background: linear-gradient(135deg, #ebcb8b, #f4db9f);
+  color: #1a1f24;
+}
+
+.toast.toast-info .toast-icon {
+  background: linear-gradient(135deg, #88c0d1, #9fd3e5);
+  color: #1a1f24;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.toast-message {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 150ms ease;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--color-text-primary);
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

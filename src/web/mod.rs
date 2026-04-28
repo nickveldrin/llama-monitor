@@ -120,9 +120,26 @@ fn compact_route(
 fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let index = warp::path::end().map(|| warp::reply::html(static_assets::INDEX_HTML));
 
-    let css = warp::path("style.css")
-        .and(warp::get())
-        .map(|| warp::reply::with_header(static_assets::STYLE_CSS, "content-type", "text/css"));
+    let css_tokens = warp::path("css").and(warp::path("tokens.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_TOKENS, "content-type", "text/css"));
+    let css_base = warp::path("css").and(warp::path("base.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_BASE, "content-type", "text/css"));
+    let css_layout = warp::path("css").and(warp::path("layout.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_LAYOUT, "content-type", "text/css"));
+    let css_cards_inference = warp::path("css").and(warp::path("cards-inference.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_CARDS_INFERENCE, "content-type", "text/css"));
+    let css_agent_modal = warp::path("css").and(warp::path("agent-modal.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_AGENT_MODAL, "content-type", "text/css"));
+    let css_cards_hardware = warp::path("css").and(warp::path("cards-hardware.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_CARDS_HARDWARE, "content-type", "text/css"));
+    let css_components = warp::path("css").and(warp::path("components.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_COMPONENTS, "content-type", "text/css"));
+    let css_chat = warp::path("css").and(warp::path("chat.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_CHAT, "content-type", "text/css"));
+    let css_setup_view = warp::path("css").and(warp::path("setup-view.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_SETUP_VIEW, "content-type", "text/css"));
+    let css_settings_modal = warp::path("css").and(warp::path("settings-modal.css")).and(warp::get())
+        .map(|| warp::reply::with_header(static_assets::CSS_SETTINGS_MODAL, "content-type", "text/css"));
 
     let js = warp::path("app.js").and(warp::get()).map(|| {
         warp::reply::with_header(
@@ -160,5 +177,9 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .and(warp::get())
         .map(|| warp::reply::with_header(static_assets::ICON_SVG, "content-type", "image/svg+xml"));
 
-    index.or(css).or(js).or(lhm_js).or(manifest).or(sw).or(icon)
+    index
+        .or(css_tokens).or(css_base).or(css_layout).or(css_cards_inference)
+        .or(css_agent_modal).or(css_cards_hardware).or(css_components)
+        .or(css_chat).or(css_setup_view).or(css_settings_modal)
+        .or(js).or(lhm_js).or(manifest).or(sw).or(icon)
 }
