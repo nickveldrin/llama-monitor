@@ -74,6 +74,11 @@ test.describe('explicit mode toggle', () => {
     await page.waitForSelector('.top-nav-bar');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
+    // Ensure clean state: disable explicit mode if it was left on
+    await page.evaluate(() => {
+      const tab = activeChatTab();
+      if (tab && tab.explicit_mode) toggleExplicitMode();
+    });
   });
 
   test('toggles explicit mode state', async ({ page }) => {
@@ -124,6 +129,8 @@ test.describe('template manager', () => {
     await page.locator('.chat-template-mgmt-btn').click();
     await expect(page.locator('.explicit-policy-section')).toBeVisible();
     await expect(page.getByText('Explicit Mode Policy')).toBeVisible();
+    // Expand the collapsed details element to verify textarea exists
+    await page.getByText('Explicit Mode Policy').click();
     await expect(page.locator('#explicit-policy-input')).toBeVisible();
   });
 });
@@ -146,7 +153,7 @@ test.describe('model params panel', () => {
 
   test('shows temperature and top_p controls', async ({ page }) => {
     await page.locator('#btn-model-params').click();
-    await expect(page.locator('#chat-temperature')).toBeVisible();
-    await expect(page.locator('#chat-top-p')).toBeVisible();
+    await expect(page.locator('#param-temperature')).toBeVisible();
+    await expect(page.locator('#param-top-p')).toBeVisible();
   });
 });
