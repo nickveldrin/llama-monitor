@@ -70,7 +70,11 @@ Sessions persist to `~/.config/llama-monitor/sessions.json` and survive restarts
 - **Cross-Platform** — Linux, macOS, and Windows support with automatic OS/arch detection
 
 ### Chat & Logs
-- **Integrated Chat** — Streaming chat UI with reasoning/thinking block support, proxied to the active session's server
+- **Multi-Tab Chat** — Parallel conversations with per-tab persistence, rename, and close
+- **System Prompts & Templates** — Customizable behavior with pre-built templates and policy management
+- **Model Parameters** — Per-tab temperature, top_p, top_k, min_p, repeat_penalty, and max_tokens controls
+- **Streaming with Reasoning** — Real-time SSE streaming with thinking/reasoning block support
+- **Explicit Mode** — Toggle for uncensored content on models that require guardrail override
 
 ![Chat Interface](docs/screenshots/03-chat.png)
 
@@ -239,7 +243,11 @@ Lists all sessions with mode (Spawn/Attach), status (Running/Stopped/Disconnecte
 Control bar with preset selector and port. Start/stop the server. Live inference metrics and GPU/system monitoring tables.
 
 ### Chat Tab
-Streaming chat interface proxied to the running llama-server's `/v1/chat/completions` endpoint. Supports reasoning/thinking blocks and Markdown rendering.
+Multi-tab streaming chat proxied to the running llama-server's `/v1/chat/completions` endpoint. Features include:
+- Per-tab system prompts with template library
+- Model parameter controls (temperature, top_p, top_k, min_p, repeat_penalty)
+- Reasoning/thinking blocks and Markdown rendering
+- Explicit mode toggle for uncensored content
 
 ### Logs Tab
 Real-time server log output.
