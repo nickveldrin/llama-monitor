@@ -760,14 +760,15 @@ async fn maybe_autostart_remote_agent(
 
     eprintln!("[agent] Attempting remote agent autostart via ssh {target}");
 
-    match tokio::time::timeout(
+    let started = match tokio::time::timeout(
         REMOTE_AGENT_AUTOSTART_TIMEOUT,
-        remote_ssh::exec(connection, command),
+        remote_ssh::exec(connection.clone(), command),
     )
     .await
     {
         Ok(Ok(output)) if output.status == 0 => {
             eprintln!("[agent] Remote agent autostart command completed");
+            true
         }
         Ok(Ok(output)) => {
             eprintln!(
@@ -775,12 +776,28 @@ async fn maybe_autostart_remote_agent(
                 output.status,
                 output.stderr.trim()
             );
+            false
         }
         Ok(Err(e)) => {
             eprintln!("[agent] Remote agent autostart command failed: {e}");
+            false
         }
         Err(_) => {
             eprintln!("[agent] Remote agent autostart timed out; use a detached remote command");
+            false
+        }
+    };
+
+    // After a successful autostart, read and persist the token so the metrics
+    // poller can authenticate on its next attempt.
+    if started
+        && settings.remote_agent_token.is_empty()
+        && let Some(token) = read_remote_agent_token(&connection, remote_os).await
+    {
+        let mut s = state.ui_settings.lock().unwrap();
+        if s.remote_agent_token.is_empty() {
+            s.remote_agent_token = token;
+            let _ = crate::state::save_ui_settings(&state.ui_settings_path, &s);
         }
     }
 }
@@ -1768,6 +1785,8 @@ Start-Sleep -Seconds 2\""
         pub previous_version: Option<String>,
         pub new_version: Option<String>,
         pub updated: bool,
+        pub running: bool,
+        pub health_reachable: bool,
         pub agent_token: Option<String>,
         pub error: Option<String>,
     }
@@ -1855,8 +1874,6 @@ Start-Sleep -Seconds 2\""
             ),
         };
 
-        // Read the token before health check so we can authenticate against
-        // older agent binaries that still require a Bearer token on /health.
         let os_hint = if install_path.contains('\\')
             || install_path.to_ascii_lowercase().contains("appdata")
         {
@@ -1864,15 +1881,15 @@ Start-Sleep -Seconds 2\""
         } else {
             RemoteOs::Unix
         };
-        let prefetched_token = read_remote_agent_token(&connection, os_hint).await;
-        let token_ref = prefetched_token.as_deref();
 
         let agent_url = connection.agent_url(REMOTE_AGENT_DEFAULT_PORT);
         eprintln!("[agent] Checking agent health at {}", agent_url);
+        // /health requires no auth; token is read after startup to avoid a race
+        // where a freshly-started agent hasn't written its token file yet.
         let health_reachable = tokio::time::timeout(Duration::from_secs(20), async {
             for i in 1..=20 {
                 eprintln!("[agent] Health check attempt {}/20...", i);
-                if agent_health_reachable_with_token(&agent_url, token_ref).await {
+                if agent_health_reachable_with_token(&agent_url, None).await {
                     eprintln!("[agent] Agent health check passed");
                     break;
                 }
@@ -1899,7 +1916,22 @@ Start-Sleep -Seconds 2\""
             None
         };
 
-        let agent_token = if running { prefetched_token } else { None };
+        // Read the token after the agent is confirmed running. A newly started
+        // agent writes its token file during initialization, so retry briefly to
+        // handle the case where the file doesn't exist yet.
+        let agent_token = if running {
+            let mut token = None;
+            for _ in 0..6 {
+                token = read_remote_agent_token(&connection, os_hint).await;
+                if token.is_some() {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+            token
+        } else {
+            None
+        };
 
         Ok(RemoteAgentStartResponse {
             ok: running,
@@ -1933,6 +1965,8 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                running: false,
+                health_reachable: false,
                 agent_token: None,
                 error: Some("No matching asset for remote platform".to_string()),
             });
@@ -1949,6 +1983,8 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                running: false,
+                health_reachable: false,
                 agent_token: None,
                 error: Some("Failed to stop agent before update".to_string()),
             });
@@ -1970,6 +2006,8 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                running: false,
+                health_reachable: false,
                 agent_token: None,
                 error: Some("Failed to install updated agent".to_string()),
             });
@@ -1989,6 +2027,8 @@ Start-Sleep -Seconds 2\""
             previous_version: remote_version,
             new_version: Some(latest_release.tag_name),
             updated: start_response.running,
+            running: start_response.running,
+            health_reachable: start_response.health_reachable,
             agent_token: start_response.agent_token,
             error: if start_response.running {
                 None
