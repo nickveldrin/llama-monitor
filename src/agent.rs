@@ -790,13 +790,14 @@ async fn maybe_autostart_remote_agent(
 
     // After a successful autostart, read and persist the token so the metrics
     // poller can authenticate on its next attempt.
-    if started && settings.remote_agent_token.is_empty() {
-        if let Some(token) = read_remote_agent_token(&connection, remote_os).await {
-            let mut s = state.ui_settings.lock().unwrap();
-            if s.remote_agent_token.is_empty() {
-                s.remote_agent_token = token;
-                let _ = crate::state::save_ui_settings(&state.ui_settings_path, &s);
-            }
+    if started
+        && settings.remote_agent_token.is_empty()
+        && let Some(token) = read_remote_agent_token(&connection, remote_os).await
+    {
+        let mut s = state.ui_settings.lock().unwrap();
+        if s.remote_agent_token.is_empty() {
+            s.remote_agent_token = token;
+            let _ = crate::state::save_ui_settings(&state.ui_settings_path, &s);
         }
     }
 }
