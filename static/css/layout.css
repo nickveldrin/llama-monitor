@@ -673,7 +673,10 @@
 }
 
 .content-area {
-  min-height: calc(100vh - var(--shell-top));
+  height: calc(100vh - var(--shell-top));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   margin-left: 208px;
   transition: margin-left 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -685,7 +688,8 @@ body.sidebar-collapsed .content-area {
 .page {
   display: none;
   flex-direction: column;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 

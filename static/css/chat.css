@@ -488,6 +488,7 @@
 
 /* ── Chat Style Variables (default: rounded) ─────────── */
 .chat-page {
+  overflow: hidden;
   --chat-avatar-size: 30px;
   --chat-avatar-radius: 8px;
   --chat-avatar-opacity: 1;
