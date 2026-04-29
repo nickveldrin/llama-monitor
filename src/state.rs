@@ -293,6 +293,7 @@ pub struct AppState {
     pub local_server_running: Arc<Mutex<bool>>, // Whether a local llama-server was spawned by this app
     pub server_config: Arc<Mutex<Option<ServerConfig>>>,
     pub llama_poll_notify: Arc<tokio::sync::Notify>,
+    pub agent_poll_notify: Arc<tokio::sync::Notify>,
     pub presets: Arc<Mutex<Vec<ModelPreset>>>,
     pub presets_path: PathBuf,
     pub discovered_models: Arc<Mutex<Vec<DiscoveredModel>>>,
@@ -356,6 +357,7 @@ impl AppState {
             local_server_running: Arc::new(Mutex::new(false)),
             server_config: Arc::new(Mutex::new(None)),
             llama_poll_notify: Arc::new(tokio::sync::Notify::new()),
+            agent_poll_notify: Arc::new(tokio::sync::Notify::new()),
             presets: Arc::new(Mutex::new(presets)),
             presets_path,
             discovered_models: Arc::new(Mutex::new(discovered)),

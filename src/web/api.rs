@@ -1150,10 +1150,18 @@ fn api_put_settings(
             let old_dir = state.ui_settings.lock().unwrap().models_dir.clone();
             let new_dir = updated.models_dir.clone();
 
+            let old_token = state.ui_settings.lock().unwrap().remote_agent_token.clone();
+            let token_changed =
+                updated.remote_agent_token != old_token && !updated.remote_agent_token.is_empty();
+
             let mut settings = state.ui_settings.lock().unwrap();
             *settings = updated;
             let _ = app_state::save_ui_settings(&state.ui_settings_path, &settings);
             drop(settings);
+
+            if token_changed {
+                state.agent_poll_notify.notify_waiters();
+            }
 
             if new_dir != old_dir
                 && !new_dir.is_empty()
