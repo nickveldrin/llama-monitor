@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0](https://github.com/nmorgowicz-org/llama-monitor/compare/v0.10.2...v0.11.0) (2026-04-29)
+
+
+### Features
+
+* **chat:** UX overhaul — pagination, version display, and 18 enhancements ([#123](https://github.com/nmorgowicz-org/llama-monitor/issues/123)) ([a84bec0](https://github.com/nmorgowicz-org/llama-monitor/commit/a84bec047a082d11a302610fd7ea0c35fb12f490))
+
 ## [0.10.2](https://github.com/nmorgowicz-org/llama-monitor/compare/v0.10.1...v0.10.2) (2026-04-29)
 
 
