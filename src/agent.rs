@@ -167,6 +167,7 @@ pub struct RemoteAgentDetectResponse {
     pub latest_release: Option<LatestReleaseInfo>,
     pub matching_asset: Option<ReleaseAssetInfo>,
     pub update_available: bool,
+    pub agent_token: Option<String>,
     pub error: Option<String>,
 }
 
@@ -304,8 +305,7 @@ pub async fn run_agent_server(app_config: Arc<AppConfig>) -> Result<()> {
 
     let health = warp::path("health")
         .and(warp::get())
-        .and(auth.clone())
-        .map(|_| warp::reply::json(&serde_json::json!({ "ok": true })));
+        .map(|| warp::reply::json(&serde_json::json!({ "ok": true })));
 
     let info = {
         let info_bind_addr = bind_addr;
@@ -454,6 +454,7 @@ pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDe
             latest_release: None,
             matching_asset: None,
             update_available: false,
+            agent_token: None,
             error: Some("Missing SSH target".to_string()),
         };
     }
@@ -485,6 +486,12 @@ pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDe
             .await
             .ok()
             .flatten()
+    } else {
+        None
+    };
+
+    let agent_token = if ssh_ok {
+        read_remote_agent_token(&connection, remote_os).await
     } else {
         None
     };
@@ -551,6 +558,7 @@ pub async fn detect_remote_agent(req: RemoteAgentDetectRequest) -> RemoteAgentDe
         latest_release,
         matching_asset,
         update_available,
+        agent_token,
         error,
     }
 }
@@ -727,6 +735,10 @@ async fn maybe_autostart_remote_agent(
             return;
         }
     };
+
+    if connection.trusted_host_key.is_none() {
+        return;
+    }
 
     let remote_os = detect_remote_os_with(&connection).await;
     let default_install_path = default_install_path_for_os(remote_os);
@@ -1131,16 +1143,44 @@ async fn remote_file_exists_with(connection: &SshConnection, os: RemoteOs, path:
 }
 
 async fn agent_health_reachable(agent_url: &str) -> bool {
-    let Ok(resp) = reqwest::Client::new()
+    agent_health_reachable_with_token(agent_url, None).await
+}
+
+async fn agent_health_reachable_with_token(agent_url: &str, token: Option<&str>) -> bool {
+    let mut req = reqwest::Client::new()
         .get(format!("{}/health", agent_url.trim_end_matches('/')))
-        .timeout(Duration::from_secs(2))
-        .send()
-        .await
-    else {
+        .timeout(Duration::from_secs(2));
+    if let Some(t) = token {
+        req = req.bearer_auth(t);
+    }
+    let Ok(resp) = req.send().await else {
         return false;
     };
-
     resp.status().is_success()
+}
+
+async fn read_remote_agent_token(connection: &SshConnection, os: RemoteOs) -> Option<String> {
+    let command = match os {
+        RemoteOs::Windows => {
+            // Agent runs as SYSTEM; token lives in SYSTEM's roaming profile.
+            r#"cmd.exe /C "type "C:\Windows\System32\config\systemprofile\AppData\Roaming\llama-monitor\agent-token" 2>NUL""#
+                .to_string()
+        }
+        RemoteOs::Unix | RemoteOs::Macos => "cat ~/.config/llama-monitor/agent-token".to_string(),
+        RemoteOs::Unknown => return None,
+    };
+    match tokio::time::timeout(
+        Duration::from_secs(5),
+        remote_ssh::exec(connection.clone(), command),
+    )
+    .await
+    {
+        Ok(Ok(output)) if output.status == 0 => {
+            let token = output.stdout.trim().to_string();
+            if token.is_empty() { None } else { Some(token) }
+        }
+        _ => None,
+    }
 }
 
 async fn handle_agent_rejection(
@@ -1662,6 +1702,9 @@ Remove-Item -LiteralPath '{archive}' -Force -ErrorAction SilentlyContinue\"",
     async fn prepare_windows_install_target(connection: &SshConnection) -> Result<()> {
         let command = format!(
             "powershell.exe -NoProfile -NonInteractive -Command \" \
+Stop-ScheduledTask -TaskName '{WINDOWS_AGENT_TASK_NAME}' -ErrorAction SilentlyContinue; \
+Stop-ScheduledTask -TaskName '{WINDOWS_SENSOR_BRIDGE_TASK_NAME}' -ErrorAction SilentlyContinue; \
+Start-Sleep -Seconds 2; \
 Stop-Process -Name llama-monitor -Force -ErrorAction SilentlyContinue; \
 Stop-Process -Name sensor_bridge -Force -ErrorAction SilentlyContinue; \
 Unregister-ScheduledTask -TaskName '{WINDOWS_AGENT_TASK_NAME}' -Confirm:$false -ErrorAction SilentlyContinue; \
@@ -1714,6 +1757,7 @@ Start-Sleep -Seconds 2\""
         pub install_path: String,
         pub running: bool,
         pub health_reachable: bool,
+        pub agent_token: Option<String>,
         pub error: Option<String>,
     }
 
@@ -1724,6 +1768,7 @@ Start-Sleep -Seconds 2\""
         pub previous_version: Option<String>,
         pub new_version: Option<String>,
         pub updated: bool,
+        pub agent_token: Option<String>,
         pub error: Option<String>,
     }
 
@@ -1775,8 +1820,14 @@ Start-Sleep -Seconds 2\""
         command: &str,
     ) -> Result<RemoteAgentStartResponse> {
         let connection = ssh_connection.unwrap_or_else(|| SshConnection::from_target(ssh_target));
+        eprintln!(
+            "[agent] Starting remote agent on {} with command: {}",
+            connection.target_label(),
+            command
+        );
+        eprintln!("[agent] Install path: {}", install_path);
         let start_warning = match tokio::time::timeout(
-            Duration::from_secs(3),
+            Duration::from_secs(15),
             remote_ssh::exec(connection.clone(), command.to_string()),
         )
         .await
@@ -1794,18 +1845,35 @@ Start-Sleep -Seconds 2\""
                     install_path: install_path.to_string(),
                     running: false,
                     health_reachable: false,
+                    agent_token: None,
                     error: Some(error_msg),
                 });
             }
             Ok(Err(e)) => return Err(e),
             Err(_) => Some(
-                "Start command did not return within 3 seconds; checking agent health".to_string(),
+                "Start command did not return within 15 seconds; checking agent health".to_string(),
             ),
         };
 
-        let health_reachable = tokio::time::timeout(Duration::from_secs(10), async {
-            loop {
-                if agent_health_reachable(&connection.agent_url(REMOTE_AGENT_DEFAULT_PORT)).await {
+        // Read the token before health check so we can authenticate against
+        // older agent binaries that still require a Bearer token on /health.
+        let os_hint = if install_path.contains('\\')
+            || install_path.to_ascii_lowercase().contains("appdata")
+        {
+            RemoteOs::Windows
+        } else {
+            RemoteOs::Unix
+        };
+        let prefetched_token = read_remote_agent_token(&connection, os_hint).await;
+        let token_ref = prefetched_token.as_deref();
+
+        let agent_url = connection.agent_url(REMOTE_AGENT_DEFAULT_PORT);
+        eprintln!("[agent] Checking agent health at {}", agent_url);
+        let health_reachable = tokio::time::timeout(Duration::from_secs(20), async {
+            for i in 1..=20 {
+                eprintln!("[agent] Health check attempt {}/20...", i);
+                if agent_health_reachable_with_token(&agent_url, token_ref).await {
+                    eprintln!("[agent] Agent health check passed");
                     break;
                 }
                 tokio::time::sleep(Duration::from_secs(1)).await;
@@ -1817,7 +1885,7 @@ Start-Sleep -Seconds 2\""
 
         let error = if !running {
             let health_error = match health_reachable {
-                Err(tokio::time::error::Elapsed { .. }) => Some("Agent did not start within 10 seconds. Check if the agent is listening on 0.0.0.0:7779 and if the remote firewall allows inbound connections on port 7779.".to_string()),
+                Err(tokio::time::error::Elapsed { .. }) => Some("Agent did not start within 20 seconds. Check if the agent is listening on 0.0.0.0:7779 and if the remote firewall allows inbound connections on port 7779.".to_string()),
                 Ok(()) => None,
             };
             if health_error.is_some() {
@@ -1831,12 +1899,15 @@ Start-Sleep -Seconds 2\""
             None
         };
 
+        let agent_token = if running { prefetched_token } else { None };
+
         Ok(RemoteAgentStartResponse {
             ok: running,
             ssh_target: connection.target_label(),
             install_path: install_path.to_string(),
             running,
             health_reachable: running,
+            agent_token,
             error,
         })
     }
@@ -1862,6 +1933,7 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                agent_token: None,
                 error: Some("No matching asset for remote platform".to_string()),
             });
         }
@@ -1877,6 +1949,7 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                agent_token: None,
                 error: Some("Failed to stop agent before update".to_string()),
             });
         }
@@ -1897,6 +1970,7 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                agent_token: None,
                 error: Some("Failed to install updated agent".to_string()),
             });
         }
@@ -1915,6 +1989,7 @@ Start-Sleep -Seconds 2\""
             previous_version: remote_version,
             new_version: Some(latest_release.tag_name),
             updated: start_response.running,
+            agent_token: start_response.agent_token,
             error: if start_response.running {
                 None
             } else {

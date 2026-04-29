@@ -239,6 +239,16 @@ pub async fn llama_metrics_poller(state: AppState, poll_interval: u64) {
             }
         }
 
+        // Poll /v1/models — get model name
+        if let Ok(resp) = client.get(format!("{base}/v1/models")).send().await
+            && let Ok(body) = resp.text().await
+            && let Ok(json) = serde_json::from_str::<serde_json::Value>(&body)
+            && let Some(model_name) = json["data"][0]["id"].as_str()
+        {
+            let mut m = state.llama_metrics.lock().unwrap();
+            m.model_name = model_name.to_string();
+        }
+
         tokio::time::sleep(Duration::from_secs(poll_interval)).await;
     }
 }

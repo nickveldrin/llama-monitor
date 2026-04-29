@@ -552,10 +552,16 @@
 }
 
 .sidebar-nav.collapsed .sidebar-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 2px;
+  right: 2px;
   transform: none;
+  min-width: 16px;
+  height: 16px;
+  padding: 0;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
 }
 
 .sidebar-collapse-btn {
@@ -648,16 +654,29 @@
 }
 
 .sidebar-badge {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
   min-width: 6px;
-  padding: 2px 6px;
+  height: 18px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 999px;
   background: rgba(244, 63, 94, 0.18);
   color: #fecdd3;
   font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .content-area {
-  min-height: calc(100vh - var(--shell-top));
+  height: calc(100vh - var(--shell-top));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   margin-left: 208px;
   transition: margin-left 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -668,8 +687,11 @@ body.sidebar-collapsed .content-area {
 
 .page {
   display: none;
-  padding: var(--gap-lg);
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .page.active {
-  display: block;
+  display: flex;

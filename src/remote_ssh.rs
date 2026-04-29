@@ -175,6 +175,28 @@ impl SshConnection {
                 )
                 .context("SSH private key authentication failed")?;
         } else {
+            // Try default key paths before falling back to agent
+            if let Ok(home) = std::env::var("HOME") {
+                let default_keys = [
+                    format!("{home}/.ssh/id_ed25519"),
+                    format!("{home}/.ssh/id_rsa"),
+                    format!("{home}/.ssh/id_ecdsa"),
+                ];
+                for key in &default_keys {
+                    if Path::new(key).exists() {
+                        if let Err(e) =
+                            session.userauth_pubkey_file(&username, None, Path::new(key), None)
+                        {
+                            eprintln!("[ssh] Key auth failed for {}: {}", key, e);
+                            continue;
+                        }
+                        if session.authenticated() {
+                            return Ok(session);
+                        }
+                    }
+                }
+            }
+            // Fall back to SSH agent
             session
                 .userauth_agent(&username)
                 .context("SSH agent authentication failed")?;

@@ -31,6 +31,75 @@ use crate::presets::{self, ModelPreset};
 use crate::remote_ssh::{self, SshConnection};
 use crate::state::{self as app_state, AppState, SessionStatus, UiSettings};
 
+/// Chat message structure for persistence
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+    pub timestamp_ms: u64,
+    #[serde(default)]
+    pub input_tokens: Option<u64>,
+    #[serde(default)]
+    pub output_tokens: Option<u64>,
+    #[serde(default, alias = "cumulativeInputTokens")]
+    pub cumulative_input_tokens: Option<u64>,
+    #[serde(default, alias = "cumulativeOutputTokens")]
+    pub cumulative_output_tokens: Option<u64>,
+}
+
+/// Model parameters for a chat tab
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ChatModelParams {
+    pub temperature: f32,
+    pub top_p: f32,
+    pub top_k: u32,
+    pub min_p: f32,
+    pub repeat_penalty: f32,
+    pub max_tokens: Option<u32>,
+}
+
+impl Default for ChatModelParams {
+    fn default() -> Self {
+        Self {
+            temperature: 0.7,
+            top_p: 0.9,
+            top_k: 40,
+            min_p: 0.01,
+            repeat_penalty: 1.0,
+            max_tokens: None,
+        }
+    }
+}
+
+/// Chat tab structure for persistence
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct ChatTab {
+    pub id: String,
+    pub name: String,
+    pub system_prompt: String,
+    #[serde(default)]
+    pub ai_name: Option<String>,
+    #[serde(default)]
+    pub user_name: Option<String>,
+    #[serde(default)]
+    pub explicit_mode: Option<bool>,
+    pub messages: Vec<ChatMessage>,
+    #[serde(default)]
+    pub total_input_tokens: Option<u64>,
+    #[serde(default)]
+    pub total_output_tokens: Option<u64>,
+    pub model_params: ChatModelParams,
+    pub created_at: u64,
+    pub updated_at: u64,
+}
+
+fn chat_tabs_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("llama-monitor")
+        .join("chat-tabs.json")
+}
+
 fn api_check_lhm() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("api" / "lhm" / "check")
         .and(warp::get())
@@ -356,6 +425,9 @@ pub fn api_routes(
     let put_settings = api_put_settings(state.clone());
     let browse = api_browse();
     let chat = api_chat(state.clone());
+    let chat_abort = api_chat_abort(state.clone());
+    let get_chat_tabs = api_get_chat_tabs();
+    let put_chat_tabs = api_put_chat_tabs();
     let get_sessions = api_get_sessions(state.clone());
     let create_session = api_create_session(state.clone());
     let delete_session = api_delete_session(state.clone());
@@ -399,6 +471,9 @@ pub fn api_routes(
         .or(kill_llama)
         .or(browse)
         .or(chat)
+        .or(chat_abort)
+        .or(get_chat_tabs)
+        .or(put_chat_tabs)
         .or(get_sessions)
         .or(create_session)
         .or(delete_session)
@@ -1241,6 +1316,15 @@ fn api_chat(
                     .await
                     .map_err(|e| warp::reject::custom(ApiError(e.to_string())))?;
 
+                if !resp.status().is_success() {
+                    let status = resp.status();
+                    let err_body = resp.text().await.unwrap_or_default();
+                    return Err(warp::reject::custom(ApiError(format!(
+                        "upstream {}: {}",
+                        status, err_body
+                    ))));
+                }
+
                 let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
                 let stream = tokio_stream::wrappers::UnboundedReceiverStream::new(rx);
 
@@ -1288,6 +1372,91 @@ fn api_chat(
                 });
 
                 Ok::<_, warp::Rejection>(warp::sse::reply(stream))
+            }
+        })
+}
+
+fn api_chat_abort(
+    _state: AppState,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("api" / "chat" / "abort")
+        .and(warp::post())
+        .and_then(move || async move {
+            Ok::<_, warp::Rejection>(warp::reply::json(&serde_json::json!({"ok": true})))
+        })
+}
+
+fn api_get_chat_tabs() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+{
+    warp::path!("api" / "chat" / "tabs")
+        .and(warp::get())
+        .and_then(|| async move {
+            let path = chat_tabs_path();
+            if path.exists() {
+                match tokio::fs::read_to_string(&path).await {
+                    Ok(raw) => match serde_json::from_str::<Vec<ChatTab>>(&raw) {
+                        Ok(tabs) => Ok::<_, warp::Rejection>(warp::reply::json(&tabs)),
+                        Err(_) => {
+                            Ok::<_, warp::Rejection>(warp::reply::json(&Vec::<ChatTab>::new()))
+                        }
+                    },
+                    Err(_) => Ok::<_, warp::Rejection>(warp::reply::json(&Vec::<ChatTab>::new())),
+                }
+            } else {
+                Ok::<_, warp::Rejection>(warp::reply::json(&Vec::<ChatTab>::new()))
+            }
+        })
+}
+
+fn api_put_chat_tabs() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
+{
+    warp::path!("api" / "chat" / "tabs")
+        .and(warp::put())
+        .and(warp::body::bytes())
+        .and_then(|body: bytes::Bytes| async move {
+            let body_str = String::from_utf8_lossy(&body);
+            let tabs: Vec<ChatTab> = match serde_json::from_slice(&body) {
+                Ok(t) => t,
+                Err(e) => {
+                    eprintln!("Chat tabs deserialize error: {} (body preview: {})", e, &body_str[..body_str.len().min(500)]);
+                    return Ok::<Box<dyn warp::reply::Reply + Send + Sync>, warp::Rejection>(Box::new(
+                        warp::reply::with_status(
+                            warp::reply::json(&serde_json::json!({"ok": false, "error": e.to_string()})),
+                            warp::http::StatusCode::BAD_REQUEST,
+                        )
+                    ));
+                }
+            };
+            let path = chat_tabs_path();
+            // Protect against overwriting with fewer messages (stale frontend data)
+            let new_msg_count = tabs.iter().map(|t| t.messages.len()).sum::<usize>();
+            if let Ok(existing) = tokio::fs::read_to_string(&path).await
+                && let Ok(existing_tabs) = serde_json::from_str::<Vec<ChatTab>>(&existing)
+            {
+                let existing_msg_count = existing_tabs.iter().map(|t| t.messages.len()).sum::<usize>();
+                if new_msg_count < existing_msg_count && new_msg_count < 10 {
+                    eprintln!("Chat tabs: rejecting PUT - would lose {} messages ({} -> {})",
+                             existing_msg_count - new_msg_count, existing_msg_count, new_msg_count);
+                    return Ok::<Box<dyn warp::reply::Reply + Send + Sync>, warp::Rejection>(Box::new(
+                        warp::reply::with_status(
+                            warp::reply::json(&serde_json::json!({"ok": false, "error": "Would lose messages - rejecting stale data"})),
+                            warp::http::StatusCode::CONFLICT,
+                        )
+                    ));
+                }
+            }
+            match serde_json::to_string_pretty(&tabs) {
+                Ok(json) => match tokio::fs::write(&path, json).await {
+                    Ok(_) => Ok::<Box<dyn warp::reply::Reply + Send + Sync>, warp::Rejection>(Box::new(
+                        warp::reply::json(&serde_json::json!({"ok": true})),
+                    )),
+                    Err(e) => Ok::<Box<dyn warp::reply::Reply + Send + Sync>, warp::Rejection>(Box::new(
+                        warp::reply::json(&serde_json::json!({"ok": false, "error": e.to_string()})),
+                    )),
+                },
+                Err(e) => Ok::<Box<dyn warp::reply::Reply + Send + Sync>, warp::Rejection>(Box::new(
+                    warp::reply::json(&serde_json::json!({"ok": false, "error": e.to_string()})),
+                )),
             }
         })
 }
