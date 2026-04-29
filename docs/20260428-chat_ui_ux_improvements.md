@@ -944,24 +944,155 @@ This is a one-line change to the opacity value at chat.css line 639.
 
 ---
 
-## Summary of Priority Order
+### [XL] Chat History Pagination — Limit Visible Messages
 
-| Priority | Fix | Effort |
-|---|---|---|
-| 1 | Wire `#chat-typing` to `setChatBusyUI` | 5 min |
-| 2 | Fix `chatScroll()` force-scroll | 5 min |
-| 3 | Panel open/close animation (class-based) | 10 min |
-| 4 | Char count → token count with color warning | 10 min |
-| 5 | Token metadata symbol tooltips | 5 min |
-| 6 | Textarea height transition + layout thrash fix | 15 min |
-| 7 | Syntax highlighting (highlight.js) | 20 min |
-| 8 | Per-code-block copy button | 20 min |
-| 9 | Suggested prompts layout + stagger animation | 15 min |
-| 10 | Mobile header collapse | 20 min |
-| 11 | Tab bar overflow mask + keyboard shortcuts | 20 min |
-| 12 | Empty state personalization + icon float | 15 min |
-| 13 | Send button spinner | 15 min |
-| 14 | Model params dirty indicator | 15 min |
-| 15 | Code block header (lang + lines + copy) | 45 min |
-| 16 | Nord color palette alignment | 30 min |
-| 17 | Streaming border pulse + scroll badge + wow extras | 30 min |
+**What:** Long conversations with hundreds of messages cause browser memory bloat and slow rendering. The DOM accumulates all message elements indefinitely. Implement a message limit that shows only the most recent N messages (default: 15) with a "Load More" button to reveal older batches.
+
+**Why:** Reduces DOM node count, lowers memory usage, improves scroll performance, and prevents browser tab crashes on very long sessions.
+
+**Where:**
+- `static/app.js` — `renderChatMessages()` (line 6369), `chatScroll()` (line 6324)
+- `static/index.html` — add "Load More" button above message thread
+- `static/css/chat.css` — add `.chat-load-more` styles
+
+**How:**
+
+Add a `visible_message_limit` field to the `ChatTab` interface (stored in `chat-tabs.json`). Default: `15`.
+
+In `renderChatMessages()`, slice the messages array before rendering:
+
+```js
+function renderChatMessages() {
+    const tab = activeChatTab();
+    if (!tab) return;
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+
+    const limit = tab.visible_message_limit || 15;
+    const totalMessages = tab.messages.filter(m => m.role !== 'system').length;
+    const isPaginated = totalMessages > limit;
+
+    // Show only the most recent N messages
+    const allMessages = tab.messages.filter(m => m.role !== 'system');
+    const visibleMessages = isPaginated
+        ? allMessages.slice(-limit)
+        : allMessages;
+
+    // Render messages (existing logic, but use visibleMessages instead of tab.messages)
+    container.innerHTML = '';
+    if (visibleMessages.length === 0) {
+        // ... existing empty state logic ...
+    } else {
+        visibleMessages.forEach(m => {
+            const el = buildMessageElement(m, tab);
+            container.appendChild(el);
+        });
+    }
+
+    // Add "Load More" button if paginated
+    if (isPaginated) {
+        const loadMoreBtn = document.createElement('button');
+        loadMoreBtn.className = 'chat-load-more';
+        loadMoreBtn.innerHTML = `
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12l7 7 7-7"/>
+            </svg>
+            Load ${Math.min(limit, totalMessages - limit)} older messages
+        `;
+        loadMoreBtn.onclick = () => loadMoreMessages(tab, limit);
+        container.insertBefore(loadMoreBtn, container.firstChild);
+    }
+}
+```
+
+Add the `loadMoreMessages()` function:
+
+```js
+function loadMoreMessages(tab, limit) {
+    const allMessages = tab.messages.filter(m => m.role !== 'system');
+    const currentVisible = allMessages.slice(-limit);
+    const olderMessages = allMessages.slice(0, -limit);
+
+    // Prepend older messages to the visible set
+    // Re-render with expanded limit (double it each time, up to total)
+    tab.visible_message_limit = Math.min(tab.visible_message_limit * 2, allMessages.length);
+    renderChatMessages();
+
+    // Scroll to maintain position (don't jump to bottom)
+    const container = document.getElementById('chat-messages');
+    if (container) {
+        container.scrollTop = 0; // Stay at top where load-more button was
+    }
+}
+```
+
+Add a settings control in the system prompt panel to adjust the limit:
+
+```html
+<!-- In static/index.html, inside #chat-system-panel -->
+<label class="modal-field">
+    Visible message limit
+    <input type="number" id="chat-msg-limit" min="5" max="200" step="5"
+           value="15" oninput="onMessageLimitChange(+this.value)">
+    <span class="modal-help">Show only the most recent N messages. Older messages are hidden to improve performance.</span>
+</label>
+```
+
+Add CSS for the load-more button:
+
+```css
+.chat-load-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0 auto 12px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.chat-load-more:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: var(--text-secondary);
+}
+```
+
+**Important:** The full message history is still preserved in `tab.messages` and persisted to `chat-tabs.json`. Only the rendering is limited. Export, search, and API access still see all messages.
+
+---
+
+## Implementation Status
+
+| # | Fix | Status | Notes |
+|---|---|---|---|
+| 1 | Wire `#chat-typing` to `setChatBusyUI` | ✅ Done | Removed inline-dot injection |
+| 2 | Fix `chatScroll()` force-scroll | ✅ Done | Smart scroll with `distFromBottom < 80` |
+| 3 | Panel open/close animation (class-based) | ✅ Done | `.open` class replaces `display:none`; `style="display:none;"` removed from HTML |
+| 4 | Char count → token count with color warning | ✅ Done | Warning at 800+, error at 1500+ |
+| 5 | Token metadata symbol tooltips | ✅ Done | `title` attr set on meta elements in `buildMessageElement` and `finalizeAssistantMessage` |
+| 6 | Textarea height transition + layout thrash fix | ✅ Done | `requestAnimationFrame` separates reset from final height; CSS `transition: height 0.1s` added |
+| 7 | Syntax highlighting (highlight.js) | ✅ Done | hljs CDN loaded; `renderMdStreaming()` passes `new marked.Renderer()` to bypass the global hljs renderer during streaming; `finalizeAssistantMessage()` runs `hljs.highlightElement()` on finalized blocks |
+| 8 | Per-code-block copy button | ✅ Done | DOM decoration in `finalizeAssistantMessage()` |
+| 9 | Suggested prompts layout + stagger animation | ✅ Done | 2-column grid, per-card `animation-delay`, hover left accent bar |
+| 10 | Mobile header collapse | ✅ Done | `@media (max-width: 768px)` hides `.chat-name-inputs` and `.chat-font-controls` |
+| 11 | Tab bar overflow mask + keyboard shortcuts | ✅ Done | CSS `mask-image` fade + `updateTabBarOverflowMask()`; Ctrl+1–9 and Ctrl+Shift+Arrow tab switching |
+| 12 | Empty state personalization + icon float | ✅ Done | Uses `tab.ai_name` + `lastLlamaMetrics.model_name`; `@keyframes chat-icon-float` added |
+| 13 | Send button spinner | ✅ Done | `setChatBusyUI()` swaps SVG icon; `@keyframes chat-send-spin` added |
+| 14 | Model params dirty indicator | ✅ Done | `updateParamsDirtyIndicator()` toggles `.has-active-params` on `#btn-model-params`; dot indicator via `::before` |
+| 15 | Code block header (lang + lines + copy) | ✅ Done | DOM decoration in `finalizeAssistantMessage()` wraps `<pre>` in `.chat-code-block` with `.chat-code-header` |
+| 16 | Nord color palette alignment | ✅ Done | Blockquotes → `rgba(136,192,208,0.45)`; avatars → Nord blue/green; streaming border → `#88c0d0` |
+| 17 | Streaming border pulse + scroll badge + wow extras | ✅ Done | `@keyframes streaming-border-pulse`; `#chat-scroll-badge` unread counter; hover-reveal timestamps; Nord focus glow on textarea |
+| 18 | Chat history pagination | ✅ Done | `tab.visible_message_limit` (default 15) persisted per-tab; `loadMoreMessages()` doubles limit; `onMessageLimitChange()` settings input; `.chat-load-more` button |
+
+### Implementation Notes
+
+**Item 7 — `renderMdStreaming` and hljs**: The spec described creating a separate non-highlighting render path for streaming. In the implementation, `marked.setOptions({ renderer })` sets the hljs renderer globally. Passing `{ gfm: true, breaks: true }` alone to `marked.parse()` does **not** override the global renderer in marked v4 — the renderer merges with global state. The fix is to explicitly pass `renderer: new marked.Renderer()` in `renderMdStreaming()` to reset to the default renderer for streaming calls only. This was corrected during code review.
+
+**Item 18 — Pagination state**: `visible_message_limit` is stored on the tab object and persisted to `chat-tabs.json` via `scheduleChatPersist()`. Switching tabs preserves each tab's own limit independently. The full `tab.messages` array is always intact — only rendering is windowed.
