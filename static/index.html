@@ -559,7 +559,7 @@
         </div>
 
         <!-- Page: Chat -->
-        <div class="page" id="page-chat">
+        <div class="page chat-page" id="page-chat">
 
             <!-- Tab bar -->
             <div class="chat-tab-bar" id="chat-tab-bar">
@@ -586,14 +586,81 @@
                         </svg>
                         <span class="chat-header-label">Settings</span>
                     </button>
+                    <button class="chat-header-btn chat-style-btn" id="btn-chat-style" onclick="toggleStylePanel()" title="Chat style">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                        </svg>
+                        <span class="chat-header-label" id="chat-style-label">Rounded</span>
+                        <span class="chat-style-dot"></span>
+                    </button>
+                    <div class="chat-name-inputs">
+                        <div class="chat-name-pill"><span class="chat-name-label">AI</span><input type="text" class="chat-name-input" id="chat-ai-name" placeholder="Name" oninput="updateChatName('ai_name', this.value)" /></div>
+                        <div class="chat-name-pill"><span class="chat-name-label">You</span><input type="text" class="chat-name-input" id="chat-user-name" placeholder="Name" oninput="updateChatName('user_name', this.value)" /></div>
+                        <button class="chat-explicit-toggle" id="chat-explicit-toggle-footer" onclick="toggleExplicitMode()" title="Allow explicit content">
+                            <svg class="chat-explicit-icon-locked" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                            </svg>
+                            <svg class="chat-explicit-icon-unlocked" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div class="chat-header-right">
+                    <div class="chat-font-controls">
+                        <button class="chat-font-btn" onclick="adjustChatFont(-1)" title="Decrease font size">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12h14"/></svg>
+                        </button>
+                        <span class="chat-font-value" id="chat-font-value">100%</span>
+                        <button class="chat-font-btn" onclick="adjustChatFont(1)" title="Increase font size">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M5 12h14"/></svg>
+                        </button>
+                    </div>
                     <button class="chat-header-btn" onclick="exportChatTab()" title="Save conversation as file">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
                         </svg>
                         <span class="chat-header-label">Export</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- Style panel -->
+            <div class="chat-style-panel" id="chat-style-panel" style="display:none;">
+                <div class="chat-style-panel-header">Chat Style</div>
+                <div class="chat-style-grid">
+                    <div class="chat-style-card" data-style="rounded" onclick="selectChatStyle('rounded')">
+                        <div class="chat-style-preview chat-style-preview-rounded">
+                            <div class="chat-style-bubble-user">Hello there!</div>
+                            <div class="chat-style-bubble-ai">Nice to meet you.</div>
+                        </div>
+                        <div class="chat-style-name">Rounded</div>
+                        <div class="chat-style-desc">Classic bubbles with avatars</div>
+                    </div>
+                    <div class="chat-style-card" data-style="compact" onclick="selectChatStyle('compact')">
+                        <div class="chat-style-preview chat-style-preview-compact">
+                            <div class="chat-style-bubble-user">Hello there!</div>
+                            <div class="chat-style-bubble-ai">Nice to meet you.</div>
+                        </div>
+                        <div class="chat-style-name">Compact</div>
+                        <div class="chat-style-desc">Tight, no avatars</div>
+                    </div>
+                    <div class="chat-style-card" data-style="minimal" onclick="selectChatStyle('minimal')">
+                        <div class="chat-style-preview chat-style-preview-minimal">
+                            <div class="chat-style-bubble-user">Hello there!</div>
+                            <div class="chat-style-bubble-ai">Nice to meet you.</div>
+                        </div>
+                        <div class="chat-style-name">Minimal</div>
+                        <div class="chat-style-desc">Clean text, no bubbles</div>
+                    </div>
+                    <div class="chat-style-card" data-style="bubbly" onclick="selectChatStyle('bubbly')">
+                        <div class="chat-style-preview chat-style-preview-bubbly">
+                            <div class="chat-style-bubble-user">Hello there!</div>
+                            <div class="chat-style-bubble-ai">Nice to meet you.</div>
+                        </div>
+                        <div class="chat-style-name">Bubbly</div>
+                        <div class="chat-style-desc">Playful, fully rounded</div>
+                    </div>
                 </div>
             </div>
 
@@ -608,16 +675,24 @@
                             </svg>
                             Copy Settings
                         </button>
-                        <select class="chat-template-select" onchange="applySystemPromptTemplate(this.value)">
+                        <select class="chat-template-select" id="chat-template-select" onchange="applySystemPromptTemplate(this.value)">
                             <option value="">— Templates —</option>
                             <option value="">None</option>
-                            <option value="You are a helpful, concise assistant. Provide clear, accurate answers.">Helpful Assistant</option>
-                            <option value="You are an expert programming assistant. Provide code examples with explanations. Follow best practices and security guidelines.">Coding Assistant</option>
-                            <option value="You are a creative writing assistant. Help with storytelling, poetry, and creative content. Be imaginative and expressive.">Creative Writer</option>
-                            <option value="You are a data analysis assistant. Help with data interpretation, statistics, and visualization recommendations.">Data Analyst</option>
-                            <option value="You are a patient teacher. Explain concepts clearly, use examples, and check understanding. Adapt to the learner's level.">Teacher/Tutor</option>
-                            <option value="You are a skilled debater. Present arguments logically, acknowledge counterpoints, and maintain respectful discourse.">Debater</option>
                         </select>
+                        <button class="chat-template-mgmt-btn" onclick="openTemplateManager()" title="Manage templates">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14"/>
+                            </svg>
+                            Manage
+                        </button>
+                        <button class="chat-explicit-toggle" id="chat-explicit-toggle-settings" onclick="toggleExplicitMode()" title="Allow explicit content">
+                            <svg class="chat-explicit-icon-locked" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+                            </svg>
+                            <svg class="chat-explicit-icon-unlocked" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 019.9-1"/>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <textarea id="chat-system-input" rows="3" placeholder="You are a helpful assistant…" oninput="onSystemPromptChange()"></textarea>
@@ -645,7 +720,7 @@
                 <div class="chat-params-grid">
                     <label>
                         <span class="chat-param-label">
-                            Creativity
+                            Creativity <span class="chat-param-technical">temperature</span>
                             <span class="chat-param-tooltip" title="How random or focused the responses are (0 = focused, 2 = creative)">?</span>
                         </span>
                         <input type="range" id="param-temperature" min="0" max="2" step="0.05" oninput="onParamChange('temperature', +this.value)">
@@ -653,7 +728,7 @@
                     </label>
                     <label>
                         <span class="chat-param-label">
-                            Variety
+                            Variety <span class="chat-param-technical">top_p</span>
                             <span class="chat-param-tooltip" title="Controls the range of words the model considers (0.9 = good balance)">?</span>
                         </span>
                         <input type="range" id="param-top-p" min="0" max="1" step="0.01" oninput="onParamChange('top_p', +this.value)">
@@ -724,9 +799,13 @@
                     </button>
                 </div>
                 <div class="chat-textarea-wrap">
-                    <textarea id="chat-input" rows="1" placeholder="Send a message… (Enter to send, Shift+Enter for newline)" oninput="autoResizeChatInput()"></textarea>
+                    <textarea id="chat-input" rows="1" placeholder="Send a message…" oninput="autoResizeChatInput()"></textarea>
                     <span class="chat-char-count" id="chat-char-count"></span>
                 </div>
+                <label class="chat-enter-toggle" data-tooltip="Enter sends message" title="Toggle: Enter sends message">
+                    <input type="checkbox" id="chat-enter-toggle-input" onchange="onEnterToggleChange(this.checked)">
+                    <span class="chat-enter-toggle-label">↵</span>
+                </label>
                 <button class="btn-chat-send" id="btn-send" onclick="sendChat()">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
@@ -744,6 +823,25 @@
             </div>
         </div>
     </main>
+
+<!-- Template Manager Modal -->
+<div class="modal-overlay" id="template-manager-modal" style="z-index:1300;">
+    <div class="modal template-manager-modal" style="width:720px;">
+        <div class="modal-header">
+            <h2>System Prompt Templates</h2>
+            <button type="button" class="modal-close" onclick="closeTemplateManager()" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body template-manager-body">
+            <div class="template-manager-sidebar">
+                <div class="template-manager-list" id="template-list"></div>
+                <button class="template-new-btn" onclick="newTemplate()">+ New Template</button>
+            </div>
+            <div class="template-manager-preview" id="template-preview">
+                <div class="template-preview-empty">Select a template to preview</div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Config Modal -->
 <div class="modal-overlay" id="config-modal">
@@ -1922,6 +2020,15 @@
                         <input type="range" id="pref-spacing-scale" min="0.8" max="1.4" step="0.1" value="1">
                         <div class="range-value" id="pref-spacing-scale-value">1.0x</div>
                     </label>
+                    <label class="modal-field">
+                        Chat Style
+                        <select id="pref-chat-style">
+                            <option value="rounded">Rounded (Default)</option>
+                            <option value="compact">Compact</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="bubbly">Bubbly</option>
+                        </select>
+                    </label>
                 </div>
                 
                 <div class="personalization-section">
@@ -1941,6 +2048,7 @@
                         <label class="chk"><input type="checkbox" id="pref-data-collection"> Send anonymous usage data</label>
                         <label class="chk"><input type="checkbox" id="pref-show-toasts" checked> Show toast notifications</label>
                         <label class="chk"><input type="checkbox" id="pref-save-history" checked> Save chat history</label>
+                        <label class="chk"><input type="checkbox" id="pref-enter-to-send" checked> Enter to send (Shift+Enter for newline)</label>
                     </div>
                 </div>
                 
@@ -1964,6 +2072,10 @@
 
 <div class="toast-container" id="toast-container"></div>
 
-    <script src="/app.js"></script>
+<button class="chat-scroll-bottom" id="chat-scroll-bottom" onclick="chatScroll()" title="Scroll to bottom">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+</button>
+
+    <script src="/app.js?v=20240428"></script>
 </body>
 </html>

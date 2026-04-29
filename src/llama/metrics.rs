@@ -40,6 +40,7 @@ pub struct LlamaMetrics {
     pub slots: Vec<SlotSnapshot>,
     pub requests_processing: u32,
     pub status: String,
+    pub model_name: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize)]
