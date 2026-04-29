@@ -644,10 +644,14 @@ pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
                 },
                 Ok(resp) => {
                     mark_disconnected(&state);
-                    eprintln!(
-                        "[agent] Remote metrics request failed: HTTP {}",
-                        resp.status()
-                    );
+                    if resp.status() == reqwest::StatusCode::UNAUTHORIZED && token.is_none() {
+                        eprintln!("[agent] Remote agent not yet authenticated (no token set)");
+                    } else {
+                        eprintln!(
+                            "[agent] Remote metrics request failed: HTTP {}",
+                            resp.status()
+                        );
+                    }
                     maybe_autostart_remote_agent(
                         &state,
                         &app_config,
@@ -674,7 +678,10 @@ pub async fn remote_agent_poller(state: AppState, app_config: Arc<AppConfig>) {
             enabled = false;
         }
 
-        tokio::time::sleep(REMOTE_AGENT_POLL_INTERVAL).await;
+        tokio::select! {
+            _ = tokio::time::sleep(REMOTE_AGENT_POLL_INTERVAL) => {}
+            _ = state.agent_poll_notify.notified() => {}
+        }
     }
 }
 
@@ -798,6 +805,8 @@ async fn maybe_autostart_remote_agent(
         if s.remote_agent_token.is_empty() {
             s.remote_agent_token = token;
             let _ = crate::state::save_ui_settings(&state.ui_settings_path, &s);
+            drop(s);
+            state.agent_poll_notify.notify_waiters();
         }
     }
 }
