@@ -1784,6 +1784,8 @@ Start-Sleep -Seconds 2\""
         pub previous_version: Option<String>,
         pub new_version: Option<String>,
         pub updated: bool,
+        pub running: bool,
+        pub health_reachable: bool,
         pub agent_token: Option<String>,
         pub error: Option<String>,
     }
@@ -1962,6 +1964,8 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                running: false,
+                health_reachable: false,
                 agent_token: None,
                 error: Some("No matching asset for remote platform".to_string()),
             });
@@ -1978,6 +1982,8 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                running: false,
+                health_reachable: false,
                 agent_token: None,
                 error: Some("Failed to stop agent before update".to_string()),
             });
@@ -1999,6 +2005,8 @@ Start-Sleep -Seconds 2\""
                 previous_version: remote_version,
                 new_version: Some(latest_release.tag_name),
                 updated: false,
+                running: false,
+                health_reachable: false,
                 agent_token: None,
                 error: Some("Failed to install updated agent".to_string()),
             });
@@ -2018,6 +2026,8 @@ Start-Sleep -Seconds 2\""
             previous_version: remote_version,
             new_version: Some(latest_release.tag_name),
             updated: start_response.running,
+            running: start_response.running,
+            health_reachable: start_response.health_reachable,
             agent_token: start_response.agent_token,
             error: if start_response.running {
                 None

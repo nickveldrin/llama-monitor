@@ -2920,16 +2920,12 @@ async function remoteAgentUpdate() {
 
     setRemoteAgentButtonsDisabled(true);
     addTimelineItem('Update started', 'pending');
-    showRemoteAgentProgress('Stopping and updating agent...', 5, 100);
+    showRemoteAgentProgress('Checking for update...', 5, 100);
 
     try {
 
-        await remoteAgentStop();
-
-        showRemoteAgentProgress('Agent stopped, installing update...', 20, 100);
-
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
+        // Pre-flight detect: validates a matching release asset exists and
+        // saves the current token so the poller stays authenticated if update fails.
         const detectData = await remoteAgentDetect(true);
 
         if (!detectData.ok || !detectData.matching_asset) {
@@ -2947,6 +2943,8 @@ async function remoteAgentUpdate() {
             return;
 
         }
+
+        showRemoteAgentProgress('Stopping, installing, and starting agent...', 20, 100);
 
         const resp = await fetch('/api/remote-agent/update', {
 
@@ -2973,11 +2971,28 @@ async function remoteAgentUpdate() {
 
         }
 
-        addTimelineItem('Update completed', 'completed');
-        showRemoteAgentProgress('Agent updated successfully', 80, 100);
+        addTimelineItem('Agent updated and started', 'completed');
+        maybeAutoSaveAgentToken(data.agent_token);
+        showRemoteAgentProgress('Agent updated successfully', 100, 100);
 
         setTimeout(() => {
-            remoteAgentStart();
+            hideRemoteAgentProgress();
+            setRemoteAgentButtonsDisabled(false);
+
+            let message = 'Agent updated to ' + escapeHtml(data.new_version || 'latest');
+            if (data.health_reachable) {
+                message += ' and is reachable';
+            } else {
+                message += ', but HTTP is not reachable (firewall blocked)';
+            }
+            setRemoteAgentStatus(message, data.health_reachable ? 'ok' : 'warning');
+
+            if (!data.health_reachable) {
+                showRemoteAgentFirewall();
+            }
+
+            updateRemoteAgentPanelState({ ...detectData, ...data, installed: true });
+
         }, 500);
 
     } catch (err) {
