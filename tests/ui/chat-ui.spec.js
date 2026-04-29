@@ -40,11 +40,11 @@ test.describe('chat UI shell', () => {
   test('Ctrl+Shift+ArrowRight cycles to next tab', async ({ page }) => {
     await page.locator('.chat-tab-add').click();
     const tabs = page.locator('.chat-tab');
-    // First tab should be active
-    await expect(tabs.first()).toHaveClass(/active/);
-    await page.keyboard.press('Control+Shift+ArrowRight');
-    // Second tab should now be active
+    // New tab becomes active automatically
     await expect(tabs.nth(1)).toHaveClass(/active/);
+    await page.keyboard.press('Control+Shift+ArrowRight');
+    // Cycles back to first tab
+    await expect(tabs.first()).toHaveClass(/active/);
   });
 
   test('shows chat header controls', async ({ page }) => {
