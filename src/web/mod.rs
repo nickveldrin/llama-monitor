@@ -309,6 +309,193 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
                 "application/javascript",
             )
         });
+    let js_features_animate = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("animate.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_ANIMATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_params = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-params.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_PARAMS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_render = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-render.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_RENDER_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_state = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-state.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_STATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_templates = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-templates.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_TEMPLATES_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_transport = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-transport.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_TRANSPORT_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_config = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("config.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CONFIG_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_lhm = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("lhm.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_LHM_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_models = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("models.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_MODELS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_nav = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("nav.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_NAV_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_remote_agent = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("remote-agent.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_REMOTE_AGENT_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_sensor_bridge = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("sensor-bridge.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SENSOR_BRIDGE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_settings = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("settings.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SETTINGS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_setup_view = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("setup-view.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SETUP_VIEW_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_shortcuts = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("shortcuts.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SHORTCUTS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_updates = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("updates.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_UPDATES_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_user_menu = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("user-menu.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_USER_MENU_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
 
     let manifest = warp::path("manifest.json").and(warp::get()).map(|| {
         warp::reply::with_header(
@@ -360,6 +547,23 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .or(js_features_presets)
         .or(js_features_sessions)
         .or(js_features_attach_detach)
+        .or(js_features_animate)
+        .or(js_features_chat_params)
+        .or(js_features_chat_render)
+        .or(js_features_chat_state)
+        .or(js_features_chat_templates)
+        .or(js_features_chat_transport)
+        .or(js_features_config)
+        .or(js_features_lhm)
+        .or(js_features_models)
+        .or(js_features_nav)
+        .or(js_features_remote_agent)
+        .or(js_features_sensor_bridge)
+        .or(js_features_settings)
+        .or(js_features_setup_view)
+        .or(js_features_shortcuts)
+        .or(js_features_updates)
+        .or(js_features_user_menu)
         .or(lhm_js)
         .or(manifest)
         .or(sw)
