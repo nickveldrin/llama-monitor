@@ -199,6 +199,62 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         )
     });
 
+    // Module bootstrap and supporting files (Phase 1 of app.js refactor)
+    let js_bootstrap = warp::path("js")
+        .and(warp::path("bootstrap.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::BOOTSTRAP_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_compat_globals = warp::path("js")
+        .and(warp::path("compat"))
+        .and(warp::path("globals.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::COMPAT_GLOBALS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_core_format = warp::path("js")
+        .and(warp::path("core"))
+        .and(warp::path("format.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::CORE_FORMAT_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_core_app_state = warp::path("js")
+        .and(warp::path("core"))
+        .and(warp::path("app-state.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::CORE_APP_STATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_core_init_state = warp::path("js")
+        .and(warp::path("core"))
+        .and(warp::path("init-state.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::CORE_INIT_STATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+
     let manifest = warp::path("manifest.json").and(warp::get()).map(|| {
         warp::reply::with_header(
             static_assets::MANIFEST_JSON,
@@ -239,6 +295,11 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .or(css_setup_view)
         .or(css_settings_modal)
         .or(js)
+        .or(js_bootstrap)
+        .or(js_compat_globals)
+        .or(js_core_format)
+        .or(js_core_app_state)
+        .or(js_core_init_state)
         .or(lhm_js)
         .or(manifest)
         .or(sw)

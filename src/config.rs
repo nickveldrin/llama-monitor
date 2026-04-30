@@ -35,13 +35,11 @@ impl AppConfig {
         let default_server_path = PathBuf::from("llama-server");
         let default_server_cwd = PathBuf::from(".");
 
-        let config_dir = args
-            .config_dir
-            .unwrap_or_else(|| {
-                dirs::config_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join("llama-monitor")
-            });
+        let config_dir = args.config_dir.unwrap_or_else(|| {
+            dirs::config_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("llama-monitor")
+        });
 
         // Register config dir for chat_tabs_path()
         crate::web::api::set_config_dir(config_dir.clone());

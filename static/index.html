@@ -837,6 +837,13 @@
                             </span>
                             <input type="number" id="param-max-tokens" min="0" step="64" placeholder="Unlimited" oninput="onParamChange('max_tokens', this.value ? +this.value : null)">
                         </label>
+                        <label class="chat-param-label">
+                            <span>
+                                Stream Timeout
+                                <span class="chat-param-tooltip" title="Auto-stop if no visible response for this many seconds (0 = disabled). Catches models stuck in thinking loops.">?</span>
+                            </span>
+                            <input type="number" id="param-stream-timeout" min="0" step="10" placeholder="120" oninput="onParamChange('stream_timeout', +this.value)">
+                        </label>
                     </div>
                 </div>
             </div>
@@ -2143,7 +2150,9 @@
     <span class="chat-scroll-badge" id="chat-scroll-badge" style="display:none;"></span>
 </button>
 
+    <script src="/js/core/init-state.js?v=20260430"></script>
     <script src="/app.js?v=20240428"></script>
+    <script type="module" src="/js/bootstrap.js?v=20260430"></script>
 <!-- Release Notes Panel -->
 <div id="release-notes-overlay" class="modal-overlay" style="z-index:1399;" onclick="closeReleaseNotes()"></div>
 <div id="release-notes-panel" class="slide-panel">

@@ -543,62 +543,19 @@ window.liveOutputTracker = {
 };
 
 
-let remoteAgentInProgress = false;
-
-let remoteAgentSshConnection = null;
-let latestSshHostKey = null;
-
-
-
-let lastServerState = null;
-
-let lastLlamaMetrics = null;
-
-let lastSystemMetrics = null;
-
-let lastGpuMetrics = null;
-
-let lastCapabilities = null;
-
-let currentPollInterval = 5000;
-
-
-
-   let presets = [];
-
-    let serverRunning = false;
-
-    let prevLogLen = 0;
-
-    
-
-    let sessions = [];
-
-    let activeSessionId = 'default';
-
-    let activeSessionPort = 8080;
-
-
-
 // --- Settings Persistence (backend) ---
 
-
-
-let settingsSaveTimer = null;
 let systemPromptToastTimer = null;
 let paramToastTimer = null;
 
-// Dirty state tracking for settings modal
-let settingsIsDirty = false;
-
 function markSettingsDirty() {
-    settingsIsDirty = true;
+    window.window.window.settingsIsDirty = true;
     const indicator = document.querySelector('#settings-modal .dirty-indicator');
     if (indicator) indicator.classList.add('visible');
 }
 
 function clearSettingsDirty() {
-    settingsIsDirty = false;
+    window.window.window.settingsIsDirty = false;
     const indicator = document.querySelector('#settings-modal .dirty-indicator');
     if (indicator) indicator.classList.remove('visible');
 }
@@ -690,7 +647,7 @@ function saveSettings() {
 
     // Debounce: wait 400ms of inactivity before saving
 
-    clearTimeout(settingsSaveTimer);
+    clearTimeout(window.settingsSaveTimer);
 
     // Ripple effect on save button
     const saveBtn = document.querySelector('#settings-modal .btn-modal-save');
@@ -717,7 +674,7 @@ function saveSettings() {
     // Clear dirty indicator
     clearSettingsDirty();
 
-    settingsSaveTimer = setTimeout(() => {
+    window.window.settingsSaveTimer = setTimeout(() => {
 
         fetch('/api/settings', {
 
@@ -812,7 +769,7 @@ if (sshTargetInput) {
 
     sshTargetInput.addEventListener('input', () => {
 
-        remoteAgentSshConnection = null;
+        window.window.remoteAgentSshConnection = null;
         clearRemoteAgentValidation();
         setRemoteAgentStatus('SSH target set. Click <strong>Check Host</strong>, <strong>Install & Start</strong>, or <strong>Start Agent</strong> when you are ready.', 'info');
 
@@ -843,19 +800,19 @@ if (endpointStatus && endpointStatusWrap) {
 
 
 
-// Load presets and populate dropdown
+// Load window.presets and populate dropdown
 
 async function loadPresets(selectId) {
 
     const [presetsResp, settingsResp] = await Promise.all([
 
-        fetch('/api/presets'),
+        fetch('/api/window.presets'),
 
         selectId === undefined ? fetch('/api/settings') : Promise.resolve(null),
 
     ]);
 
-    presets = await presetsResp.json();
+    window.window.presets = await presetsResp.json();
 
     const saved = settingsResp ? await settingsResp.json() : null;
 
@@ -865,7 +822,7 @@ async function loadPresets(selectId) {
 
     sel.innerHTML = '';
 
-    presets.forEach(p => {
+    window.presets.forEach(p => {
 
         const opt = document.createElement('option');
 
@@ -881,13 +838,13 @@ async function loadPresets(selectId) {
 
     const targetId = selectId ?? (saved?.preset_id || null);
 
-    if (targetId && presets.find(p => p.id === targetId)) {
+    if (targetId && window.presets.find(p => p.id === targetId)) {
 
         sel.value = targetId;
 
-    } else if (presets.length > 0) {
+    } else if (window.presets.length > 0) {
 
-        sel.value = presets[0].id;
+        sel.value = window.presets[0].id;
 
     }
 
@@ -1832,7 +1789,7 @@ function openUserPreferencesModal(event) {
     event?.preventDefault();
     closeUserMenu();
     const enterCheckbox = document.getElementById('pref-enter-to-send');
-    if (enterCheckbox) enterCheckbox.checked = enterToSend;
+    if (enterCheckbox) enterCheckbox.checked = window.enterToSend;
     document.getElementById('user-preferences-modal')?.classList.add('open');
 }
 
@@ -1854,8 +1811,8 @@ function saveUserPreferences() {
     applyChatStyle(chatStyle);
     localStorage.setItem('llama-monitor-chat-style', chatStyle);
 
-    enterToSend = enterToSendChecked;
-    localStorage.setItem('llama-monitor-enter-to-send', enterToSend ? 'true' : 'false');
+    window.window.enterToSend = enterToSendChecked;
+    localStorage.setItem('llama-monitor-enter-to-send', window.enterToSend ? 'true' : 'false');
 
     localStorage.setItem('llama-monitor-preferences', JSON.stringify({
         theme,
@@ -1969,7 +1926,7 @@ async function loadModels() {
                 '<div class="model-meta">' + escapeHtml(model.filename) + '</div></div>' +
                 '<div class="model-meta">' + escapeHtml(meta) + '</div>' +
                 '</div>';
-        }).join('') : '<div class="model-item"><div class="model-name">No models discovered</div><div class="model-meta">Configure --models-dir or model paths in presets.</div></div>';
+        }).join('') : '<div class="model-item"><div class="model-name">No models discovered</div><div class="model-meta">Configure --models-dir or model paths in window.presets.</div></div>';
     } catch (err) {
         summary.textContent = 'Failed to load models';
         list.innerHTML = '<div class="model-item"><div class="model-name">Error</div><div class="model-meta">' + escapeHtml(err.message) + '</div></div>';
@@ -2010,7 +1967,7 @@ function saveConfig() {
 
     // Save server paths via settings
 
-    clearTimeout(settingsSaveTimer);
+    clearTimeout(window.settingsSaveTimer);
 
     fetch('/api/settings', {
 
@@ -2227,12 +2184,12 @@ async function scanSshHostKey() {
         });
         const data = await resp.json();
         if (!data.ok) {
-            latestSshHostKey = null;
+            window.window.latestSshHostKey = null;
             if (hostKeyEl) hostKeyEl.textContent = 'Host-key scan failed: ' + (data.error || 'unknown error');
             return;
         }
 
-        latestSshHostKey = data.host_key;
+        window.window.latestSshHostKey = data.host_key;
         if (hostKeyEl) {
             hostKeyEl.innerHTML = [
                 '<strong>Host key:</strong> ' + escapeHtml(data.host_key.key_type),
@@ -2243,14 +2200,14 @@ async function scanSshHostKey() {
         }
         if (trustBtn) trustBtn.style.display = data.host_key.trusted ? 'none' : '';
     } catch (err) {
-        latestSshHostKey = null;
+        window.window.latestSshHostKey = null;
         if (hostKeyEl) hostKeyEl.textContent = 'Host-key scan failed: ' + err.message;
     }
 }
 
 async function trustSshHostKey() {
     const { connection } = collectSshGuideConnection();
-    if (!latestSshHostKey?.key_hex) {
+    if (!window.latestSshHostKey?.key_hex) {
         showRemoteAgentValidation('Scan the host key before trusting it.', 'error');
         return;
     }
@@ -2261,7 +2218,7 @@ async function trustSshHostKey() {
         body: JSON.stringify({
             ssh_target: sshTargetFromConnection(connection),
             ssh_connection: connection,
-            key_hex: latestSshHostKey.key_hex
+            key_hex: window.latestSshHostKey.key_hex
         })
     });
     const data = await resp.json();
@@ -2297,7 +2254,7 @@ function applySshSetupGuide() {
         agentUrlInput.value = 'http://' + connection.host + ':7779';
     }
 
-    remoteAgentSshConnection = connection;
+    window.window.remoteAgentSshConnection = connection;
     clearRemoteAgentValidation();
     setRemoteAgentStatus('Guided SSH settings are ready. Click <strong>Check Host</strong>, <strong>Install & Start</strong>, or <strong>Start Agent</strong> when you want to contact the remote machine.', 'info');
     saveSettings();
@@ -2307,8 +2264,8 @@ function remoteAgentSshPayload() {
     const sshTarget = document.getElementById('set-remote-agent-ssh-target')?.value.trim();
     const payload = { ssh_target: sshTarget };
 
-    if (remoteAgentSshConnection && sshTarget === sshTargetFromConnection(remoteAgentSshConnection)) {
-        payload.ssh_connection = remoteAgentSshConnection;
+    if (window.remoteAgentSshConnection && sshTarget === sshTargetFromConnection(window.remoteAgentSshConnection)) {
+        payload.ssh_connection = window.remoteAgentSshConnection;
     }
 
     return payload;
@@ -2397,7 +2354,7 @@ function setRemoteAgentButtonsDisabled(disabled) {
     if (restartBtn) restartBtn.disabled = disabled;
     if (removeBtn) removeBtn.disabled = disabled;
 
-    remoteAgentInProgress = disabled;
+    window.window.remoteAgentInProgress = disabled;
 
 }
 
@@ -3717,7 +3674,7 @@ function openPresetModal(mode) {
 
         const id = document.getElementById('preset-select').value;
 
-        const p = presets.find(pr => pr.id === id);
+        const p = window.presets.find(pr => pr.id === id);
 
         if (!p) { showToast('No preset selected', 'warn'); return; }
 
@@ -4051,7 +4008,7 @@ async function savePreset(event) {
 
         if (id) {
 
-            resp = await fetch('/api/presets/' + encodeURIComponent(id), {
+            resp = await fetch('/api/window.presets/' + encodeURIComponent(id), {
 
                 method: 'PUT',
 
@@ -4075,7 +4032,7 @@ async function savePreset(event) {
 
         } else {
 
-            resp = await fetch('/api/presets', {
+            resp = await fetch('/api/window.presets', {
 
                 method: 'POST',
 
@@ -4120,7 +4077,7 @@ async function copyPreset() {
 
     const id = document.getElementById('preset-select').value;
 
-    const p = presets.find(pr => pr.id === id);
+    const p = window.presets.find(pr => pr.id === id);
 
     if (!p) { showToast('No preset selected', 'warn'); return; }
 
@@ -4136,7 +4093,7 @@ async function copyPreset() {
 
     try {
 
-        const resp = await fetch('/api/presets', {
+        const resp = await fetch('/api/window.presets', {
 
             method: 'POST',
 
@@ -4176,7 +4133,7 @@ async function deletePreset() {
 
     const id = document.getElementById('preset-select').value;
 
-    const p = presets.find(pr => pr.id === id);
+    const p = window.presets.find(pr => pr.id === id);
 
     if (!p) { showToast('No preset selected', 'warn'); return; }
 
@@ -4186,7 +4143,7 @@ async function deletePreset() {
 
     try {
 
-        const resp = await fetch('/api/presets/' + encodeURIComponent(id), { method: 'DELETE' });
+        const resp = await fetch('/api/window.presets/' + encodeURIComponent(id), { method: 'DELETE' });
 
         if (!resp.ok) {
 
@@ -4214,11 +4171,11 @@ async function deletePreset() {
 
 async function resetPresets() {
 
-    if (!confirm('Reset all presets to built-in defaults? Custom presets will be removed.')) return;
+    if (!confirm('Reset all window.presets to built-in defaults? Custom window.presets will be removed.')) return;
 
     try {
 
-        const resp = await fetch('/api/presets/reset', { method: 'POST' });
+        const resp = await fetch('/api/window.presets/reset', { method: 'POST' });
 
         if (!resp.ok) {
 
@@ -4266,7 +4223,7 @@ function getConfig() {
 
     const id = document.getElementById('preset-select').value;
 
-    const p = presets.find(pr => pr.id === id) || {};
+    const p = window.presets.find(pr => pr.id === id) || {};
 
     return {
 
@@ -4583,13 +4540,13 @@ async function loadSessions() {
 
     try {
 
-        const resp = await fetch('/api/sessions');
+        const resp = await fetch('/api/window.sessions');
 
-        sessions = await resp.json();
+        window.window.sessions = await resp.json();
 
         renderSessionList();
 
-        const lastAttach = sessions
+        const lastAttach = window.sessions
             .filter(s => s.mode && s.mode.Attach)
             .sort((a, b) => b.last_active - a.last_active)[0];
 
@@ -4604,7 +4561,7 @@ async function loadSessions() {
 
     } catch (err) {
 
-        console.error('Failed to load sessions:', err);
+        console.error('Failed to load window.sessions:', err);
 
     }
 
@@ -4613,19 +4570,19 @@ async function loadSessions() {
 
 
 function renderSessionList() {
-    const list = document.getElementById('sessions-list');
-    const empty = document.getElementById('sessions-empty');
+    const list = document.getElementById('window.sessions-list');
+    const empty = document.getElementById('window.sessions-empty');
     if (!list) return;
 
-    if (sessions.length === 0) {
+    if (window.sessions.length === 0) {
         list.innerHTML = '';
         if (empty) empty.style.display = 'block';
         return;
     }
     if (empty) empty.style.display = 'none';
 
-    list.innerHTML = sessions.map(s => {
-        const is_active = s.id === activeSessionId;
+    list.innerHTML = window.sessions.map(s => {
+        const is_active = s.id === window.activeSessionId;
         const isAttach = s.mode && s.mode.Attach;
         const isSpawn = s.mode && s.mode.Spawn;
         const modeText = isSpawn ? 'Spawn' : 'Attach';
@@ -4633,7 +4590,7 @@ function renderSessionList() {
         const endpoint = isAttach ? s.mode.Attach.endpoint : '';
         const port = isSpawn ? s.mode.Spawn.port : '';
         const presetId = s.preset_id || '';
-        const presetObj = presets.find(p => p.id === presetId);
+        const presetObj = window.presets.find(p => p.id === presetId);
         const presetName = presetObj ? presetObj.name : (isSpawn ? '(no preset)' : '');
         const statusText = s.status === 'Running' ? 'Running' :
                            s.status === 'Stopped' ? 'Stopped' :
@@ -4676,7 +4633,7 @@ function quickStartSession(sessionId) {
 async function deleteSession(sessionId) {
     if (!confirm('Delete this session?')) return;
     try {
-        const resp = await fetch('/api/sessions/' + encodeURIComponent(sessionId), { method: 'DELETE' });
+        const resp = await fetch('/api/window.sessions/' + encodeURIComponent(sessionId), { method: 'DELETE' });
         const data = await resp.json();
         if (data.ok) {
             showToast('Session deleted', 'success');
@@ -4695,7 +4652,7 @@ async function switchSession(sessionId) {
 
     try {
 
-        const resp = await fetch('/api/sessions/active', {
+        const resp = await fetch('/api/window.sessions/active', {
 
             method: 'POST',
 
@@ -4709,13 +4666,13 @@ async function switchSession(sessionId) {
 
         if (data.ok) {
 
-            activeSessionId = sessionId;
+            window.window.activeSessionId = sessionId;
 
             renderSessionList();
 
             showToast('Switched to session', 'success');
 
-            // Reload presets for this session
+            // Reload window.presets for this session
 
             loadPresets();
 
@@ -4744,8 +4701,8 @@ function openSessionModal() {
 }
 
 function showNewSessionForm() {
-    document.getElementById('sessions-list-view').style.display = 'none';
-    document.getElementById('sessions-new-form').style.display = 'block';
+    document.getElementById('window.sessions-list-view').style.display = 'none';
+    document.getElementById('window.sessions-new-form').style.display = 'block';
     const newBtn = document.getElementById('btn-new-session');
     if (newBtn) newBtn.style.display = 'none';
     document.getElementById('session-form').reset();
@@ -4754,8 +4711,8 @@ function showNewSessionForm() {
 }
 
 function showSessionsList() {
-    document.getElementById('sessions-list-view').style.display = 'block';
-    document.getElementById('sessions-new-form').style.display = 'none';
+    document.getElementById('window.sessions-list-view').style.display = 'block';
+    document.getElementById('window.sessions-new-form').style.display = 'none';
     const newBtn = document.getElementById('btn-new-session');
     if (newBtn) newBtn.style.display = 'inline-block';
     renderSessionList();
@@ -4776,7 +4733,7 @@ function updateSessionModalMode() {
     } else {
         label.textContent = 'Port';
         input.placeholder = '8001';
-        input.value = activeSessionPort || 8001;
+        input.value = window.activeSessionPort || 8001;
         if (spawnFields) {
             spawnFields.style.display = 'block';
             const presetSelect = document.getElementById('modal-session-preset');
@@ -4826,7 +4783,7 @@ function saveSession(event) {
     const presetId = document.getElementById('preset-select')?.value;
     const modalPresetId = document.getElementById('modal-session-preset')?.value;
     const endpoint = target || document.getElementById('server-endpoint')?.value.trim();
-    const url = mode === 'attach' ? '/api/attach' : '/api/sessions/spawn';
+    const url = mode === 'attach' ? '/api/attach' : '/api/window.sessions/spawn';
     const payload = mode === 'attach'
         ? { endpoint }
         : {
@@ -4878,7 +4835,7 @@ const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') +
 // Initialize button states on page load
 async function initAttachDetachButtons() {
     try {
-        const resp = await fetch('/api/sessions/active');
+        const resp = await fetch('/api/window.sessions/active');
         const data = await resp.json();
         const btnAttach = document.getElementById('btn-attach');
         const btnDetach = document.getElementById('btn-detach');
@@ -4901,7 +4858,7 @@ async function updateActiveSessionInfo() {
 
     try {
 
-        const resp = await fetch('/api/sessions/active');
+        const resp = await fetch('/api/window.sessions/active');
 
         const data = await resp.json();
 
@@ -4911,7 +4868,7 @@ async function updateActiveSessionInfo() {
 
             if (modeParts[0] === 'Spawn') {
 
-                activeSessionPort = parseInt(modeParts[1]) || 8080;
+                window.window.activeSessionPort = parseInt(modeParts[1]) || 8080;
 
             } else if (modeParts[0] === 'Attach') {
 
@@ -4921,11 +4878,11 @@ async function updateActiveSessionInfo() {
 
                     const url = new URL(endpoint);
 
-                    activeSessionPort = parseInt(url.port) || 8080;
+                    window.window.activeSessionPort = parseInt(url.port) || 8080;
 
                 } catch(e) {
 
-                    activeSessionPort = 8080;
+                    window.window.activeSessionPort = 8080;
 
                 }
 
@@ -5277,7 +5234,7 @@ function selectVizStyle(card, metric, style) {
         cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) { el.classList.add('viz-fade-out'); });
         setTimeout(function() {
             if (card === 'gpu') renderGpuCard(lastGpuData || {}, !!lastGpuData && Object.keys(lastGpuData).length > 0);
-            else renderSystemCard(lastSystemMetrics, !!lastSystemMetrics);
+            else renderSystemCard(window.lastSystemMetrics, !!window.lastSystemMetrics);
             cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) {
                 el.classList.remove('viz-fade-out');
                 el.classList.add('viz-fade-in');
@@ -5308,7 +5265,7 @@ function resetVizPrefs(card) {
         cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) { el.classList.add('viz-fade-out'); });
         setTimeout(function() {
             if (card === 'gpu') renderGpuCard(lastGpuData || {}, !!lastGpuData && Object.keys(lastGpuData).length > 0);
-            else renderSystemCard(lastSystemMetrics, !!lastSystemMetrics);
+            else renderSystemCard(window.lastSystemMetrics, !!window.lastSystemMetrics);
             cardEl.querySelectorAll('.hw-metric-viz').forEach(function(el) {
                 el.classList.remove('viz-fade-out');
                 el.classList.add('viz-fade-in');
@@ -5501,7 +5458,7 @@ function renderSystemCard(sys, visible) {
 
     // Show sensor_bridge setup callout on Windows when temp is unavailable
     var sbSetup = document.getElementById('sensor-bridge-setup-callout');
-    var setupAvailable = lastCapabilities && lastCapabilities.sensor_bridge_setup_available;
+    var setupAvailable = window.lastCapabilities && window.lastCapabilities.sensor_bridge_setup_available;
     if (sbSetup) {
         sbSetup.style.display = (setupAvailable && !hasTemp) ? '' : 'none';
     }
@@ -5706,15 +5663,15 @@ ws.onmessage = e => {
 
     // Server state
 
-    serverRunning = d.server_running;
+    window.window.serverRunning = d.server_running;
 
     const dot = document.getElementById('status-dot');
 
     const txt = document.getElementById('status-text');
 
-    dot.className = 'status-dot ' + (serverRunning ? 'running' : 'stopped');
+    dot.className = 'status-dot ' + (window.serverRunning ? 'running' : 'stopped');
 
-    txt.textContent = serverRunning ? 'Running' : 'Stopped';
+    txt.textContent = window.serverRunning ? 'Running' : 'Stopped';
 
     const btnStart = document.getElementById('btn-start');
 
@@ -5737,21 +5694,21 @@ ws.onmessage = e => {
 
 
 
-    lastServerState = d.server_running;
+    window.window.lastServerState = d.server_running;
 
-    lastLlamaMetrics = d.llama;
+    window.window.lastLlamaMetrics = d.llama;
 
-    lastSystemMetrics = d.system || null;
+    window.window.lastSystemMetrics = d.system || null;
 
-    lastCapabilities = d.capabilities || null;
+    window.window.lastCapabilities = d.capabilities || null;
 
-    lastGpuMetrics = d.gpu || {};
+    window.window.lastGpuMetrics = d.gpu || {};
 
 
 
     // Inference metrics
 
-    const l = lastLlamaMetrics;
+    const l = window.lastLlamaMetrics;
 
     // Helper for availability-aware empty state
     function getEmptyStateMessage(reason, fallback) {
@@ -6015,14 +5972,14 @@ ws.onmessage = e => {
     renderGpuCard(d.gpu || {}, gpuVisible);
 
     // System card rendering
-    renderSystemCard(lastSystemMetrics, systemVisible);
+    renderSystemCard(window.lastSystemMetrics, systemVisible);
 
 
     // Logs
 
     const logs = d.logs || [];
 
-    if (logs.length !== prevLogLen) {
+    if (logs.length !== window.prevLogLen) {
 
         const el = document.getElementById('log-panel');
 
@@ -6032,7 +5989,7 @@ ws.onmessage = e => {
 
         if (wasAtBottom) el.scrollTop = el.scrollHeight;
 
-        prevLogLen = logs.length;
+        window.window.prevLogLen = logs.length;
 
     }
 
@@ -6098,7 +6055,7 @@ ws.onclose = () => {
 
     document.getElementById('status-text').textContent = 'Disconnected'; 
 
-    prevLogLen = 0;
+    window.window.prevLogLen = 0;
 
 };
 
@@ -6162,27 +6119,19 @@ function renderMdStreaming(src) {
 
 const CHAT_TABS_PERSIST_DEBOUNCE_MS = 500;
 
-let chatTabs = [];
-let activeChatTabId = null;
-let chatBusy = false;
-let compactionInProgress = false;
-let unreadChatCount = 0;
-let chatAbortController = null;
-let chatPersistTimer = null;
-
 function activeChatTab() {
-    return chatTabs.find(t => t.id === activeChatTabId) ?? null;
+    return window.chatTabs.find(t => t.id === window.activeChatTabId) ?? null;
 }
 
 async function initChatTabs() {
     try {
         const resp = await fetch('/api/chat/tabs');
         const data = await resp.json();
-        chatTabs = data.length ? data : [newChatTab('Chat 1')];
+        window.window.chatTabs = data.length ? data : [newChatTab('Chat 1')];
     } catch {
-        chatTabs = [newChatTab('Chat 1')];
+        window.window.chatTabs = [newChatTab('Chat 1')];
     }
-    activeChatTabId = chatTabs[0].id;
+    window.window.activeChatTabId = window.chatTabs[0].id;
     renderChatTabs();
     renderChatMessages();
     loadChatNames();
@@ -6219,6 +6168,7 @@ function newChatTab(name = 'New Chat') {
             min_p: 0.01,
             repeat_penalty: 1.0,
             max_tokens: null,
+            stream_timeout: 120,
         },
         created_at: Date.now(),
         updated_at: Date.now(),
@@ -6243,9 +6193,9 @@ function updateChatName(field, value) {
 }
 
 function scheduleChatPersist() {
-    chatTabsDirty = true;
-    clearTimeout(chatPersistTimer);
-    chatPersistTimer = setTimeout(persistChatTabs, CHAT_TABS_PERSIST_DEBOUNCE_MS);
+    window.window.chatTabsDirty = true;
+    clearTimeout(window.chatPersistTimer);
+    window.window.chatPersistTimer = setTimeout(persistChatTabs, CHAT_TABS_PERSIST_DEBOUNCE_MS);
 }
 
 function normalizeTabForSave(tab) {
@@ -6262,12 +6212,10 @@ function normalizeTabForSave(tab) {
     return t;
 }
 
-let chatTabsDirty = false;
-
 async function persistChatTabs() {
-    if (!chatTabsDirty) return;
+    if (!window.chatTabsDirty) return;
     try {
-        const tabsToSave = chatTabs.map(normalizeTabForSave);
+        const tabsToSave = window.chatTabs.map(normalizeTabForSave);
         const totalMessages = tabsToSave.reduce((sum, t) => sum + (t.messages?.length || 0), 0);
         console.log('persistChatTabs:', totalMessages, 'messages', tabsToSave.length, 'tabs');
         if (totalMessages === 0 && tabsToSave.length > 0) {
@@ -6283,16 +6231,16 @@ async function persistChatTabs() {
 }
 
 function markChatTabsDirty() {
-    chatTabsDirty = true;
+    window.window.chatTabsDirty = true;
 }
 
 function flushChatPersist() {
-    clearTimeout(chatPersistTimer);
-    if (chatTabs && chatTabs.length) {
+    clearTimeout(window.chatPersistTimer);
+    if (window.chatTabs && window.chatTabs.length) {
         fetch('/api/chat/tabs', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(chatTabs.map(normalizeTabForSave)),
+            body: JSON.stringify(window.chatTabs.map(normalizeTabForSave)),
             keepalive: true,
         });
     }
@@ -6301,17 +6249,17 @@ function flushChatPersist() {
 window.addEventListener('beforeunload', flushChatPersist);
 
 function addChatTab() {
-    const tab = newChatTab(`Chat ${chatTabs.length + 1}`);
-    chatTabs.push(tab);
+    const tab = newChatTab(`Chat ${window.chatTabs.length + 1}`);
+    window.chatTabs.push(tab);
     switchChatTab(tab.id);
     scheduleChatPersist();
 }
 
 function closeChatTab(id) {
-    if (chatTabs.length === 1) return;
-    chatTabs = chatTabs.filter(t => t.id !== id);
-    if (activeChatTabId === id) {
-        activeChatTabId = chatTabs[chatTabs.length - 1].id;
+    if (window.chatTabs.length === 1) return;
+    window.window.chatTabs = window.chatTabs.filter(t => t.id !== id);
+    if (window.window.activeChatTabId === id) {
+        window.window.activeChatTabId = window.chatTabs[window.chatTabs.length - 1].id;
     }
     renderChatTabs();
     renderChatMessages();
@@ -6390,7 +6338,7 @@ async function compactChatTab(tab, keepTail = 10, summarize = true) {
 
     if (conversational.length <= keepTail) return; // nothing to do
 
-   compactionInProgress = true;
+   window.window.compactionInProgress = true;
     setCompactButtonBusy(true);
 
     const dropped = conversational.slice(0, conversational.length - keepTail);
@@ -6466,7 +6414,7 @@ async function compactChatTab(tab, keepTail = 10, summarize = true) {
     scheduleChatPersist();
     renderChatMessages();
     setCompactButtonBusy(false);
-    compactionInProgress = false;
+    window.window.compactionInProgress = false;
 
     // Scroll to the new tombstone
     setTimeout(() => {
@@ -6591,8 +6539,8 @@ function syncCompactSettingsUI(tab) {
 }
 
 function switchChatTab(id) {
-    if (chatBusy) return;
-    activeChatTabId = id;
+    if (window.chatBusy) return;
+    window.window.activeChatTabId = id;
     renderChatTabs();
     renderChatMessages();
     loadChatNames();
@@ -6617,7 +6565,7 @@ function syncMessageLimitInput() {
 }
 
 function renameChatTab(id, newName) {
-    const tab = chatTabs.find(t => t.id === id);
+    const tab = window.chatTabs.find(t => t.id === id);
     if (tab) {
         tab.name = newName.trim() || tab.name;
         renderChatTabs();
@@ -6636,11 +6584,11 @@ function clearChat() {
 }
 
 function stopChat() {
-    if (chatAbortController) {
-        chatAbortController.abort();
-        chatAbortController = null;
+    if (window.chatAbortController) {
+        window.chatAbortController.abort();
+        window.window.chatAbortController = null;
     }
-    chatBusy = false;
+    window.window.chatBusy = false;
     setChatBusyUI(false);
 }
 
@@ -6678,7 +6626,7 @@ function chatScroll(force = false) {
         c.scrollTop = c.scrollHeight;
     }
     if (force) {
-        unreadChatCount = 0;
+        window.window.unreadChatCount = 0;
         const badge = document.getElementById('chat-scroll-badge');
         if (badge) badge.style.display = 'none';
     }
@@ -6704,10 +6652,10 @@ function incrementUnreadCount() {
     if (!container) return;
     const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     if (distFromBottom > 80) {
-        unreadChatCount++;
+        window.unreadChatCount++;
         const badge = document.getElementById('chat-scroll-badge');
         if (badge) {
-            badge.textContent = unreadChatCount;
+            badge.textContent = window.unreadChatCount;
             badge.style.display = 'flex';
         }
     }
@@ -6718,19 +6666,19 @@ function renderChatTabs() {
     const addBtn = bar.querySelector('.chat-tab-add');
     bar.querySelectorAll('.chat-tab').forEach(el => el.remove());
 
-    for (const tab of chatTabs) {
+    for (const tab of window.chatTabs) {
         const el = document.createElement('div');
         const msgCount = tab.messages.filter(m => m.role !== 'system').length;
         let extraClasses = '';
         if (msgCount > 50) extraClasses = ' tab-hot';
         else if (msgCount > 20) extraClasses = ' tab-warm';
-        el.className = 'chat-tab' + (tab.id === activeChatTabId ? ' active' : '') + extraClasses;
+        el.className = 'chat-tab' + (tab.id === window.activeChatTabId ? ' active' : '') + extraClasses;
         el.dataset.tabId = tab.id;
         el.dataset.msgCount = msgCount;
         el.innerHTML = `
           <span class="chat-tab-name" ondblclick="startRenameTab('${tab.id}')">${escapeHtml(tab.name)}</span>
           <span class="chat-tab-count">${tab.messages.filter(m => m.role !== 'system').length || ''}</span>
-          ${chatTabs.length > 1
+          ${window.chatTabs.length > 1
             ? `<button class="chat-tab-close" onclick="closeChatTab('${tab.id}')" title="Close tab">×</button>`
             : ''}
         `;
@@ -6769,8 +6717,8 @@ function renderChatMessages() {
             </button>`).join('');
 
         const aiName = tab?.ai_name || 'Assistant';
-        const modelName = lastLlamaMetrics?.model_name
-            ? ` (${lastLlamaMetrics.model_name.split('/').pop().replace(/\.gguf$/i, '')})`
+        const modelName = window.lastLlamaMetrics?.model_name
+            ? ` (${window.lastLlamaMetrics.model_name.split('/').pop().replace(/\.gguf$/i, '')})`
             : '';
 
         container.innerHTML = `
@@ -6812,7 +6760,11 @@ function renderChatMessages() {
 
     let idx = 0;
     for (const msg of visibleMessages) {
-        container.appendChild(buildMessageElement(msg, idx, tab.messages));
+        const el = buildMessageElement(msg, idx, tab.messages);
+        // Store the actual index in the full message array for regenerate/delete/edit
+        const realIdx = tab.messages.indexOf(msg);
+        if (realIdx >= 0) el.dataset.msgIdx = realIdx;
+        container.appendChild(el);
         idx++;
     }
     chatScroll(true);
@@ -6921,10 +6873,10 @@ function buildMessageElement(msg, idx, allMessages) {
         }
         const cumTotal = cumInput + cumOutput;
         if (cumTotal > 0) parts.push(`R${formatTokenCount(cumTotal)}`);
-        const capacity = lastLlamaMetrics?.context_capacity_tokens || 0;
+        const capacity = window.lastLlamaMetrics?.context_capacity_tokens || 0;
         const ctxPct = capacity > 0 ? Math.round((cumTotal / capacity) * 100) : 0;
         if (ctxPct > 0) parts.push(`${ctxPct}% ctx`);
-        const modelName = msg.model_name || lastLlamaMetrics?.model_name || '';
+        const modelName = msg.model_name || window.lastLlamaMetrics?.model_name || '';
         if (modelName) parts.push(modelName);
         if (parts.length > 0) {
             metaHtml = `<span class="chat-msg-meta-sep">·</span><span class="chat-msg-meta-model" title="↓ = prompt tokens in · ↑ = tokens generated · R = running total · ctx = % of context window used">${parts.join(' · ')}</span>`;
@@ -6951,6 +6903,31 @@ function buildMessageElement(msg, idx, allMessages) {
                 <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.5 9A9 9 0 005.6 5.6L1 10m22 4l-4.6 4.4A9 9 0 013.5 15"/>
               </svg>
             </button>` : ''}
+            ${!isUser && msg._variants && msg._variants.length > 1 ? `
+            <button class="chat-action-btn" onclick="navigateVariant(this,-1)" title="Previous variant" ${msg._variantIndex <= 0 ? 'disabled' : ''}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+            </button>
+            <span class="chat-variant-badge">${(msg._variantIndex||0)+1}/${msg._variants.length}</span>
+            <button class="chat-action-btn" onclick="navigateVariant(this,1)" title="Next variant" ${msg._variantIndex >= msg._variants.length-1 ? 'disabled' : ''}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </button>` : ''}
+            <button class="chat-action-btn" onclick="editMessageContent(this)" title="Edit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="chat-action-btn chat-action-btn-delete" onclick="deleteMessage(this)" title="Delete">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>`;
@@ -7054,6 +7031,33 @@ function finalizeAssistantMessage(el, content, usage, tab) {
     }
     const actions = el.querySelector('.chat-msg-actions');
     if (actions && content) {
+        // Check for variant data from regeneration
+        const tab = activeChatTab();
+        const variants = tab?._pendingVariants || null;
+        let msg = null;
+        if (variants) {
+            tab._pendingVariants = null;
+            // Attach variants to the last assistant message (the one just generated)
+            for (let i = tab.messages.length - 1; i >= 0; i--) {
+                if (tab.messages[i].role === 'assistant') {
+                    tab.messages[i]._variants = variants;
+                    tab.messages[i]._variantIndex = variants.length - 1;
+                    msg = tab.messages[i];
+                    break;
+                }
+            }
+        }
+        if (!msg) {
+            // Find the message for this element
+            const allMsgs = Array.from(document.querySelectorAll('#chat-messages .chat-message'));
+            const idx = allMsgs.indexOf(el);
+            const firstVisibleIdx = tab?.messages.findIndex(m => m.role !== 'system');
+            const msgIdx = firstVisibleIdx + idx;
+            msg = tab?.messages[msgIdx] || null;
+        }
+        const hasVariants = msg && msg._variants && msg._variants.length > 1;
+        const variantIdx = msg?._variantIndex || 0;
+
         actions.innerHTML = `
           <button class="chat-action-btn" onclick="copyMessageContent(this)" title="Copy">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -7068,19 +7072,44 @@ function finalizeAssistantMessage(el, content, usage, tab) {
               <path d="M1 4v6h6M23 20v-6h-6"/>
               <path d="M20.5 9A9 9 0 005.6 5.6L1 10m22 4l-4.6 4.4A9 9 0 013.5 15"/>
             </svg>
+          </button>
+          ${hasVariants ? `
+          <button class="chat-action-btn" onclick="navigateVariant(this,-1)" title="Previous variant" ${variantIdx <= 0 ? 'disabled' : ''}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </button>
+          <span class="chat-variant-badge">${variantIdx+1}/${msg._variants.length}</span>
+          <button class="chat-action-btn" onclick="navigateVariant(this,1)" title="Next variant" ${variantIdx >= msg._variants.length-1 ? 'disabled' : ''}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </button>` : ''}
+          <button class="chat-action-btn" onclick="editMessageContent(this)" title="Edit">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+          </button>
+          <button class="chat-action-btn chat-action-btn-delete" onclick="deleteMessage(this)" title="Delete">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2">
+              <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+            </svg>
           </button>`;
     }
 
     // Populate footer metadata (single line)
     const footer = el.querySelector('.chat-msg-footer');
     if (footer) {
-        const modelName = lastLlamaMetrics?.model_name || '';
+        const modelName = window.lastLlamaMetrics?.model_name || '';
         const inp = usage ? (usage.prompt_tokens ?? 0) : 0;
         const out = usage ? (usage.completion_tokens ?? 0) : 0;
         const totalInput = tab ? (tab.totalInputTokens || 0) : inp;
         const totalOutput = tab ? (tab.totalOutputTokens || 0) : out;
         const total = totalInput + totalOutput;
-        const capacity = lastLlamaMetrics?.context_capacity_tokens || 0;
+        const capacity = window.lastLlamaMetrics?.context_capacity_tokens || 0;
         const ctxPct = capacity > 0 ? Math.round((total / capacity) * 100) : 0;
 
         // Store for auto-compaction
@@ -7110,7 +7139,7 @@ function finalizeAssistantMessage(el, content, usage, tab) {
         const useSummarize = !!tab.auto_compact_summarize;
         let shouldCompact = false;
         if (mode === 'optimized') {
-            const capacity = lastLlamaMetrics?.context_capacity_tokens || 0;
+            const capacity = window.lastLlamaMetrics?.context_capacity_tokens || 0;
             const totalInput = tab.totalInputTokens || 0;
             const totalOutput = tab.totalOutputTokens || 0;
             const remaining = capacity - (totalInput + totalOutput);
@@ -7134,7 +7163,7 @@ async function sendSuggestedPrompt(text) {
 }
 
 async function sendChat() {
-    if (chatBusy || compactionInProgress) return;
+    if (window.chatBusy || window.compactionInProgress) return;
     const tab = activeChatTab();
     if (!tab) return;
 
@@ -7170,21 +7199,24 @@ async function sendChat() {
     }
     messages.push(...tab.messages.map(m => ({ role: m.role, content: m.content })));
 
-    chatBusy = true;
+    window.window.chatBusy = true;
     setChatBusyUI(true);
-    chatAbortController = new AbortController();
+    window.window.chatAbortController = new AbortController();
 
     let thinkEl = null;
     let thinkContent = '';
     let msgEl = null; // Deferred — created on first content
     let msgContent = '';
     let tokenUsage = null;
+    // Stream timeout — abort if no visible content arrives within this window
+    const streamTimeoutMs = (params.stream_timeout ?? 120) * 1000;
+    let lastContentTime = Date.now();
 
     try {
         const chatResp = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            signal: chatAbortController.signal,
+            signal: window.chatAbortController.signal,
             body: JSON.stringify({
                 messages,
                 stream: true,
@@ -7207,6 +7239,15 @@ async function sendChat() {
         let buf = '';
 
         while (true) {
+            // Check stream timeout — abort if no visible content for too long
+            if (streamTimeoutMs > 0 && Date.now() - lastContentTime > streamTimeoutMs) {
+                window.chatAbortController.abort();
+                if (!msgEl) msgEl = appendAssistantPlaceholder();
+                msgEl.querySelector('.chat-msg-body').innerHTML =
+                    msgContent ? renderMd(msgContent) : '<span class="chat-stopped">[timed out — no response for too long]</span>';
+                break;
+            }
+
             const { done, value } = await reader.read();
             if (done) break;
             buf += decoder.decode(value, { stream: true });
@@ -7250,6 +7291,7 @@ async function sendChat() {
                     const c = delta.content ?? '';
                     if (c) {
                         msgContent += c;
+                        lastContentTime = Date.now();
                         if (!msgEl) msgEl = appendAssistantPlaceholder();
                         msgEl.querySelector('.chat-msg-body').innerHTML = renderMdStreaming(msgContent);
                         incrementUnreadCount();
@@ -7291,10 +7333,12 @@ async function sendChat() {
         tab.messages.pop();
     }
 
+    // Set the real index on the element for action buttons
+    msgEl.dataset.msgIdx = tab.messages.length - 1;
     finalizeAssistantMessage(msgEl, msgContent, tokenUsage, tab);
     setChatBusyUI(false);
-    chatBusy = false;
-    chatAbortController = null;
+    window.window.chatBusy = false;
+    window.window.chatAbortController = null;
     updateChatTabBadge();
 }
 
@@ -7307,21 +7351,30 @@ function copyMessageContent(btn) {
 }
 
 function regenerateFromMessage(btn) {
-    if (chatBusy) return;
+    if (window.chatBusy) return;
     const tab = activeChatTab();
     if (!tab) return;
 
     const msgEl = btn.closest('.chat-message');
-    const allMsgs = Array.from(document.querySelectorAll('#chat-messages .chat-message'));
-    const idx = allMsgs.indexOf(msgEl);
+    const msgIdx = parseInt(msgEl.dataset.msgIdx);
+    if (isNaN(msgIdx) || msgIdx < 0 || msgIdx >= tab.messages.length) return;
 
-    const firstVisibleIdx = tab.messages.findIndex(m => m.role !== 'system');
-    const cutAt = firstVisibleIdx + idx;
-    tab.messages = tab.messages.slice(0, cutAt);
+    const msg = tab.messages[msgIdx];
+    if (!msg || msg.role !== 'assistant') return;
+
+    // Save the current assistant message as a variant before cutting
+    let variants = msg._variants ? [...msg._variants, msg.content] : [msg.content];
+
+    // Cut everything from the assistant message onward (the user message before it stays)
+    // Then remove the last user message and re-send it
+    tab.messages = tab.messages.slice(0, msgIdx);
     tab.updated_at = Date.now();
 
     renderChatMessages();
     scheduleChatPersist();
+
+    // Store variants for the new response to pick up
+    tab._pendingVariants = variants;
 
     const lastUser = [...tab.messages].reverse().find(m => m.role === 'user');
     if (lastUser) {
@@ -7329,6 +7382,82 @@ function regenerateFromMessage(btn) {
         document.getElementById('chat-input').value = lastUser.content;
         sendChat();
     }
+}
+
+function navigateVariant(btn, direction) {
+    const msgEl = btn.closest('.chat-message');
+    const msgIdx = parseInt(msgEl.dataset.msgIdx);
+    const tab = activeChatTab();
+    if (!tab || isNaN(msgIdx)) return;
+
+    const msg = tab.messages[msgIdx];
+    if (!msg || !msg._variants || msg._variants.length <= 1) return;
+
+    msg._variantIndex = Math.max(0, Math.min(msg._variants.length - 1, msg._variantIndex + direction));
+    msg.content = msg._variants[msg._variantIndex];
+    tab.updated_at = Date.now();
+
+    renderChatMessages();
+    scheduleChatPersist();
+}
+
+function editMessageContent(btn) {
+    const msgEl = btn.closest('.chat-message');
+    const body = msgEl.querySelector('.chat-msg-body');
+    const msgIdx = parseInt(msgEl.dataset.msgIdx);
+    const tab = activeChatTab();
+    if (!tab || isNaN(msgIdx)) return;
+
+    const msg = tab.messages[msgIdx];
+    if (!msg) return;
+
+    // Replace body with textarea
+    body.innerHTML = `<textarea class="chat-msg-edit-area" rows="6">${escapeHtml(msg.content)}</textarea>
+      <div class="chat-msg-edit-actions">
+        <button class="chat-edit-btn chat-edit-btn-save" onclick="saveMessageEdit(this)">Save</button>
+        <button class="chat-edit-btn chat-edit-btn-cancel" onclick="cancelMessageEdit(this)">Cancel</button>
+      </div>`;
+    const textarea = body.querySelector('.chat-msg-edit-area');
+    textarea.focus();
+    textarea.selectionStart = textarea.value.length;
+}
+
+function saveMessageEdit(btn) {
+    const msgEl = btn.closest('.chat-message');
+    const body = msgEl.querySelector('.chat-msg-body');
+    const textarea = body.querySelector('.chat-msg-edit-area');
+    const msgIdx = parseInt(msgEl.dataset.msgIdx);
+    const tab = activeChatTab();
+    if (!tab || !textarea || isNaN(msgIdx)) return;
+
+    const msg = tab.messages[msgIdx];
+    if (!msg) return;
+
+    const newContent = textarea.value.trim();
+    if (newContent !== msg.content) {
+        msg.content = newContent;
+        tab.updated_at = Date.now();
+        scheduleChatPersist();
+    }
+    renderChatMessages();
+}
+
+function cancelMessageEdit(btn) {
+    const msgEl = btn.closest('.chat-message');
+    renderChatMessages();
+}
+
+function deleteMessage(btn) {
+    if (!confirm('Delete this message?')) return;
+    const msgEl = btn.closest('.chat-message');
+    const msgIdx = parseInt(msgEl.dataset.msgIdx);
+    const tab = activeChatTab();
+    if (!tab || isNaN(msgIdx) || msgIdx < 0 || msgIdx >= tab.messages.length) return;
+
+    tab.messages.splice(msgIdx, 1);
+    tab.updated_at = Date.now();
+    renderChatMessages();
+    scheduleChatPersist();
 }
 
 function exportChatTab() {
@@ -7363,7 +7492,7 @@ function importChatTab() {
                         newTab.id = crypto.randomUUID();
                         newTab.created_at = Date.now();
                         newTab.updated_at = Date.now();
-                        chatTabs.push(newTab);
+                        window.chatTabs.push(newTab);
                         switchChatTab(newTab.id);
                         scheduleChatPersist();
                         showToast('Conversation imported', 'success');
@@ -8003,6 +8132,8 @@ function syncParamPanelToTab() {
     set('param-repeat-penalty', p.repeat_penalty, 'param-repeat-penalty-val');
     const maxTok = document.getElementById('param-max-tokens');
     if (maxTok) maxTok.value = p.max_tokens ?? '';
+    const streamTimeout = document.getElementById('param-stream-timeout');
+    if (streamTimeout) streamTimeout.value = p.stream_timeout ?? 120;
 }
 
 function onParamChange(key, value) {
@@ -8048,6 +8179,7 @@ function resetParamsToDefaults() {
         min_p: 0.01,
         repeat_penalty: 1.0,
         max_tokens: null,
+        stream_timeout: 120,
     };
     tab.updated_at = Date.now();
     syncParamPanelToTab();
@@ -8062,13 +8194,14 @@ function updateParamsDirtyIndicator() {
     const p = tab.model_params;
     const isDirty = p.temperature !== 0.7 || p.top_p !== 0.9
         || p.top_k !== 40 || p.min_p !== 0.01
-        || p.repeat_penalty !== 1.0 || (p.max_tokens && p.max_tokens !== 0);
+        || p.repeat_penalty !== 1.0 || (p.max_tokens && p.max_tokens !== 0)
+        || p.stream_timeout !== 120;
     const btn = document.getElementById('btn-model-params');
     if (btn) btn.classList.toggle('has-active-params', isDirty);
 }
 
 function duplicateTabSettings(sourceId) {
-    const source = chatTabs.find(t => t.id === sourceId);
+    const source = window.chatTabs.find(t => t.id === sourceId);
     const target = activeChatTab();
     if (!source || !target || source.id === target.id) return;
     target.system_prompt = source.system_prompt;
@@ -8086,7 +8219,7 @@ function duplicateTabSettings(sourceId) {
 function showCopySettingsDropdown() {
     const target = activeChatTab();
     if (!target) return;
-    const others = chatTabs.filter(t => t.id !== target.id);
+    const others = window.chatTabs.filter(t => t.id !== target.id);
     if (others.length === 0) {
         showToast('No other tabs to copy from', 'info');
         return;
@@ -8919,13 +9052,12 @@ function initViewState() {
 }
 
 // Enter-to-send preference (default: enabled)
-let enterToSend = localStorage.getItem('llama-monitor-enter-to-send') !== 'false';
 
 // Chat style preference (default: rounded)
 const savedChatStyle = localStorage.getItem('llama-monitor-chat-style') || 'rounded';
 
 function onEnterToggleChange(checked) {
-    enterToSend = checked;
+    window.window.enterToSend = checked;
     localStorage.setItem('llama-monitor-enter-to-send', checked ? 'true' : 'false');
     const prefCheckbox = document.getElementById('pref-enter-to-send');
     if (prefCheckbox) prefCheckbox.checked = checked;
@@ -8933,7 +9065,7 @@ function onEnterToggleChange(checked) {
 
 function initEnterToggle() {
     const toggle = document.getElementById('chat-enter-toggle-input');
-    if (toggle) toggle.checked = enterToSend;
+    if (toggle) toggle.checked = window.enterToSend;
 }
 
 function initChatStyle() {
@@ -8944,21 +9076,20 @@ function initChatStyle() {
 }
 
 // Chat font size (independent of global font scale)
-let chatFontSize = parseInt(localStorage.getItem('llama-monitor-chat-font') || '100');
 
 function adjustChatFont(delta) {
-    chatFontSize = Math.max(70, Math.min(150, chatFontSize + delta * 10));
-    localStorage.setItem('llama-monitor-chat-font', chatFontSize);
+    window.window.chatFontSize = Math.max(70, Math.min(150, window.chatFontSize + delta * 10));
+    localStorage.setItem('llama-monitor-chat-font', window.chatFontSize);
     applyChatFontSize();
 }
 
 function applyChatFontSize() {
     const messages = document.getElementById('chat-messages');
     if (messages) {
-        messages.style.setProperty('--chat-font-scale', chatFontSize / 100);
+        messages.style.setProperty('--chat-font-scale', window.chatFontSize / 100);
     }
     const label = document.getElementById('chat-font-value');
-    if (label) label.textContent = chatFontSize + '%';
+    if (label) label.textContent = window.chatFontSize + '%';
 }
 
 const CHAT_STYLES = ['rounded', 'compact', 'minimal', 'bubbly'];
@@ -8998,7 +9129,7 @@ function initChatInputHandler() {
     const input = document.getElementById('chat-input');
     if (!input) return;
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && enterToSend) {
+        if (e.key === 'Enter' && !e.shiftKey && window.enterToSend) {
             e.preventDefault();
             sendChat();
         }
@@ -9214,18 +9345,18 @@ function initChatKeyboardShortcuts() {
         if ((e.ctrlKey || e.metaKey) && e.key >= '1' && e.key <= '9') {
             e.preventDefault();
             const idx = parseInt(e.key) - 1;
-            if (chatTabs[idx]) switchChatTab(chatTabs[idx].id);
+            if (window.chatTabs[idx]) switchChatTab(window.chatTabs[idx].id);
         }
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'ArrowRight') {
             e.preventDefault();
-            const idx = chatTabs.findIndex(t => t.id === activeChatTabId);
-            const next = chatTabs[(idx + 1) % chatTabs.length];
+            const idx = window.chatTabs.findIndex(t => t.id === window.activeChatTabId);
+            const next = window.chatTabs[(idx + 1) % window.chatTabs.length];
             if (next) switchChatTab(next.id);
         }
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'ArrowLeft') {
             e.preventDefault();
-            const idx = chatTabs.findIndex(t => t.id === activeChatTabId);
-            const prev = chatTabs[(idx - 1 + chatTabs.length) % chatTabs.length];
+            const idx = window.chatTabs.findIndex(t => t.id === window.activeChatTabId);
+            const prev = window.chatTabs[(idx - 1 + window.chatTabs.length) % window.chatTabs.length];
             if (prev) switchChatTab(prev.id);
         }
     });
