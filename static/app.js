@@ -6356,24 +6356,25 @@ function buildMessageElement(msg, idx, allMessages) {
                 <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
               </svg>
             </button>
-            ${!isUser ? `<button class="chat-action-btn" onclick="regenerateFromMessage(this)" title="Regenerate">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2">
-                <path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.5 9A9 9 0 005.6 5.6L1 10m22 4l-4.6 4.4A9 9 0 013.5 15"/>
-              </svg>
-            </button>` : ''}
-            ${!isUser && msg._variants && msg._variants.length > 1 ? `
-            <button class="chat-action-btn" onclick="navigateVariant(this,-1)" title="Previous variant" ${msg._variantIndex <= 0 ? 'disabled' : ''}>
+            ${!isUser ? (() => {
+                const variants = msg._variants || [];
+                const curIdx = msg._variantIndex || 0;
+                const total = variants.length || 1;
+                const canGoLeft = variants.length > 1 && curIdx > 0;
+                const canGoRight = variants.length > 1 ? curIdx < variants.length - 1 : true;
+                return `
+            <button class="chat-action-btn" onclick="navigateVariant(this,-1)" title="Previous response" ${canGoLeft ? '' : 'disabled'}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M15 18l-6-6 6-6"/>
               </svg>
             </button>
-            <span class="chat-variant-badge">${(msg._variantIndex||0)+1}/${msg._variants.length}</span>
-            <button class="chat-action-btn" onclick="navigateVariant(this,1)" title="Next variant" ${msg._variantIndex >= msg._variants.length-1 ? 'disabled' : ''}>
+            <span class="chat-variant-badge">${curIdx+1}/${total}</span>
+            <button class="chat-action-btn" onclick="navigateVariant(this,1)" title="${canGoRight && variants.length <= 1 ? 'Regenerate' : 'Next response'}" ${canGoRight ? '' : 'disabled'}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M9 18l6-6-6-6"/>
               </svg>
-            </button>` : ''}
+            </button>`;
+            })() : ''}
             <button class="chat-action-btn" onclick="editMessageContent(this)" title="Edit">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="2">
@@ -6621,6 +6622,29 @@ async function sendSuggestedPrompt(text) {
     sendChat();
 }
 
+async function sendChatWithContent(text) {
+    // Variant of sendChat that takes content directly (for resend/regenerate)
+    if (window.chatBusy || window.compactionInProgress) return;
+    const tab = activeChatTab();
+    if (!tab) return;
+
+    text = text.trim();
+    if (!text) return;
+
+    const userMsg = {
+        role: 'user',
+        content: text,
+        timestamp_ms: Date.now(),
+    };
+    tab.messages.push(userMsg);
+    tab.updated_at = Date.now();
+
+    renderChatMessages();
+
+    // Continue with the rest of sendChat logic
+    _doSendChat(tab);
+}
+
 async function sendChat() {
     if (window.chatBusy || window.compactionInProgress) return;
     const tab = activeChatTab();
@@ -6642,6 +6666,11 @@ async function sendChat() {
 
     renderChatMessages();
 
+    // Continue with the rest of sendChat logic
+    await _doSendChat(tab);
+}
+
+async function _doSendChat(tab) {
     const params = tab.model_params;
     const messages = [];
     let systemPrompt = tab.system_prompt ? substituteNames(tab.system_prompt, tab.ai_name, tab.user_name) : '';
@@ -6809,40 +6838,6 @@ function copyMessageContent(btn) {
     });
 }
 
-function regenerateFromMessage(btn) {
-    if (window.chatBusy) return;
-    const tab = activeChatTab();
-    if (!tab) return;
-
-    const msgEl = btn.closest('.chat-message');
-    const msgIdx = parseInt(msgEl.dataset.msgIdx);
-    if (isNaN(msgIdx) || msgIdx < 0 || msgIdx >= tab.messages.length) return;
-
-    const msg = tab.messages[msgIdx];
-    if (!msg || msg.role !== 'assistant') return;
-
-    // Save the current assistant message as a variant before cutting
-    let variants = msg._variants ? [...msg._variants, msg.content] : [msg.content];
-
-    // Cut everything from the assistant message onward (the user message before it stays)
-    // Then remove the last user message and re-send it
-    tab.messages = tab.messages.slice(0, msgIdx);
-    tab.updated_at = Date.now();
-
-    renderChatMessages();
-    scheduleChatPersist();
-
-    // Store variants for the new response to pick up
-    tab._pendingVariants = variants;
-
-    const lastUser = [...tab.messages].reverse().find(m => m.role === 'user');
-    if (lastUser) {
-        tab.messages = tab.messages.filter(m => m !== lastUser);
-        document.getElementById('chat-input').value = lastUser.content;
-        sendChat();
-    }
-}
-
 function navigateVariant(btn, direction) {
     const msgEl = btn.closest('.chat-message');
     const msgIdx = parseInt(msgEl.dataset.msgIdx);
@@ -6850,9 +6845,42 @@ function navigateVariant(btn, direction) {
     if (!tab || isNaN(msgIdx)) return;
 
     const msg = tab.messages[msgIdx];
-    if (!msg || !msg._variants || msg._variants.length <= 1) return;
+    if (!msg || msg.role !== 'assistant') return;
 
-    msg._variantIndex = Math.max(0, Math.min(msg._variants.length - 1, msg._variantIndex + direction));
+    const variants = msg._variants || [];
+    const curIdx = msg._variantIndex || 0;
+
+    // Going right on the last variant (or only variant) → regenerate
+    if (direction === 1 && (variants.length <= 1 || curIdx >= variants.length - 1)) {
+        if (window.chatBusy) return;
+
+        // Save current content as a variant
+        let newVariants = variants.length > 0 ? [...variants, msg.content] : [msg.content];
+
+        // Cut everything from this assistant message onward
+        tab.messages = tab.messages.slice(0, msgIdx);
+        tab.updated_at = Date.now();
+
+        renderChatMessages();
+        scheduleChatPersist();
+
+        // Store variants for the new response to pick up
+        tab._pendingVariants = newVariants;
+
+        // Re-send the last user message
+        const lastUser = [...tab.messages].reverse().find(m => m.role === 'user');
+        if (lastUser) {
+            tab.messages = tab.messages.filter(m => m !== lastUser);
+            scheduleChatPersist();
+            sendChatWithContent(lastUser.content);
+        }
+        return;
+    }
+
+    // Normal navigation between existing variants
+    if (!variants || variants.length <= 1) return;
+
+    msg._variantIndex = Math.max(0, Math.min(variants.length - 1, curIdx + direction));
     msg.content = msg._variants[msg._variantIndex];
     tab.updated_at = Date.now();
 
@@ -6870,15 +6898,50 @@ function editMessageContent(btn) {
     const msg = tab.messages[msgIdx];
     if (!msg) return;
 
+    // Check if this is the most recent user message (for Resend option)
+    const isLastUserMsg = msg.role === 'user' &&
+        tab.messages.slice(msgIdx + 1).every(m => m.role !== 'user');
+
     // Replace body with textarea
+    const resendBtn = isLastUserMsg
+        ? `<button class="chat-edit-btn chat-edit-btn-resend" onclick="resendMessageEdit(this)">Resend</button>`
+        : '';
     body.innerHTML = `<textarea class="chat-msg-edit-area" rows="6">${escapeHtml(msg.content)}</textarea>
       <div class="chat-msg-edit-actions">
+        ${resendBtn}
         <button class="chat-edit-btn chat-edit-btn-save" onclick="saveMessageEdit(this)">Save</button>
         <button class="chat-edit-btn chat-edit-btn-cancel" onclick="cancelMessageEdit(this)">Cancel</button>
       </div>`;
     const textarea = body.querySelector('.chat-msg-edit-area');
     textarea.focus();
     textarea.selectionStart = textarea.value.length;
+}
+
+function resendMessageEdit(btn) {
+    const msgEl = btn.closest('.chat-message');
+    const body = msgEl.querySelector('.chat-msg-body');
+    const textarea = body.querySelector('.chat-msg-edit-area');
+    const msgIdx = parseInt(msgEl.dataset.msgIdx);
+    const tab = activeChatTab();
+    if (!tab || !textarea || isNaN(msgIdx)) return;
+
+    const msg = tab.messages[msgIdx];
+    if (!msg || msg.role !== 'user') return;
+
+    const newContent = textarea.value.trim();
+    if (!newContent) return;
+
+    // Update the message content
+    msg.content = newContent;
+    tab.updated_at = Date.now();
+
+    // Cut everything after this user message
+    tab.messages = tab.messages.slice(0, msgIdx + 1);
+    scheduleChatPersist();
+    renderChatMessages();
+
+    // Re-send with the edited content
+    sendChatWithContent(newContent);
 }
 
 function saveMessageEdit(btn) {

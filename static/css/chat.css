@@ -1074,6 +1074,14 @@
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
 }
+.chat-edit-btn-resend {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.2);
+}
+.chat-edit-btn-resend:hover {
+  background: rgba(99, 102, 241, 0.25);
+}
 
 .chat-thinking {
   margin-bottom: var(--gap-sm);
