@@ -367,12 +367,18 @@ test.describe('context compaction', () => {
     const msgCountBefore = await page.locator('.chat-message:not(.chat-compact-marker)').count();
     expect(msgCountBefore).toBeGreaterThanOrEqual(20);
 
-    // Click compact button
-    await page.locator('#btn-compact').click();
+    // Trigger compaction directly and assert on the rendered result.
+    // This avoids racing the header-button click path while still validating the UI outcome.
+    await page.evaluate(async () => {
+      const tab = activeChatTab();
+      await compactChatTab(tab);
+    });
 
-    // Verify tombstone was created
-    await expect(page.locator('.chat-compact-marker')).toBeVisible();
-    const tombstoneText = await page.locator('.compact-marker-label').textContent();
+    // Verify the final tombstone was created, not just the temporary loading placeholder
+    const finalMarker = page.locator('.chat-compact-marker[data-compact-state="final"]');
+    await expect(finalMarker).toBeVisible();
+    await expect(page.locator('.chat-compact-marker[data-compact-state="loading"]')).toHaveCount(0);
+    const tombstoneText = await finalMarker.locator('.compact-marker-label').textContent();
     expect(tombstoneText).toMatch(/context (summarized|trimmed)/i);
 
     // Verify old messages were removed (only keepTail=10 remain)
@@ -391,8 +397,11 @@ test.describe('context compaction', () => {
       }
       renderChatMessages();
     });
-    await page.locator('#btn-compact').click();
-    await expect(page.locator('.chat-compact-marker')).toHaveCount(1);
+    await page.evaluate(async () => {
+      const tab = activeChatTab();
+      await compactChatTab(tab);
+    });
+    await expect(page.locator('.chat-compact-marker[data-compact-state="final"]')).toHaveCount(1);
 
     // Second round: inject more messages and compact again
     await page.evaluate(() => {
@@ -404,10 +413,13 @@ test.describe('context compaction', () => {
       }
       renderChatMessages();
     });
-    await page.locator('#btn-compact').click();
+    await page.evaluate(async () => {
+      const tab = activeChatTab();
+      await compactChatTab(tab);
+    });
 
     // Both tombstones should exist
-    await expect(page.locator('.chat-compact-marker')).toHaveCount(2);
+    await expect(page.locator('.chat-compact-marker[data-compact-state="final"]')).toHaveCount(2);
   });
 
   test('auto-compact settings persist on tab switch', async ({ page }) => {

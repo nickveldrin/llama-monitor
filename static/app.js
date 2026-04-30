@@ -6404,6 +6404,7 @@ async function compactChatTab(tab, keepTail = 10, summarize = true) {
         if (chatMsgs) {
             placeholderEl = document.createElement('div');
             placeholderEl.className = 'chat-message chat-compact-marker compact-marker-summarizing';
+            placeholderEl.dataset.compactState = 'loading';
             placeholderEl.innerHTML = `
               <div class="compact-marker-content">
                 <div class="compact-marker-rule compact-marker-rule-left"></div>
@@ -6846,6 +6847,7 @@ function buildMessageElement(msg, idx, allMessages) {
     // Render compaction tombstone as a divider
     if (msg.compaction_marker) {
         wrapper.className = 'chat-message chat-compact-marker' + (msg.summarized ? ' compact-marker-summarized' : ' compact-marker-truncated');
+        wrapper.dataset.compactState = 'final';
         wrapper.dataset.expanded = 'false';
 
         const isSummarized = !!msg.summarized;
