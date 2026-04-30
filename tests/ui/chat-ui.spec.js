@@ -387,10 +387,19 @@ test.describe('context compaction', () => {
   });
 
   test('multiple compactions preserve old tombstones', async ({ page }) => {
+    // Use a fresh tab so persisted chat state from earlier tests does not affect
+    // tombstone counts in this scenario.
+    await page.evaluate(() => {
+      const tab = newChatTab('Compaction Isolation');
+      tab.visible_message_limit = 100;
+      chatTabs.push(tab);
+      switchChatTab(tab.id);
+      renderChatMessages();
+    });
+
     // First round: inject messages and compact
     await page.evaluate(() => {
       const tab = activeChatTab();
-      tab.visible_message_limit = 100;
       for (let i = 0; i < 20; i++) {
         tab.messages.push({ role: 'user', content: `Round 1 Q${i}`, timestamp_ms: Date.now() });
         tab.messages.push({ role: 'assistant', content: `Round 1 A${i}`, timestamp_ms: Date.now() });
@@ -406,7 +415,6 @@ test.describe('context compaction', () => {
     // Second round: inject more messages and compact again
     await page.evaluate(() => {
       const tab = activeChatTab();
-      tab.visible_message_limit = 100;
       for (let i = 0; i < 20; i++) {
         tab.messages.push({ role: 'user', content: `Round 2 Q${i}`, timestamp_ms: Date.now() });
         tab.messages.push({ role: 'assistant', content: `Round 2 A${i}`, timestamp_ms: Date.now() });
