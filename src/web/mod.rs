@@ -265,6 +265,50 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
                 "application/javascript",
             )
         });
+    let js_features_file_browser = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("file-browser.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_FILE_BROWSER_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_presets = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("presets.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_PRESETS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_sessions = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("sessions.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SESSIONS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_attach_detach = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("attach-detach.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_ATTACH_DETACH_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
 
     let manifest = warp::path("manifest.json").and(warp::get()).map(|| {
         warp::reply::with_header(
@@ -312,6 +356,10 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .or(js_core_app_state)
         .or(js_core_init_state)
         .or(js_features_dashboard_ws)
+        .or(js_features_file_browser)
+        .or(js_features_presets)
+        .or(js_features_sessions)
+        .or(js_features_attach_detach)
         .or(lhm_js)
         .or(manifest)
         .or(sw)

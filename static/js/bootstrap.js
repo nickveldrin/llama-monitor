@@ -8,6 +8,10 @@
 
 import { escapeHtml } from './core/format.js';
 import { initWebSocket } from './features/dashboard-ws.js';
+import { initFileBrowser } from './features/file-browser.js';
+import { initPresets } from './features/presets.js';
+import { initSessions } from './features/sessions.js';
+import { initAttachDetach } from './features/attach-detach.js';
 
 // Verify module loading works — if this fails, the page is broken.
 console.log('[bootstrap] Module entrypoint loaded');
@@ -21,3 +25,9 @@ window.escapeHtml = escapeHtml;
 // app.js still runs first and provides rendering functions on window.*.
 // The dashboard-ws module calls those functions via window.*.
 initWebSocket();
+
+// Phase 4: Initialize extracted features — puts inline-handler functions on window.
+initFileBrowser();
+initPresets();
+initSessions();
+initAttachDetach();
