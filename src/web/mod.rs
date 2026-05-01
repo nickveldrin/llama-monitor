@@ -29,6 +29,11 @@ pub fn build_routes(
     // Custom CSP: allow external CDN scripts, fonts, styles, and data URIs (app requirements)
     let csp = ContentSecurityPolicy::new()
         .default_src(vec!["'self'", "data:"])
+        .connect_src(vec![
+            "'self'",
+            "https://fonts.googleapis.com",
+            "https://cdn.jsdelivr.net",
+        ])
         .script_src(vec![
             "'self'",
             "'unsafe-inline'",
