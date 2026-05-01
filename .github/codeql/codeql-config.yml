@@ -19,5 +19,4 @@ paths-ignore:
   - src/models/mod.rs
   # XSS findings in the frontend are false positives — data comes from
   # the backend llama.cpp API, not from user input.
-  - static/app.js
   - static/compact.html
