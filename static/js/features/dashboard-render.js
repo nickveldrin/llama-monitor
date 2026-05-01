@@ -1,4 +1,5 @@
 import { metricSeries, recentTasks, requestActivity, liveOutputTracker } from '../core/app-state.js';
+import { escapeHtml, formatMetricNumber, formatDuration, formatClockReadout } from '../core/format.js';
 
 function setChipState(el, label, state) {
     if (!el) return;
@@ -59,6 +60,11 @@ function renderLiveSparkline(id, points) {
         '<path class="sparkline-line live-output" d="' + path + '"></path>',
         '<circle class="sparkline-peak live-output" cx="' + peak.x.toFixed(2) + '" cy="' + peak.y.toFixed(2) + '" r="2.6"></circle>'
     ].join('');
+}
+
+function getTaskKey(taskId, active) {
+    if (taskId !== null && taskId !== undefined) return String(taskId);
+    return active ? 'active-unknown' : null;
 }
 
 function updateLiveOutputEstimate(taskId, decoded, active, nowMs) {
@@ -195,6 +201,48 @@ function renderActivityRail(active) {
         return '<span class="activity-segment ' + cls + '" style="left:' + start.toFixed(2) + '%;width:' + width.toFixed(2) + '%" tabindex="0" title="' + title + '">' + phases + '</span>';
     }).join('');
 }
+
+function renderSamplerParamsInline(slot) {
+    const el = document.getElementById('m-sampler-params-inline');
+    if (!el || !slot || !slot.sampler_config) {
+        el.innerHTML = '';
+        return;
+    }
+    const samplerItems = slot.sampler_config || [];
+    const priorityKeys = ['top_k', 'top_p', 'min_p', 'temperature', 'dry', 'xtc'];
+    const priorityItems = samplerItems.filter(item => priorityKeys.includes(item.label));
+    if (priorityItems.length === 0) {
+        el.innerHTML = '';
+        return;
+    }
+    el.innerHTML = priorityItems.slice(0, 4).map(item => {
+        const displayValue = formatConfigValue(item.value);
+        return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
+    }).join('');
+}
+
+function formatConfigValue(value) {
+    const num = parseFloat(value);
+    if (!Number.isNaN(num) && Number.isFinite(num)) {
+        const rounded = Math.round(num * 100) / 100;
+        return String(rounded);
+    }
+    return String(value);
+}
+
+function renderConfigItems(id, items, emptyText) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!items || !items.length) {
+        el.innerHTML = '<span class="config-empty">' + emptyText + '</span>';
+        return;
+    }
+    el.innerHTML = items.map(item => {
+        const displayValue = formatConfigValue(item.value);
+        return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
+    }).join('');
+}
+
 
 function renderSlotGrid(l, hasActiveEndpoint) {
     const grid = document.getElementById('m-slot-grid');
@@ -937,6 +985,7 @@ export function initDashboardRender() {
     window.pushSparklinePoint = pushSparklinePoint;
     window.renderSparkline = renderSparkline;
     window.renderLiveSparkline = renderLiveSparkline;
+    window.getTaskKey = getTaskKey;
     window.updateLiveOutputEstimate = updateLiveOutputEstimate;
     window.updateRequestActivity = updateRequestActivity;
     window.renderRecentTask = renderRecentTask;
