@@ -100,10 +100,9 @@ export async function doKillLlama() {
         else window.showToast('llama-server killed', 'success');
     } catch (e) {
         window.showToast('Kill failed: ' + e.message, 'error');
+    } finally {
+        if (btnKill) btnKill.disabled = false;
     }
-
-    const btnKill = document.getElementById('btn-kill');
-    if (btnKill) btnKill.disabled = false;
 }
 
 export async function doKillLlamaInternal() {

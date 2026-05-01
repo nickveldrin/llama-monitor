@@ -19,19 +19,23 @@ pub const FEATURES_DASHBOARD_WS_JS: &str = include_str!("../../static/js/feature
 pub const FEATURES_FILE_BROWSER_JS: &str = include_str!("../../static/js/features/file-browser.js");
 pub const FEATURES_PRESETS_JS: &str = include_str!("../../static/js/features/presets.js");
 pub const FEATURES_SESSIONS_JS: &str = include_str!("../../static/js/features/sessions.js");
-pub const FEATURES_ATTACH_DETACH_JS: &str = include_str!("../../static/js/features/attach-detach.js");
+pub const FEATURES_ATTACH_DETACH_JS: &str =
+    include_str!("../../static/js/features/attach-detach.js");
 pub const FEATURES_ANIMATE_JS: &str = include_str!("../../static/js/features/animate.js");
 pub const FEATURES_CHAT_PARAMS_JS: &str = include_str!("../../static/js/features/chat-params.js");
 pub const FEATURES_CHAT_RENDER_JS: &str = include_str!("../../static/js/features/chat-render.js");
 pub const FEATURES_CHAT_STATE_JS: &str = include_str!("../../static/js/features/chat-state.js");
-pub const FEATURES_CHAT_TEMPLATES_JS: &str = include_str!("../../static/js/features/chat-templates.js");
-pub const FEATURES_CHAT_TRANSPORT_JS: &str = include_str!("../../static/js/features/chat-transport.js");
+pub const FEATURES_CHAT_TEMPLATES_JS: &str =
+    include_str!("../../static/js/features/chat-templates.js");
+pub const FEATURES_CHAT_TRANSPORT_JS: &str =
+    include_str!("../../static/js/features/chat-transport.js");
 pub const FEATURES_CONFIG_JS: &str = include_str!("../../static/js/features/config.js");
 pub const FEATURES_LHM_JS: &str = include_str!("../../static/js/features/lhm.js");
 pub const FEATURES_MODELS_JS: &str = include_str!("../../static/js/features/models.js");
 pub const FEATURES_NAV_JS: &str = include_str!("../../static/js/features/nav.js");
 pub const FEATURES_REMOTE_AGENT_JS: &str = include_str!("../../static/js/features/remote-agent.js");
-pub const FEATURES_SENSOR_BRIDGE_JS: &str = include_str!("../../static/js/features/sensor-bridge.js");
+pub const FEATURES_SENSOR_BRIDGE_JS: &str =
+    include_str!("../../static/js/features/sensor-bridge.js");
 pub const FEATURES_SETTINGS_JS: &str = include_str!("../../static/js/features/settings.js");
 pub const FEATURES_SETUP_VIEW_JS: &str = include_str!("../../static/js/features/setup-view.js");
 pub const FEATURES_SHORTCUTS_JS: &str = include_str!("../../static/js/features/shortcuts.js");

@@ -76,3 +76,6 @@ initSensorBridge();
 
 // Service worker registration
 navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+// Signal that all modules are loaded and initialized
+document.documentElement.classList.add('modules-ready');

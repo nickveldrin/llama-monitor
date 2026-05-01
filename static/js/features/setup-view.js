@@ -170,6 +170,7 @@ function syncSetupPresetSelect() {
 // ── Initialization ────────────────────────────────────────────────────────────
 
 function initViewState() {
+    if (document.body.classList.contains('setup-active')) return; // already initialized
     renderQuickStats();
     syncSetupPresetSelect();
     const lastEndpoint = localStorage.getItem('llama-monitor-last-endpoint');
@@ -204,4 +205,6 @@ export function initSetupView() {
     window.renderQuickStats = renderQuickStats;
     window.syncSetupPresetSelect = syncSetupPresetSelect;
     window.initViewState = initViewState;
+    // Initialize view state immediately — defensive functions return early if DOM not ready
+    initViewState();
 }

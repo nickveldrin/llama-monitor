@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('chat UI shell', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     // Switch to monitor view so chat page is accessible
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
@@ -67,7 +67,7 @@ test.describe('chat UI shell', () => {
 test.describe('system prompt panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
   });
@@ -101,7 +101,7 @@ test.describe('system prompt panel', () => {
 test.describe('explicit mode toggle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
     // Ensure clean state: disable explicit mode if it was left on
@@ -135,7 +135,7 @@ test.describe('explicit mode toggle', () => {
 test.describe('template manager', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
     await page.locator('#btn-system-prompt').click();
@@ -168,7 +168,7 @@ test.describe('template manager', () => {
 test.describe('model params panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
   });
@@ -202,7 +202,7 @@ test.describe('model params panel', () => {
 test.describe('token count display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
   });
@@ -228,7 +228,7 @@ test.describe('token count display', () => {
 test.describe('chat history pagination', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
   });
@@ -284,7 +284,7 @@ test.describe('chat history pagination', () => {
 test.describe('app update UI', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
   });
 
   test('update pill is present but hidden by default', async ({ page }) => {
@@ -347,7 +347,7 @@ test.describe('context compaction', () => {
 
   test.beforeAll(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
     await expect(page.locator('#page-chat')).toBeVisible();
@@ -381,7 +381,7 @@ test.describe('context compaction', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
     await expect(page.locator('#page-chat')).toBeVisible();

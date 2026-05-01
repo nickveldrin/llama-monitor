@@ -18,7 +18,7 @@ async function openNewSessionForm(page) {
 test.describe('modern UI shell', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
   });
 
   test('renders setup shell before monitor activation', async ({ page }) => {
@@ -60,7 +60,7 @@ test.describe('modern UI shell', () => {
 test.describe('modal controls', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
   });
 
   test('settings opens and secondary tabs switch', async ({ page }) => {
@@ -222,6 +222,7 @@ test.describe('responsive shell', () => {
   test('mobile layout keeps navigation and endpoint form usable', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
+    await page.waitForSelector('html.modules-ready');
 
     await expect(page.locator('body')).toHaveClass(/setup-active/);
     await expect(page.locator('.sidebar-nav')).toBeVisible();
@@ -233,7 +234,7 @@ test.describe('responsive shell', () => {
 test.describe('inference metric rendering', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await enterMonitorView(page);
   });
 
