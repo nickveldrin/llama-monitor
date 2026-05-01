@@ -565,6 +565,24 @@
   50% { opacity: 1; }
 }
 
+/* ── Threshold Row ─────────────────────────────── */
+.threshold-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.threshold-row input[type="range"] {
+  flex: 1;
+}
+#chat-compact-threshold-val {
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  min-width: 32px;
+  text-align: right;
+}
+
 /* ── Compact Mode Pills ──────────────────────────── */
 .compact-mode-pills {
   display: flex;
@@ -573,16 +591,17 @@
 }
 .compact-mode-pill {
   flex: 1;
-  padding: 5px 10px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 5px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
   color: rgba(255, 255, 255, 0.4);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
+  line-height: 1.3;
 }
 .compact-mode-pill:hover {
   background: rgba(255, 255, 255, 0.07);
@@ -942,11 +961,10 @@
 .chat-msg-time {
   font-size: 11px;
   color: var(--text-muted);
-  opacity: 0;
-  transition: opacity 0.2s;
+  opacity: 0.5;
 }
 .chat-message:hover .chat-msg-time {
-  opacity: 0.6;
+  opacity: 0.8;
 }
 .chat-msg-actions { display: flex; gap: 4px; }
 
@@ -984,6 +1002,85 @@
   background: rgba(16, 185, 129, 0.15) !important;
   color: #10b981 !important;
   border-color: rgba(16, 185, 129, 0.2) !important;
+}
+.chat-action-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.chat-action-btn-delete:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* ── Variant Navigation ──────────────────────────── */
+.chat-variant-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  font-size: 9px;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  line-height: 24px;
+  user-select: none;
+}
+
+/* ── Message Edit ──────────────────────────────────── */
+.chat-msg-edit-area {
+  width: 100%;
+  min-height: 80px;
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: var(--text-primary);
+  resize: vertical;
+  outline: none;
+}
+.chat-msg-edit-area:focus {
+  border-color: var(--color-accent);
+}
+.chat-msg-edit-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.chat-edit-btn {
+  padding: 4px 12px;
+  font-size: var(--text-sm);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chat-edit-btn-save {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.2);
+}
+.chat-edit-btn-save:hover {
+  background: rgba(16, 185, 129, 0.25);
+}
+.chat-edit-btn-cancel {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+.chat-edit-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+}
+.chat-edit-btn-resend {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border-color: rgba(99, 102, 241, 0.2);
+}
+.chat-edit-btn-resend:hover {
+  background: rgba(99, 102, 241, 0.25);
 }
 
 .chat-thinking {
@@ -1226,6 +1323,14 @@
   cursor: not-allowed;
   box-shadow: none;
   animation: none;
+}
+.btn-chat-send-stop {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.4);
+  animation: none;
+}
+.btn-chat-send-stop:hover {
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.55);
 }
 
 /* ── Light Theme Overrides ──────────────────────────── */
@@ -1763,7 +1868,8 @@
 }
 .chat-system-panel.open,
 .chat-params-panel.open {
-  max-height: 500px;
+  max-height: 800px;
+  overflow-y: auto;
   opacity: 1;
   padding: var(--gap-sm) var(--gap-md);
 }
@@ -2086,6 +2192,7 @@
 .template-manager-modal {
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 .template-manager-body {
   display: flex;

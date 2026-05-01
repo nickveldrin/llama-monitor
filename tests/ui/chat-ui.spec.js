@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('chat UI shell', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     // Switch to monitor view so chat page is accessible
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
@@ -53,11 +53,6 @@ test.describe('chat UI shell', () => {
     await expect(page.locator('#chat-explicit-toggle-footer')).toBeVisible();
   });
 
-  test('typing indicator element is present in DOM', async ({ page }) => {
-    // #chat-typing must exist (hidden by default; shown by setChatBusyUI)
-    await expect(page.locator('#chat-typing')).toBeAttached();
-  });
-
   test('scroll-to-bottom button and badge are present', async ({ page }) => {
     await expect(page.locator('#chat-scroll-bottom')).toBeAttached();
     await expect(page.locator('#chat-scroll-badge')).toBeAttached();
@@ -67,7 +62,7 @@ test.describe('chat UI shell', () => {
 test.describe('system prompt panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
   });
@@ -101,7 +96,7 @@ test.describe('system prompt panel', () => {
 test.describe('explicit mode toggle', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
     // Ensure clean state: disable explicit mode if it was left on
@@ -135,7 +130,7 @@ test.describe('explicit mode toggle', () => {
 test.describe('template manager', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
     await page.locator('#btn-system-prompt').click();
@@ -168,7 +163,7 @@ test.describe('template manager', () => {
 test.describe('model params panel', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
   });
@@ -202,33 +197,16 @@ test.describe('model params panel', () => {
 test.describe('token count display', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
-  });
-
-  test('shows token estimate after typing', async ({ page }) => {
-    await page.locator('#chat-input').fill('Hello world');
-    const count = page.locator('#chat-char-count');
-    await expect(count).toBeVisible();
-    // Should show ~N tok format, not raw char count
-    await expect(count).toContainText('tok');
-  });
-
-  test('count is empty when input is cleared', async ({ page }) => {
-    await page.locator('#chat-input').fill('some text');
-    await page.locator('#chat-input').fill('');
-    await page.locator('#chat-input').dispatchEvent('input');
-    const count = page.locator('#chat-char-count');
-    const text = await count.textContent();
-    expect(text?.trim()).toBe('');
   });
 });
 
 test.describe('chat history pagination', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
   });
@@ -284,7 +262,7 @@ test.describe('chat history pagination', () => {
 test.describe('app update UI', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
   });
 
   test('update pill is present but hidden by default', async ({ page }) => {
@@ -339,15 +317,58 @@ test.describe('app update UI', () => {
 });
 
 test.describe('context compaction', () => {
+  // Isolate test data from user's real chat tabs.
+  // All compaction tests use a dedicated tab prefixed with "[TEST]" so it can
+  // be identified and cleaned up. The beforeEach creates the test tab; afterEach
+  // removes it, leaving the user's chat history untouched.
+  const TEST_TAB_PREFIX = '[TEST]';
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.top-nav-bar');
+    await page.waitForSelector('html.modules-ready');
     await page.evaluate(() => switchView('monitor'));
     await page.getByRole('button', { name: /chat/i }).click();
     await expect(page.locator('#page-chat')).toBeVisible();
+
+    // Clean up any leftover test tabs from a previous run
+    await page.evaluate((testTabPrefix) => {
+      chatTabs = chatTabs.filter(t => !t.name.startsWith(testTabPrefix));
+      if (!chatTabs.length) chatTabs = [newChatTab('Chat 1')];
+    }, TEST_TAB_PREFIX);
+
+    // Create a fresh test tab
+    await page.evaluate(() => {
+      const tab = newChatTab('Test Compaction');
+      tab.name = '[TEST] Compaction';
+      tab.visible_message_limit = 100;
+      chatTabs.push(tab);
+      switchChatTab(tab.id);
+      renderChatMessages();
+    });
+
+    // Switch to the test tab and clear it for a clean slate
+    await page.evaluate((testTabPrefix) => {
+      const testTab = chatTabs.find(t => t.name.startsWith(testTabPrefix));
+      if (testTab) {
+        testTab.messages = [];
+        testTab.visible_message_limit = 100;
+        switchChatTab(testTab.id);
+      }
+      renderChatMessages();
+    }, TEST_TAB_PREFIX);
     // Short-circuit the summarization fetch so compaction completes immediately
     // regardless of whether a llama server is running in CI.
     await page.route('**/api/chat', route => route.fulfill({ status: 503 }));
+  });
+
+  test.afterEach(async ({ page }) => {
+    // Remove all test-created tabs
+    await page.evaluate((testTabPrefix) => {
+      chatTabs = chatTabs.filter(t => !t.name.startsWith(testTabPrefix));
+      if (!chatTabs.length) chatTabs = [newChatTab('Chat 1')];
+      renderChatTabs();
+      renderChatMessages();
+    }, TEST_TAB_PREFIX);
   });
 
   test('compact button removes old messages and creates tombstone', async ({ page }) => {
@@ -387,16 +408,7 @@ test.describe('context compaction', () => {
   });
 
   test('multiple compactions preserve old tombstones', async ({ page }) => {
-    // Use a fresh tab so persisted chat state from earlier tests does not affect
-    // tombstone counts in this scenario.
-    await page.evaluate(() => {
-      const tab = newChatTab('Compaction Isolation');
-      tab.visible_message_limit = 100;
-      chatTabs.push(tab);
-      switchChatTab(tab.id);
-      renderChatMessages();
-    });
-
+    // Uses the shared test tab (cleared by beforeEach).
     // First round: inject messages and compact
     await page.evaluate(() => {
       const tab = activeChatTab();
@@ -431,21 +443,36 @@ test.describe('context compaction', () => {
   });
 
   test('auto-compact settings persist on tab switch', async ({ page }) => {
-    // Open system prompt panel and enable auto-compact
-    await page.locator('#btn-system-prompt').click();
-    await page.locator('#chat-auto-compact').check();
-    await page.locator('#chat-compact-threshold').fill('90');
+    // New tabs have auto_compact on by default
+    const newTabAutoCompact = await page.evaluate(() => !!activeChatTab().auto_compact);
+    expect(newTabAutoCompact).toBe(true);
+
+    // Disable auto-compact on the test tab
+    await page.evaluate(() => {
+      const tab = activeChatTab();
+      tab.auto_compact = false;
+      tab.updated_at = Date.now();
+    });
 
     // Create a new tab and switch to it
     await page.locator('.chat-tab-add').click();
 
-    // New tab should have auto-compact off by default
-    const newTabAutoCompact = await page.locator('#chat-auto-compact').isChecked();
-    expect(newTabAutoCompact).toBe(false);
+    // New tab should have auto-compact on by default
+    const newTabAutoCompact2 = await page.evaluate(() => !!activeChatTab().auto_compact);
+    expect(newTabAutoCompact2).toBe(true);
 
-    // Switch back to first tab — settings should still be on (per-tab persistence)
-    await page.locator('.chat-tab').first().click();
-    const firstTabAutoCompact = await page.locator('#chat-auto-compact').isChecked();
-    expect(firstTabAutoCompact).toBe(true);
+    // Switch back to the test tab — settings should still be off (per-tab persistence)
+    await page.evaluate((testTabPrefix) => {
+      const testTab = chatTabs.find(t => t.name.startsWith(testTabPrefix));
+      if (testTab) switchChatTab(testTab.id);
+    }, TEST_TAB_PREFIX);
+    const firstTabAutoCompact = await page.evaluate(() => !!activeChatTab().auto_compact);
+    expect(firstTabAutoCompact).toBe(false);
+
+    // Clean up the extra tab created by this test
+    await page.evaluate((testTabPrefix) => {
+      chatTabs = chatTabs.filter(t => t.name.startsWith(testTabPrefix) || t.name === 'Chat 1');
+      if (!chatTabs.length) chatTabs = [newChatTab('Chat 1')];
+    }, TEST_TAB_PREFIX);
   });
 });

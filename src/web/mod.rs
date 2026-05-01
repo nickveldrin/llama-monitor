@@ -29,6 +29,11 @@ pub fn build_routes(
     // Custom CSP: allow external CDN scripts, fonts, styles, and data URIs (app requirements)
     let csp = ContentSecurityPolicy::new()
         .default_src(vec!["'self'", "data:"])
+        .connect_src(vec![
+            "'self'",
+            "https://fonts.googleapis.com",
+            "https://cdn.jsdelivr.net",
+        ])
         .script_src(vec![
             "'self'",
             "'unsafe-inline'",
@@ -199,6 +204,326 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         )
     });
 
+    // Module bootstrap and supporting files (Phase 1 of app.js refactor)
+    let js_bootstrap = warp::path("js")
+        .and(warp::path("bootstrap.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::BOOTSTRAP_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_compat_globals = warp::path("js")
+        .and(warp::path("compat"))
+        .and(warp::path("globals.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::COMPAT_GLOBALS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_core_format = warp::path("js")
+        .and(warp::path("core"))
+        .and(warp::path("format.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::CORE_FORMAT_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_core_app_state = warp::path("js")
+        .and(warp::path("core"))
+        .and(warp::path("app-state.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::CORE_APP_STATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_core_init_state = warp::path("js")
+        .and(warp::path("core"))
+        .and(warp::path("init-state.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::CORE_INIT_STATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_dashboard_ws = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("dashboard-ws.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_DASHBOARD_WS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_file_browser = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("file-browser.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_FILE_BROWSER_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_presets = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("presets.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_PRESETS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_sessions = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("sessions.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SESSIONS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_attach_detach = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("attach-detach.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_ATTACH_DETACH_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_animate = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("animate.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_ANIMATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_params = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-params.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_PARAMS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_render = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-render.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_RENDER_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_state = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-state.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_STATE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_templates = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-templates.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_TEMPLATES_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_chat_transport = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("chat-transport.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CHAT_TRANSPORT_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_config = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("config.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_CONFIG_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_lhm = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("lhm.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_LHM_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_models = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("models.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_MODELS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_nav = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("nav.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_NAV_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_remote_agent = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("remote-agent.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_REMOTE_AGENT_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_sensor_bridge = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("sensor-bridge.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SENSOR_BRIDGE_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_settings = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("settings.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SETTINGS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_setup_view = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("setup-view.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SETUP_VIEW_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_shortcuts = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("shortcuts.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_SHORTCUTS_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_updates = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("updates.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_UPDATES_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_user_menu = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("user-menu.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_USER_MENU_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_dashboard_render = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("dashboard-render.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_DASHBOARD_RENDER_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+    let js_features_toast = warp::path("js")
+        .and(warp::path("features"))
+        .and(warp::path("toast.js"))
+        .and(warp::get())
+        .map(|| {
+            warp::reply::with_header(
+                static_assets::FEATURES_TOAST_JS,
+                "content-type",
+                "application/javascript",
+            )
+        });
+
     let manifest = warp::path("manifest.json").and(warp::get()).map(|| {
         warp::reply::with_header(
             static_assets::MANIFEST_JSON,
@@ -239,6 +564,35 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .or(css_setup_view)
         .or(css_settings_modal)
         .or(js)
+        .or(js_bootstrap)
+        .or(js_compat_globals)
+        .or(js_core_format)
+        .or(js_core_app_state)
+        .or(js_core_init_state)
+        .or(js_features_dashboard_ws)
+        .or(js_features_file_browser)
+        .or(js_features_presets)
+        .or(js_features_sessions)
+        .or(js_features_attach_detach)
+        .or(js_features_animate)
+        .or(js_features_chat_params)
+        .or(js_features_chat_render)
+        .or(js_features_chat_state)
+        .or(js_features_chat_templates)
+        .or(js_features_chat_transport)
+        .or(js_features_config)
+        .or(js_features_lhm)
+        .or(js_features_models)
+        .or(js_features_nav)
+        .or(js_features_remote_agent)
+        .or(js_features_sensor_bridge)
+        .or(js_features_settings)
+        .or(js_features_setup_view)
+        .or(js_features_shortcuts)
+        .or(js_features_updates)
+        .or(js_features_user_menu)
+        .or(js_features_dashboard_render)
+        .or(js_features_toast)
         .or(lhm_js)
         .or(manifest)
         .or(sw)
