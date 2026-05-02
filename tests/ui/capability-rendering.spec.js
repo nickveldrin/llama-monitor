@@ -103,7 +103,8 @@ test.describe('modal controls', () => {
     await page.locator('#user-preferences-modal .modal-close').click();
 
     await page.getByRole('button', { name: /user/i }).click();
-    await page.getByRole('link', { name: 'Help' }).click();
+    await page.waitForSelector('#nav-user-menu-items', { state: 'visible' });
+    await page.locator('#user-menu-help').click();
     await expect(page.locator('#keyboard-shortcuts-modal')).toHaveClass(/open/);
     await page.locator('#keyboard-shortcuts-modal .shortcuts-close').click();
 

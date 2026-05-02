@@ -4,13 +4,14 @@
 
 Eliminate the `window.*` compatibility layer by converting all inline HTML handlers to `addEventListener` wiring in JS modules. This removes the global namespace pollution and completes the modular architecture.
 
-## Current State
+## Current State (updated 2026-05-01)
 
 After Phase 8, all feature code is in ES modules. The modules register functions on `window.*` so that inline HTML handlers (e.g., `onclick="switchTab('chat')"` in `index.html`) can call them. This creates a large compatibility surface:
 
 - `bootstrap.js` imports all modules, each `initXxx()` puts functions on `window.*`
-- `app.js` (37-line shim) calls `window.initXxx()` functions on DOMContentLoaded
-- Inline handlers in `index.html` call `window.*` functions directly
+- `app.js` (legacy shim) calls 11 `init*()` functions not yet wired into bootstrap.js on DOMContentLoaded
+- Inline handlers in `index.html` call `window.*` functions directly — **175 total** (up from estimated 150)
+- **24 feature modules** (up from estimated 20) need conversion
 
 ## Approach
 
