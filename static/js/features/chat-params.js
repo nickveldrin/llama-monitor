@@ -9,7 +9,7 @@ import {
     scheduleChatPersist,
     updateChatName,
 } from './chat-state.js';
-import { exportChatTab, renderChatMessages } from './chat-render.js';
+import { exportChatTab, importChatTab, renderChatMessages } from './chat-render.js';
 import { fetchSummary, sendChat } from './chat-transport.js';
 import {
     applySystemPromptTemplate,
@@ -520,6 +520,7 @@ export function initChatParams() {
 
     // Bind export button
     document.getElementById('chat-export-btn')?.addEventListener('click', exportChatTab);
+    document.getElementById('chat-import-btn')?.addEventListener('click', importChatTab);
 
     // Bind chat style cards (event delegation)
     const styleGrid = document.getElementById('chat-style-grid');

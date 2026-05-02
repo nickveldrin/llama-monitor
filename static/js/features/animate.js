@@ -28,5 +28,4 @@ export function animateNumber(element, from, to, duration = 300, decimals = 1, s
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initAnimate() {
-    window.animateNumber = animateNumber;
 }

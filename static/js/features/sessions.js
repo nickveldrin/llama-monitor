@@ -3,6 +3,11 @@
 
 import { sessionState } from '../core/app-state.js';
 import { escapeHtml } from '../core/format.js';
+import { doAttach, doStart } from './attach-detach.js';
+import { openDeferredFileBrowser } from './file-browser-launcher.js';
+import { loadPresets } from './presets.js';
+import { saveSettings } from './settings.js';
+import { showConnectingState } from './setup-view.js';
 import { showToast } from './toast.js';
 
 // ── Load ───────────────────────────────────────────────────────────────────────
@@ -22,7 +27,7 @@ export async function loadSessions() {
             if (endpointInput) {
                 endpointInput.value = lastAttach.mode.Attach.endpoint;
                 endpointInput.dataset.preserved = '1';
-                if (window.saveSettings) window.saveSettings();
+                saveSettings();
             }
         }
     } catch (err) {
@@ -95,15 +100,15 @@ export function quickAttachSession(endpoint) {
     if (serverEndpoint) serverEndpoint.value = endpoint;
     localStorage.setItem('llama-monitor-last-endpoint', endpoint);
     closeSessionModal();
-    if (window.showConnectingState) window.showConnectingState();
-    if (window.doAttach) window.doAttach();
+    showConnectingState();
+    doAttach();
 }
 
 export function quickStartSession(sessionId) {
     closeSessionModal();
     switchSession(sessionId);
-    if (window.showConnectingState) window.showConnectingState();
-    if (window.doStart) window.doStart();
+    showConnectingState();
+    doStart();
 }
 
 // ── CRUD ───────────────────────────────────────────────────────────────────────
@@ -136,7 +141,7 @@ export async function switchSession(sessionId) {
             sessionState.activeSessionId = sessionId;
             renderSessionList();
             showToast('Switched to session', 'success');
-            if (window.loadPresets) window.loadPresets();
+            loadPresets();
         } else {
             showToast('Failed to switch session: ' + data.error, 'error');
         }
@@ -294,7 +299,7 @@ export async function updateActiveSessionInfo() {
                 const endpointInput = document.getElementById('server-endpoint');
                 if (endpointInput && endpointInput.value !== endpoint) {
                     endpointInput.value = endpoint;
-                    if (window.saveSettings) window.saveSettings();
+                    saveSettings();
                 }
             }
         }
@@ -311,7 +316,7 @@ export function initSessions() {
     document.getElementById('session-modal-cancel')?.addEventListener('click', closeSessionModal);
     document.getElementById('btn-new-session')?.addEventListener('click', showNewSessionForm);
     document.getElementById('session-create-first')?.addEventListener('click', showNewSessionForm);
-    document.getElementById('session-browse-model-btn')?.addEventListener('click', () => window.openFileBrowser('modal-session-model-path', 'gguf'));
+    document.getElementById('session-browse-model-btn')?.addEventListener('click', () => openDeferredFileBrowser('modal-session-model-path', 'gguf'));
 
     // Bind session form submit
     const sessionForm = document.getElementById('session-form');
@@ -360,10 +365,6 @@ export function initSessions() {
     if (modeSelect) {
         modeSelect.addEventListener('change', updateSessionModalMode);
     }
-
-    // Keep on window for cross-module calls
-    window.updateActiveSessionInfo = updateActiveSessionInfo;
-
     // Initial load
     loadSessions();
 

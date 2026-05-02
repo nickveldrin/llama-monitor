@@ -2,13 +2,7 @@
 // Module entrypoint. Loaded as type="module" from index.html.
 // Single authoritative startup path — no legacy app.js or init-state.js.
 
-import { escapeHtml } from './core/format.js';
 import './compat/globals.js'; // Set window.escapeHtml, window.formatMetricNumber
-
-// Stub functions for dead HTML references (analytics/export modals not yet implemented)
-window.closeAnalyticsModal = () => {};
-window.closeExportModal = () => {};
-window.exportData = () => {};
 
 import { initDashboardRender } from './features/dashboard-render.js';
 import { initWebSocket } from './features/dashboard-ws.js';
@@ -42,11 +36,6 @@ console.log('[bootstrap] Module entrypoint loaded');
         el.textContent = `v${APP_VERSION}`;
     }
 })();
-
-// Make escapeHtml available on window for inline handlers (Phase 1 compat).
-// The authoritative implementation is in format.js — this replaces the 3
-// duplicates in app.js.
-window.escapeHtml = escapeHtml;
 
 // Phase 1: Initialize rendering functions, then WebSocket.
 initDashboardRender();
@@ -94,7 +83,6 @@ initToast();
 // These features are loaded on first use to reduce startup cost.
 
 const deferredInits = {
-    fileBrowser: null,
     updates: null,
     lhm: null,
 };
@@ -106,14 +94,6 @@ function once(key, loader) {
     return deferredInits[key];
 }
 
-function ensureFileBrowser() {
-    return once('fileBrowser', async () => {
-        const mod = await import('./features/file-browser.js');
-        mod.initFileBrowser();
-        return mod;
-    });
-}
-
 function ensureUpdates() {
     return once('updates', async () => {
         const mod = await import('./features/updates.js');
@@ -122,18 +102,14 @@ function ensureUpdates() {
     });
 }
 
-window.openFileBrowser = (targetId, filter) => {
-    ensureFileBrowser().then(mod => mod.openFileBrowser(targetId, filter));
-};
-
 function scheduleDeferredUpdateCheck() {
     const runCheck = () => {
         ensureUpdates().then(mod => mod.checkForUpdate());
     };
 
     if (document.visibilityState === 'visible') {
-        if (window.requestIdleCallback) {
-            window.requestIdleCallback(runCheck, { timeout: 3000 });
+        if (requestIdleCallback) {
+            requestIdleCallback(runCheck, { timeout: 3000 });
         } else {
             setTimeout(runCheck, 1500);
         }

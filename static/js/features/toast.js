@@ -151,7 +151,4 @@ export function initToast() {
             closeBtn.closest('.toast')?.remove();
         }
     });
-
-    window.showToast = showToast;
-    window.showToastWithActions = showToastWithActions;
 }

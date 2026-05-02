@@ -742,7 +742,7 @@ export function exportChatTab() {
     URL.revokeObjectURL(a.href);
 }
 
-function importChatTab() {
+export function importChatTab() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json,.md';

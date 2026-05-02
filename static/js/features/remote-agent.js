@@ -1842,9 +1842,6 @@ export function initRemoteAgent() {
     document.getElementById('btn-ssh-guide-trust')?.addEventListener('click', trustSshHostKey);
     document.getElementById('ssh-guide-apply')?.addEventListener('click', applySshSetupGuide);
 
-    // Keep on window for cross-module calls
-    window.setRemoteAgentStatus = setRemoteAgentStatus;
-
     // Agent setup modal overlay click
     const modal = document.getElementById('remote-agent-setup-modal');
     if (modal) {

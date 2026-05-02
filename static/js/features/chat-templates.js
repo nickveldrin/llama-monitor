@@ -3,7 +3,6 @@
 
 import { activeChatTab, registerChatViewBindings, scheduleChatPersist } from './chat-state.js';
 import { escapeHtml } from '../core/format.js';
-import { markSettingsDirty } from './settings.js';
 import { showToast } from './toast.js';
 
 // ── Built-in system prompt templates ──────────────────────────────────────────
@@ -515,15 +514,15 @@ export function getExplicitModePolicy() {
     return DEFAULT_EXPLICIT_POLICY;
 }
 
-function saveExplicitPolicy() {
-    markSettingsDirty();
+function notifyExplicitPolicyChanged(el) {
+    el?.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 function resetExplicitPolicy() {
     const el = document.getElementById('explicit-policy-input');
     if (el) {
         el.value = DEFAULT_EXPLICIT_POLICY;
-        markSettingsDirty();
+        notifyExplicitPolicyChanged(el);
     }
 }
 
@@ -531,7 +530,7 @@ function clearExplicitPolicy() {
     const el = document.getElementById('explicit-policy-input');
     if (el) {
         el.value = '';
-        markSettingsDirty();
+        notifyExplicitPolicyChanged(el);
     }
 }
 
@@ -568,7 +567,6 @@ export function initChatTemplates() {
     document.getElementById('template-new-btn')?.addEventListener('click', newTemplate);
 
     // Bind explicit policy buttons
-    document.getElementById('explicit-policy-input')?.addEventListener('input', () => saveExplicitPolicy());
     document.getElementById('explicit-policy-reset')?.addEventListener('click', resetExplicitPolicy);
     document.getElementById('explicit-policy-clear')?.addEventListener('click', clearExplicitPolicy);
 

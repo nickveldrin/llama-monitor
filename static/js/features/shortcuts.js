@@ -72,7 +72,4 @@ export function initShortcuts() {
         closeBtn.addEventListener('click', closeKeyboardShortcutsModal);
     }
 
-    // Keep on window for cross-module calls
-    window.openKeyboardShortcutsModal = openKeyboardShortcutsModal;
-    window.closeKeyboardShortcutsModal = closeKeyboardShortcutsModal;
 }

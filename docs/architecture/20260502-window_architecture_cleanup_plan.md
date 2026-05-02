@@ -6,6 +6,23 @@ Status Update: 2026-05-02 evening
 
 Phases 1-5 are now complete in code on `feature/window-architecture-context-metrics`.
 
+Phase 6 status:
+
+- Phase 6a is effectively complete
+- Phase 6b is now complete
+
+Phase 7 status:
+
+- Phase 7 is now complete
+- setup-view, updates, LHM, shortcuts, and nav all live in dedicated modules
+- setup-view and shortcuts no longer expose their module APIs through `window.*` for cross-module coordination
+
+Phase 8 status:
+
+- Phase 8 is now complete
+- app-owned cross-module `window.*` bridges have been removed from the feature modules
+- the remaining facade is limited to formatting compatibility in `compat/globals.js` plus normal browser globals
+
 The earlier review correctly found that the docs were ahead of the implementation. That gap has now been closed:
 
 - bootstrap no longer mirrors shared frontend state onto `window.*`
@@ -17,8 +34,7 @@ The earlier review correctly found that the docs were ahead of the implementatio
 The remaining `window.*` usage is now primarily deliberate compatibility surface for:
 
 - browser-native APIs
-- inline HTML handler shims that have not been converted yet
-- intentionally exposed UI entrypoints such as deferred file-browser/config/modal hooks
+- formatting helpers kept in `compat/globals.js`
 
 ## Purpose
 

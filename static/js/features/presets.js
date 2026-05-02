@@ -3,6 +3,8 @@
 
 import { sessionState } from '../core/app-state.js';
 import { escapeHtml } from '../core/format.js';
+import { openDeferredFileBrowser } from './file-browser-launcher.js';
+import { applySettings, saveSettings } from './settings.js';
 import { showToast } from './toast.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -46,11 +48,11 @@ export async function loadPresets(selectId) {
         sel.value = sessionState.presets[0].id;
     }
 
-    if (selectId === undefined && saved && window.applySettings) {
-        window.applySettings(saved);
+    if (selectId === undefined && saved) {
+        applySettings(saved);
     }
-    if (selectId === undefined && window.saveSettings) {
-        window.saveSettings();
+    if (selectId === undefined) {
+        saveSettings();
     }
 }
 
@@ -318,7 +320,7 @@ export function initPresets() {
     // Bind preset modal buttons
     document.getElementById('preset-modal-close')?.addEventListener('click', closePresetModal);
     document.getElementById('preset-modal-cancel')?.addEventListener('click', closePresetModal);
-    document.getElementById('preset-browse-model-btn')?.addEventListener('click', () => window.openFileBrowser('modal-model-path', 'gguf'));
+    document.getElementById('preset-browse-model-btn')?.addEventListener('click', () => openDeferredFileBrowser('modal-model-path', 'gguf'));
 
     // Bind preset form submit
     const presetForm = document.getElementById('preset-form');
@@ -347,10 +349,6 @@ export function initPresets() {
             });
         }
     });
-
-    // Keep on window for cross-module calls
-    window.loadPresets = loadPresets;
-
     // Initial load
     loadPresets();
 }

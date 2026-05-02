@@ -1,6 +1,7 @@
 // ── Models ────────────────────────────────────────────────────────────────────
 // Models modal: open, close, load, refresh.
 
+import { escapeHtml } from '../core/format.js';
 import { showToast } from './toast.js';
 
 let initialized = false;
@@ -34,14 +35,14 @@ async function loadModels() {
                 model.is_split ? 'split model' : ''
             ].filter(Boolean).join(' · ');
             return '<div class="model-item">' +
-                '<div><div class="model-name" title="' + window.escapeHtml(model.path) + '">' + window.escapeHtml(name) + '</div>' +
-                '<div class="model-meta">' + window.escapeHtml(model.filename) + '</div></div>' +
-                '<div class="model-meta">' + window.escapeHtml(meta) + '</div>' +
+                '<div><div class="model-name" title="' + escapeHtml(model.path) + '">' + escapeHtml(name) + '</div>' +
+                '<div class="model-meta">' + escapeHtml(model.filename) + '</div></div>' +
+                '<div class="model-meta">' + escapeHtml(meta) + '</div>' +
                 '</div>';
         }).join('') : '<div class="model-item"><div class="model-name">No models discovered</div><div class="model-meta">Configure --models-dir or model paths in presets.</div></div>';
     } catch (err) {
         summary.textContent = 'Failed to load models';
-        list.innerHTML = '<div class="model-item"><div class="model-name">Error</div><div class="model-meta">' + window.escapeHtml(err.message) + '</div></div>';
+        list.innerHTML = '<div class="model-item"><div class="model-name">Error</div><div class="model-meta">' + escapeHtml(err.message) + '</div></div>';
     }
 }
 

@@ -12,7 +12,8 @@ Current interpretation:
 
 - sections `A`, `B`, and `C` are historical inventory for the now-completed dashboard/bootstrap cleanup
 - section `E` is historical inventory for the now-completed chat cleanup
-- the remaining actionable globals are mostly compatibility shims and deliberate browser-global entrypoints
+- the remaining actionable globals have now been removed from feature-to-feature app wiring
+- the only deliberate app-owned facade left is formatting compatibility in `compat/globals.js`
 - if this document is used for follow-up work, treat the phase result sections and the codebase as authoritative over the original pre-cleanup counts
 
 ## Legend
@@ -147,7 +148,7 @@ These are **action** functions exposed on `window` for inline HTML handlers or c
 | `window.doAttach` | attach-detach | inline HTML | shim | keep temporarily |
 | `window.doStart` | attach-detach | inline HTML | shim | keep temporarily |
 | `window.updateActiveSessionInfo` | sessions | attach-detach | action | replace with import |
-| `window.openKeyboardShortcutsModal` | shortcuts | user-menu | action | replace with import |
+| `window.openKeyboardShortcutsModal` | shortcuts | user-menu | action | ✅ replaced with import |
 | `window.applyChatStyle` | chat-render | user-menu | action | replace with import |
 
 **Summary:** 14 action bridges. Toast functions are genuinely cross-module — consider a narrow `toast.js` import. Inline HTML handlers (shims) can stay until we move those to JS event listeners.
@@ -272,7 +273,7 @@ For Phase 2, the dashboard slice cleanup should eliminate these:
 - `animateNumber` imported from `animate.js` (not via `window.*`)
 - `setRemoteAgentStatus` imported from `remote-agent.js` (not via `window.*`)
 - `activeChatTab` imported from `chat-state.js` (not via `window.*`)
-- 2 remaining `window.*` references (`hideConnectingState`, `switchView`) are TODOs for setup-view extraction
+- setup-view extraction is complete; those remaining `window.*` references were removed
 
 ### What was NOT changed
 
@@ -305,6 +306,7 @@ For Phase 2, the dashboard slice cleanup should eliminate these:
 - `window.*` exports in `initChatState()`, `initChatRender()`, `initChatTransport()` — kept for compat, removed when all consumers migrate
 - `bootstrap.js` still copies chat state to `window.*` for compat — safe to remove only after all remaining consumers migrate
 
+
 ---
 
 ## Phase 5 Target (Bootstrap Cleanup) — ✅ COMPLETE (2026-05-02)
@@ -317,6 +319,22 @@ For Phase 2, the dashboard slice cleanup should eliminate these:
 - Removed `window.remoteAgentInProgress`, `window.remoteAgentSshConnection`, `window.latestSshHostKey` — no longer needed, remote-agent imports from container
 - Removed no-op bootstrap copy lines (`chat.tabs = state.chatTabs`, `remoteAgent.inProgress = state.remoteAgentInProgress`) — containers already have default values
 - Removed dead `export let` aliases from app-state.js (`remoteAgentInProgress`, `remoteAgentSshConnection`, `latestSshHostKey`)
+
+## Phase 8 Target (Legacy Shell / Facade) — ✅ COMPLETE (2026-05-02)
+
+### What changed
+
+- removed remaining feature-to-feature `window.*` bridges for settings, config, presets, sessions, attach/detach, shortcuts, setup-view, toast, and remote-agent
+- moved deferred file-browser access behind `file-browser-launcher.js` so features import a lazy launcher instead of using bootstrap globals
+- reduced bootstrap compatibility responsibilities by removing dead modal/export stubs and the bootstrap-owned file-browser bridge
+- fixed the file-browser directory click path so browsing deeper directories no longer resets the target field
+
+### Remaining facade
+
+- `window.escapeHtml`
+- `window.formatMetricNumber`
+
+These remain only in `compat/globals.js` as compatibility helpers.
 
 ### What was NOT changed
 

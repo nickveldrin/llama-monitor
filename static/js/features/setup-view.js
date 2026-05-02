@@ -186,18 +186,6 @@ export function initViewState() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initSetupView() {
-    window.switchView = switchView;
-    window.showConnectingState = showConnectingState;
-    window.hideConnectingState = hideConnectingState;
-    window.showFlashOverlay = showFlashOverlay;
-    window.animateCardsEnter = animateCardsEnter;
-    window.animateCardsExit = animateCardsExit;
-    window.animateSetupCardsEnter = animateSetupCardsEnter;
-    window.saveLastSessionData = saveLastSessionData;
-    window.loadLastSessionData = loadLastSessionData;
-    window.renderQuickStats = renderQuickStats;
-    window.syncSetupPresetSelect = syncSetupPresetSelect;
-    window.initViewState = initViewState;
     // Initialize view state immediately — defensive functions return early if DOM not ready
     initViewState();
 }

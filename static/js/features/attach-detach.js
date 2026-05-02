@@ -2,6 +2,7 @@
 // LLM lifecycle: start, stop, attach, detach, kill.
 
 import { sessionState } from '../core/app-state.js';
+import { updateActiveSessionInfo } from './sessions.js';
 import { showToast } from './toast.js';
 import { hideConnectingState, saveLastSessionData, showConnectingState, switchView } from './setup-view.js';
 import { monitorState } from '../core/app-state.js';
@@ -154,7 +155,7 @@ export async function doAttach() {
         switchView('monitor');
     }
 
-    if (window.updateActiveSessionInfo) window.updateActiveSessionInfo();
+    updateActiveSessionInfo();
 }
 
 export async function doDetach() {
@@ -192,7 +193,7 @@ export async function doDetach() {
         switchView('setup');
     }
 
-    if (window.updateActiveSessionInfo) window.updateActiveSessionInfo();
+    updateActiveSessionInfo();
 }
 
 // ── Setup page helpers ─────────────────────────────────────────────────────────
@@ -242,9 +243,6 @@ export async function initAttachDetachButtons() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 export function initAttachDetach() {
-    window.doAttach = doAttach;
-    window.doStart = doStart;
-
     // Bind top detach button
     const detachTop = document.getElementById('btn-detach-top');
     if (detachTop) detachTop.addEventListener('click', doDetach);
