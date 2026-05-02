@@ -147,7 +147,10 @@ jobs:
           cache-dependency-path: tests/ui/package-lock.json
 
       - name: Check static JavaScript syntax
-        run: node --check static/app.js
+        run: |
+          for f in static/js/bootstrap.js static/js/core/*.js static/js/features/*.js; do
+            node --check "$f" || exit 1
+          done
 
       - name: Install UI test dependencies
         working-directory: tests/ui

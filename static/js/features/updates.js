@@ -5,10 +5,12 @@ import { compareVersions } from '../core/format.js';
 
 // Holds the current pending release object
 let _pendingRelease = null;
+let initialized = false;
+let updateCheckStarted = false;
 
 // ── App Version ───────────────────────────────────────────────────────────────
 
-function initAppVersion() {
+export function initAppVersion() {
     const el = document.getElementById('app-version');
     if (el && typeof APP_VERSION !== 'undefined') {
         el.textContent = `v${APP_VERSION}`;
@@ -17,7 +19,10 @@ function initAppVersion() {
 
 // ── Update Check ──────────────────────────────────────────────────────────────
 
-async function checkForUpdate() {
+export async function checkForUpdate() {
+    if (updateCheckStarted) return;
+    updateCheckStarted = true;
+
     try {
         const resp = await fetch('/api/remote-agent/releases/latest');
         if (!resp.ok) return;
@@ -52,7 +57,7 @@ function showUpdatePill(release) {
 
 // ── Release Notes ─────────────────────────────────────────────────────────────
 
-function openReleaseNotes() {
+export function openReleaseNotes() {
     const release = _pendingRelease;
     if (!release?.tag_name) return;
 
@@ -164,13 +169,19 @@ function _pollForReconnect(newVersion) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initUpdates() {
-    window.initAppVersion = initAppVersion;
-    window.checkForUpdate = checkForUpdate;
-    window.showUpdatePill = showUpdatePill;
-    window.openReleaseNotes = openReleaseNotes;
-    window._resetUpdateBtn = _resetUpdateBtn;
-    window.closeReleaseNotes = closeReleaseNotes;
-    window.dismissUpdate = dismissUpdate;
-    window.triggerSelfUpdate = triggerSelfUpdate;
-    window._pollForReconnect = _pollForReconnect;
+    if (initialized) return;
+    initialized = true;
+
+    // Call setup functions
+    initAppVersion();
+
+    // Bind update pill click
+    const updatePill = document.getElementById('update-pill');
+    if (updatePill) updatePill.addEventListener('click', openReleaseNotes);
+
+    // Bind release notes panel buttons
+    document.getElementById('release-notes-close')?.addEventListener('click', closeReleaseNotes);
+    document.getElementById('release-notes-overlay')?.addEventListener('click', closeReleaseNotes);
+    document.getElementById('release-notes-dismiss')?.addEventListener('click', dismissUpdate);
+    document.getElementById('release-notes-update-btn')?.addEventListener('click', triggerSelfUpdate);
 }

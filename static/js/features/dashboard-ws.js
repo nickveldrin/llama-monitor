@@ -7,6 +7,86 @@ import { formatMetricAge } from '../core/format.js';
 
 let lastGpuData = {};
 
+// ── Cached DOM elements (populated at init time to avoid repeated queries) ──
+let cachedElements = null;
+
+function ensureCachedElements() {
+    if (cachedElements) return;
+    cachedElements = {
+        // Inference metrics
+        mPrompt: document.getElementById('m-prompt'),
+        mGen: document.getElementById('m-gen'),
+        mPromptDelta: document.getElementById('m-prompt-delta'),
+        mGenDelta: document.getElementById('m-gen-delta'),
+        mPromptMax: document.getElementById('m-prompt-max'),
+        mGenMax: document.getElementById('m-gen-max'),
+        mPromptBar: document.getElementById('m-prompt-bar'),
+        mGenBar: document.getElementById('m-gen-bar'),
+        mThroughputState: document.getElementById('m-throughput-state'),
+        mThroughputAge: document.getElementById('m-throughput-age'),
+        mThroughputEmpty: document.getElementById('m-throughput-empty'),
+        mGenState: document.getElementById('m-generation-state'),
+        mGenMain: document.getElementById('m-generation-main'),
+        mGenSub: document.getElementById('m-generation-sub'),
+        mGenDetails: document.getElementById('m-generation-details'),
+        mGenRing: document.getElementById('m-generation-ring'),
+        mLiveVelocity: document.getElementById('m-live-velocity'),
+        mStagePrompt: document.getElementById('m-stage-prompt'),
+        mStageOutput: document.getElementById('m-stage-output'),
+        mRatioBar: document.getElementById('m-throughput-ratio-bar'),
+        mRatioValue: document.getElementById('m-throughput-ratio'),
+        // Cards
+        throughputCard: document.querySelector('.widget-speed'),
+        generationCard: document.querySelector('.widget-generation'),
+        contextCard: document.querySelector('.widget-context'),
+        // Context
+        mContextValue: document.getElementById('m-context-value'),
+        mContextPct: document.getElementById('m-context-pct'),
+        mContextDelta: document.getElementById('m-context-delta'),
+        mContextMax: document.getElementById('m-context-max'),
+        mContextBar: document.getElementById('m-context-bar'),
+        mContextState: document.getElementById('m-context-state'),
+        mContextEmpty: document.getElementById('m-context-empty'),
+        mContextAge: document.getElementById('m-context-age'),
+        // Badges
+        badgeServer: document.getElementById('badge-server'),
+        badgeChat: document.getElementById('badge-chat'),
+        badgeLogs: document.getElementById('badge-logs'),
+        // Endpoint
+        endpointMode: document.getElementById('endpoint-mode'),
+        endpointUrl: document.getElementById('endpoint-url'),
+        endpointStatus: document.getElementById('endpoint-status'),
+        // Agent
+        agentStatus: document.getElementById('agent-status'),
+        agentLatency: document.getElementById('agent-latency'),
+        // Status
+        statusText: document.getElementById('status-text'),
+        // Server state
+        serverHeader: document.getElementById('server-header'),
+        btnAttach: document.getElementById('btn-attach'),
+        btnDetach: document.getElementById('btn-detach'),
+        btnDetachTop: document.getElementById('btn-detach-top'),
+        historicBadge: document.getElementById('inference-historic-badge'),
+        statusDot: document.getElementById('status-dot'),
+        btnStart: document.getElementById('btn-start'),
+        btnStop: document.getElementById('btn-stop'),
+        // Context
+        mCtxFill: document.getElementById('m-ctx-fill'),
+        mCtxValue: document.getElementById('m-ctx'),
+        mCtxDetails: document.getElementById('m-ctx-details'),
+        mCtxState: document.getElementById('m-context-state'),
+        mCtxPeakFill: document.getElementById('m-ctx-peak-fill'),
+        mCtxLiveLabel: document.getElementById('m-ctx-live-label'),
+        mCtxLiveDetail: document.getElementById('m-ctx-live-detail'),
+        mCtxPeakDetail: document.getElementById('m-ctx-peak-detail'),
+        mGenEmpty: document.getElementById('m-generation-empty'),
+        mSlotsState: document.getElementById('m-slots-state'),
+        mActivityState: document.getElementById('m-activity-state'),
+        // Logs
+        logPanel: document.getElementById('log-panel'),
+    };
+}
+
 // ── WebSocket setup ───────────────────────────────────────────────────────────
 
 export function initWebSocket() {
@@ -22,8 +102,8 @@ export function initWebSocket() {
     ws.onerror = e => console.error('WebSocket error:', e);
 
     ws.onclose = () => {
-        const statusText = document.getElementById('status-text');
-        if (statusText) statusText.textContent = 'Disconnected';
+        ensureCachedElements();
+        if (cachedElements.statusText) cachedElements.statusText.textContent = 'Disconnected';
         window.prevLogLen = 0;
     };
 
@@ -33,6 +113,9 @@ export function initWebSocket() {
 // ── Main dashboard update (replaces ws.onmessage in app.js) ──────────────────
 
 function updateDashboard(d) {
+    // Ensure DOM elements are cached (avoids repeated queries on every WS message)
+    ensureCachedElements();
+
     // Store for use by status alert and other components
     if (typeof window.appState !== 'undefined') {
         window.appState.wsData = d;
@@ -69,9 +152,10 @@ function updateDashboard(d) {
 // ── Endpoint health strip ────────────────────────────────────────────────────
 
 function updateEndpointStrip(d) {
-    const endpointModeEl = document.getElementById('endpoint-mode');
-    const endpointUrlEl = document.getElementById('endpoint-url');
-    const endpointStatusEl = document.getElementById('endpoint-status');
+    const ce = cachedElements;
+    const endpointModeEl = ce.endpointMode;
+    const endpointUrlEl = ce.endpointUrl;
+    const endpointStatusEl = ce.endpointStatus;
 
     if (d.capabilities && d.endpoint_kind) {
         let modeClass = 'unknown';
@@ -119,8 +203,9 @@ function updateEndpointStrip(d) {
 // ── Agent status ─────────────────────────────────────────────────────────────
 
 function updateAgentStatus(d) {
-    const agentStatusEl = document.getElementById('agent-status');
-    const agentLatencyEl = document.getElementById('agent-latency');
+    const ce = cachedElements;
+    const agentStatusEl = ce.agentStatus;
+    const agentLatencyEl = ce.agentLatency;
 
     if (!agentStatusEl) return;
 
@@ -165,11 +250,12 @@ function updateAgentStatus(d) {
 // ── Attach/Detach buttons ────────────────────────────────────────────────────
 
 function updateAttachDetach(d) {
-    const serverHeader = document.getElementById('server-header');
-    const btnAttach = document.getElementById('btn-attach');
-    const btnDetach = document.getElementById('btn-detach');
-    const btnDetachTop = document.getElementById('btn-detach-top');
-    const historicBadge = document.getElementById('inference-historic-badge');
+    const ce = cachedElements;
+    const serverHeader = ce.serverHeader;
+    const btnAttach = ce.btnAttach;
+    const btnDetach = ce.btnDetach;
+    const btnDetachTop = ce.btnDetachTop;
+    const historicBadge = ce.historicBadge;
 
     const isAttach = d.session_mode === 'attach' && d.active_session_endpoint;
 
@@ -199,11 +285,12 @@ function updateAttachDetach(d) {
 
 function updateServerState(d) {
     window.serverRunning = d.server_running;
+    const ce = cachedElements;
 
-    const dot = document.getElementById('status-dot');
-    const txt = document.getElementById('status-text');
-    const btnStart = document.getElementById('btn-start');
-    const btnStop = document.getElementById('btn-stop');
+    const dot = ce.statusDot;
+    const txt = ce.statusText;
+    const btnStart = ce.btnStart;
+    const btnStop = ce.btnStop;
 
     dot.className = 'status-dot ' + (window.serverRunning ? 'running' : 'stopped');
     txt.textContent = window.serverRunning ? 'Running' : 'Stopped';
@@ -224,25 +311,26 @@ function updateServerState(d) {
 function updateInferenceMetrics(d) {
     const l = window.lastLlamaMetrics;
     const hasActiveEndpoint = !!d.active_session_id;
+    const ce = cachedElements;
 
     // Speed metrics
     if (!window.speedMax) {
         window.speedMax = { prompt: 0, generation: 0 };
     }
 
-    const promptEl = document.getElementById('m-prompt');
-    const genEl = document.getElementById('m-gen');
-    const promptMaxEl = document.getElementById('m-prompt-max');
-    const genMaxEl = document.getElementById('m-gen-max');
-    const promptBar = document.getElementById('m-prompt-bar');
-    const genBar = document.getElementById('m-gen-bar');
-    const throughputState = document.getElementById('m-throughput-state');
-    const throughputAge = document.getElementById('m-throughput-age');
-    const throughputCard = document.querySelector('.widget-speed');
-    const generationCard = document.querySelector('.widget-generation');
-    const contextCard = document.querySelector('.widget-context');
-    const promptDeltaEl = document.getElementById('m-prompt-delta');
-    const genDeltaEl = document.getElementById('m-gen-delta');
+    const promptEl = ce.mPrompt;
+    const genEl = ce.mGen;
+    const promptMaxEl = ce.mPromptMax;
+    const genMaxEl = ce.mGenMax;
+    const promptBar = ce.mPromptBar;
+    const genBar = ce.mGenBar;
+    const throughputState = ce.mThroughputState;
+    const throughputAge = ce.mThroughputAge;
+    const throughputCard = ce.throughputCard;
+    const generationCard = ce.generationCard;
+    const contextCard = ce.contextCard;
+    const promptDeltaEl = ce.mPromptDelta;
+    const genDeltaEl = ce.mGenDelta;
 
     const promptRate = l?.prompt_tokens_per_sec || 0;
     const genRate = l?.generation_tokens_per_sec || 0;
@@ -254,7 +342,7 @@ function updateInferenceMetrics(d) {
     const throughputActive = promptRate > 0 || genRate > 0;
 
     window.setCardState(throughputCard, !hasActiveEndpoint ? 'dormant' : throughputActive ? 'live' : 'idle');
-    window.setEmptyState(document.getElementById('m-throughput-empty'), !hasActiveEndpoint);
+    window.setEmptyState(ce.mThroughputEmpty, !hasActiveEndpoint);
     window.setChipState(throughputState, throughputActive ? 'live' : 'idle', throughputActive ? 'live' : 'idle');
 
     if (throughputAge) {
@@ -308,8 +396,8 @@ function updateInferenceMetrics(d) {
     window.renderSparkline('m-gen-spark', window.metricSeries.generation, 'generation', false);
 
     // Throughput ratio
-    const ratioBar = document.getElementById('m-throughput-ratio-bar');
-    const ratioValue = document.getElementById('m-throughput-ratio');
+    const ratioBar = ce.mRatioBar;
+    const ratioValue = ce.mRatioValue;
     if (promptDisplayRate > 0 && genDisplayRate > 0) {
         const ratio = promptDisplayRate / genDisplayRate;
         const ratioPct = Math.min((ratio / 50) * 100, 100);
@@ -321,14 +409,14 @@ function updateInferenceMetrics(d) {
     }
 
     // Generation progress
-    const generationState = document.getElementById('m-generation-state');
-    const generationMain = document.getElementById('m-generation-main');
-    const generationSub = document.getElementById('m-generation-sub');
-    const generationDetails = document.getElementById('m-generation-details');
-    const generationRing = document.getElementById('m-generation-ring');
-    const liveVelocity = document.getElementById('m-live-velocity');
-    const promptStage = document.getElementById('m-stage-prompt');
-    const outputStage = document.getElementById('m-stage-output');
+    const generationState = ce.mGenState;
+    const generationMain = ce.mGenMain;
+    const generationSub = ce.mGenSub;
+    const generationDetails = ce.mGenDetails;
+    const generationRing = ce.mGenRing;
+    const liveVelocity = ce.mLiveVelocity;
+    const promptStage = ce.mStagePrompt;
+    const outputStage = ce.mStageOutput;
     const generated = l?.slot_generation_tokens || 0;
     const remaining = l?.slot_generation_remaining || 0;
     const generationAvailable = !!l?.slot_generation_available;
@@ -350,10 +438,10 @@ function updateInferenceMetrics(d) {
     window.renderLiveSparkline('m-live-output-spark', window.metricSeries.liveOutput);
 
     window.setCardState(generationCard, !hasActiveEndpoint ? 'dormant' : generationActive ? 'live' : generationAvailable ? 'idle' : 'unavailable');
-    window.setEmptyState(document.getElementById('m-generation-empty'), !hasActiveEndpoint);
+    window.setEmptyState(ce.mGenEmpty, !hasActiveEndpoint);
     window.setChipState(generationState, generationActive ? 'generating' : 'idle', generationActive ? 'live' : 'idle');
-    window.setChipState(document.getElementById('m-slots-state'), generationActive ? 'active' : 'idle', generationActive ? 'live' : 'idle');
-    window.setChipState(document.getElementById('m-activity-state'), generationActive ? 'active' : 'idle', generationActive ? 'live' : 'idle');
+    window.setChipState(ce.mSlotsState, generationActive ? 'active' : 'idle', generationActive ? 'live' : 'idle');
+    window.setChipState(ce.mActivityState, generationActive ? 'active' : 'idle', generationActive ? 'live' : 'idle');
     if (generationRing) generationRing.style.setProperty('--progress', generationPct.toFixed(2));
     if (liveVelocity) {
         liveVelocity.textContent = liveOutputRate > 0 ? liveOutputRate.toFixed(1) + ' t/s' : (generationActive ? 'warming' : 'retained');
@@ -411,22 +499,23 @@ function updateInferenceMetrics(d) {
 // ── Context metrics ──────────────────────────────────────────────────────────
 
 function updateContextMetrics(d, l, hasActiveEndpoint) {
-    const ctxFill = document.getElementById('m-ctx-fill');
-    const ctxValue = document.getElementById('m-ctx');
-    const ctxDetails = document.getElementById('m-ctx-details');
-    const ctxState = document.getElementById('m-context-state');
-    const ctxPeakFill = document.getElementById('m-ctx-peak-fill');
-    const ctxLiveLabel = document.getElementById('m-ctx-live-label');
-    const ctxLiveDetail = document.getElementById('m-ctx-live-detail');
-    const ctxPeakDetail = document.getElementById('m-ctx-peak-detail');
+    const ce = cachedElements;
+    const ctxFill = ce.mCtxFill;
+    const ctxValue = ce.mCtxValue;
+    const ctxDetails = ce.mCtxDetails;
+    const ctxState = ce.mCtxState;
+    const ctxPeakFill = ce.mCtxPeakFill;
+    const ctxLiveLabel = ce.mCtxLiveLabel;
+    const ctxLiveDetail = ce.mCtxLiveDetail;
+    const ctxPeakDetail = ce.mCtxPeakDetail;
     const contextCapacity = l?.context_capacity_tokens || l?.kv_cache_max || 0;
     const contextLive = l?.context_live_tokens || l?.kv_cache_tokens || 0;
     const contextPeak = l?.context_high_water_tokens || l?.kv_cache_high_water || 0;
     const contextLiveAvailable = !!(l?.context_live_tokens_available || l?.kv_cache_tokens_available);
     const peakPct = contextCapacity > 0 && contextPeak > 0 ? Math.min(100, Math.max(2, (contextPeak / contextCapacity) * 100)) : 0;
-    const contextCard = document.querySelector('.widget-context');
+    const contextCard = ce.contextCard;
 
-    if (typeof window.setEmptyState === 'function') window.setEmptyState(document.getElementById('m-context-empty'), !hasActiveEndpoint);
+    if (typeof window.setEmptyState === 'function') window.setEmptyState(ce.mContextEmpty, !hasActiveEndpoint);
     if (ctxPeakFill) ctxPeakFill.style.width = peakPct + '%';
     if (ctxPeakDetail) ctxPeakDetail.textContent = contextPeak > 0 ? window.formatMetricNumber(contextPeak) + ' peak' : '\u2014';
 
@@ -508,7 +597,7 @@ function updateLogs(d) {
     const logs = d.logs || [];
 
     if (logs.length !== window.prevLogLen) {
-        const el = document.getElementById('log-panel');
+        const el = cachedElements.logPanel;
         const wasAtBottom = el && (el.scrollHeight - el.scrollTop - el.clientHeight < 40);
 
         if (el) {
@@ -531,11 +620,12 @@ function updateBadges(d) {
         const gpuEntries = Object.entries(d.gpu || {});
         if (gpuEntries.length > 0) badgeParts.push('GPU ' + Math.max(...gpuEntries.map(([,m]) => m.temp)).toFixed(0) + 'C');
     }
-    const badgeServer = document.getElementById('badge-server');
+    const ce = cachedElements;
+    const badgeServer = ce.badgeServer;
     if (badgeServer) badgeServer.textContent = badgeParts.length ? ' ' + badgeParts.join(' \u00b7 ') : '';
 
     // Chat badge
-    const badgeChat = document.getElementById('badge-chat');
+    const badgeChat = ce.badgeChat;
     if (typeof window.activeChatTab === 'function') {
         const tab = window.activeChatTab();
         const msgCount = tab ? tab.messages.filter(m => m.role !== 'system').length : 0;
@@ -551,7 +641,7 @@ function updateBadges(d) {
     }
 
     // Logs badge
-    const badgeLogs = document.getElementById('badge-logs');
+    const badgeLogs = ce.badgeLogs;
     const logs = d.logs || [];
     if (badgeLogs) {
         if (logs.length > 0) {

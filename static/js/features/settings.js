@@ -139,6 +139,8 @@ function applySettings(s) {
 function openSettingsModal() {
     const modal = document.getElementById('settings-modal');
     if (!modal) return;
+    modal.removeAttribute('aria-hidden');
+    modal.inert = false;
     modal.classList.remove('closing');
     modal.classList.add('open');
     clearSettingsDirty();
@@ -150,6 +152,8 @@ function closeSettingsModal() {
     modal.classList.add('closing');
     setTimeout(() => {
         modal.classList.remove('open', 'closing');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.inert = true;
         clearSettingsDirty();
     }, 260);
 }
@@ -202,12 +206,20 @@ function _bindSettingsEvents() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initSettings() {
+    // Bind settings button
+    document.getElementById('settings-btn')?.addEventListener('click', openSettingsModal);
+    document.getElementById('sidebar-btn-settings')?.addEventListener('click', openSettingsModal);
+
+    // Bind settings modal buttons
+    document.getElementById('settings-modal-close')?.addEventListener('click', closeSettingsModal);
+    document.getElementById('settings-modal-cancel')?.addEventListener('click', closeSettingsModal);
+    document.getElementById('settings-modal-save')?.addEventListener('click', saveSettings);
+
+    // Keep on window for cross-module calls
     window.markSettingsDirty = markSettingsDirty;
-    window.clearSettingsDirty = clearSettingsDirty;
     window.collectSettings = collectSettings;
     window.saveSettings = saveSettings;
     window.applySettings = applySettings;
-    window.openSettingsModal = openSettingsModal;
     window.closeSettingsModal = closeSettingsModal;
     _bindSettingsEvents();
 }

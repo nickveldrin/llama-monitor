@@ -1,3 +1,4 @@
+// Re-embed: cached DOM elements in dashboard-ws
 pub const INDEX_HTML: &str = include_str!("../../static/index.html");
 pub const CSS_TOKENS: &str = include_str!("../../static/css/tokens.css");
 pub const CSS_BASE: &str = include_str!("../../static/css/base.css");
@@ -9,12 +10,10 @@ pub const CSS_COMPONENTS: &str = include_str!("../../static/css/components.css")
 pub const CSS_CHAT: &str = include_str!("../../static/css/chat.css");
 pub const CSS_SETUP_VIEW: &str = include_str!("../../static/css/setup-view.css");
 pub const CSS_SETTINGS_MODAL: &str = include_str!("../../static/css/settings-modal.css");
-pub const APP_JS: &str = include_str!("../../static/app.js");
 pub const BOOTSTRAP_JS: &str = include_str!("../../static/js/bootstrap.js");
 pub const COMPAT_GLOBALS_JS: &str = include_str!("../../static/js/compat/globals.js");
 pub const CORE_FORMAT_JS: &str = include_str!("../../static/js/core/format.js");
 pub const CORE_APP_STATE_JS: &str = include_str!("../../static/js/core/app-state.js");
-pub const CORE_INIT_STATE_JS: &str = include_str!("../../static/js/core/init-state.js");
 pub const FEATURES_DASHBOARD_WS_JS: &str = include_str!("../../static/js/features/dashboard-ws.js");
 pub const FEATURES_FILE_BROWSER_JS: &str = include_str!("../../static/js/features/file-browser.js");
 pub const FEATURES_PRESETS_JS: &str = include_str!("../../static/js/features/presets.js");
@@ -44,7 +43,6 @@ pub const FEATURES_USER_MENU_JS: &str = include_str!("../../static/js/features/u
 pub const FEATURES_DASHBOARD_RENDER_JS: &str =
     include_str!("../../static/js/features/dashboard-render.js");
 pub const FEATURES_TOAST_JS: &str = include_str!("../../static/js/features/toast.js");
-pub const LHM_JS: &str = include_str!("../../static/lhm.js");
 pub const MANIFEST_JSON: &str = include_str!("../../static/manifest.json");
 pub const SW_JS: &str = include_str!("../../static/sw.js");
 pub const ICON_SVG: &str = include_str!("../../static/icon.svg");
