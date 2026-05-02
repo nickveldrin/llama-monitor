@@ -552,6 +552,9 @@ async function installRemoteAgent() {
             return;
         }
 
+        // Auto-save token if agent is already running (repair scenario)
+        maybeAutoSaveAgentToken(detectData.agent_token);
+
         const remoteOs = detectData.os || 'linux';
         const remoteArch = detectData.arch || 'x86_64';
         showAgentSetupProgress('Remote: ' + remoteOs + ' ' + remoteArch + '. Fetching release\u2026', 15);
@@ -626,6 +629,9 @@ async function startRemoteAgent() {
             return;
         }
 
+        // Auto-save the token from the start response (if the agent exposed it via HTTP)
+        maybeAutoSaveAgentToken(data.agent_token);
+
         showAgentSetupProgress('Agent started\u2026 verifying\u2026', 80);
 
         await new Promise(r => setTimeout(r, 2000));
@@ -640,6 +646,9 @@ async function startRemoteAgent() {
             })
         });
         const verifyData = await verifyResp.json();
+
+        // Also auto-save from the detect/verify response
+        maybeAutoSaveAgentToken(verifyData.agent_token);
 
         hideAgentSetupProgress();
 
@@ -731,12 +740,30 @@ async function finishRemoteAgentSetup() {
     const sshPortInput = document.getElementById('agent-setup-ssh-port');
     const sshAuthSelect = document.getElementById('agent-setup-ssh-auth');
 
+    // Fetch current settings to merge — avoids wiping unrelated settings
+    // (preset_id, port, llama_server_path, models_dir, server_endpoint, etc.)
+    let currentSettings = {};
+    try {
+        const resp = await fetch('/api/settings');
+        if (resp.ok) {
+            currentSettings = await resp.json();
+        }
+    } catch (_) {}
+
     const settings = {
+        ...currentSettings,
         remote_agent_url: agentUrlInput?.value.trim() || '',
-        remote_agent_token: agentTokenInput?.value.trim() || '',
         remote_agent_ssh_target: sshTargetFromSetup(),
         remote_agent_ssh_autostart: true,
     };
+
+    // Only override the token if the user explicitly entered one.
+    // If the token was auto-saved by maybeAutoSaveAgentToken, it's already
+    // in currentSettings and will be preserved by the spread above.
+    const explicitToken = agentTokenInput?.value.trim();
+    if (explicitToken) {
+        settings.remote_agent_token = explicitToken;
+    }
 
     const { auth, connection } = collectRemoteAgentSetupConnection();
     if (auth === 'password') {
