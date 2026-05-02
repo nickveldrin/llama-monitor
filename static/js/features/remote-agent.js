@@ -272,6 +272,7 @@ async function scanRemoteAgentHostKey() {
         remoteAgentSetupState.hostKey = data.host_key;
         const trusted = data.host_key.trusted ? 'trusted' : 'not trusted yet';
         if (hostKeyEl) {
+            // eslint-disable-next-line no-unsanitized/property -- all server strings wrapped in escapeHtml(); trusted is a hardcoded string
             hostKeyEl.innerHTML = [
                 '<strong>Key:</strong> ' + escapeHtml(data.host_key.key_type),
                 '<strong>Host:</strong> ' + escapeHtml(data.host_key.host + ':' + data.host_key.port),
@@ -410,6 +411,7 @@ function showAgentSetupStatus(message, kind) {
     const el = document.getElementById('agent-setup-status');
     el.style.display = '';
     el.className = 'agent-setup-status ' + kind;
+    // eslint-disable-next-line no-unsanitized/property -- all call sites pass hardcoded strings or strings with server data wrapped in escapeHtml()
     el.innerHTML = message;
 }
 
@@ -871,6 +873,7 @@ function previewSshSetupGuide() {
     const agentUrl = 'http://' + connection.host + ':7779';
     const authLabel = auth === 'password' ? 'password for this operation' : auth === 'key' ? 'private key file' : 'SSH agent or keychain';
 
+    // eslint-disable-next-line no-unsanitized/property -- all server/computed strings wrapped in escapeHtml(); remaining items are hardcoded
     plan.innerHTML = [
         '<strong>SSH target:</strong> ' + escapeHtml(target),
         '<strong>Agent URL:</strong> ' + escapeHtml(agentUrl),
@@ -915,6 +918,7 @@ async function scanSshHostKey() {
 
         remoteAgent.latestHostKey = data.host_key;
         if (hostKeyEl) {
+            // eslint-disable-next-line no-unsanitized/property -- all server strings wrapped in escapeHtml(); trusted status is a hardcoded string
             hostKeyEl.innerHTML = [
                 '<strong>Host key:</strong> ' + escapeHtml(data.host_key.key_type),
                 '<strong>Host:</strong> ' + escapeHtml(data.host_key.host + ':' + data.host_key.port),
@@ -1002,6 +1006,7 @@ export function setRemoteAgentStatus(message, kind) {
     if (!el) return;
 
     el.style.color = kind === 'error' ? '#bf616a' : kind === 'ok' ? '#a3be8c' : '#9aa7b7';
+    // eslint-disable-next-line no-unsanitized/property -- all call sites pass hardcoded strings or strings with server data wrapped in escapeHtml()
     el.innerHTML = message;
 }
 
@@ -1766,6 +1771,7 @@ function addTimelineItem(message, status) {
     const timestamp = new Date().toLocaleTimeString();
     const item = document.createElement('div');
     item.className = 'remote-agent-timeline-item ' + status;
+    // eslint-disable-next-line no-unsanitized/property -- timestamp is from Date(); message is passed by internal callers as hardcoded strings or escapeHtml()-wrapped server data; status is a hardcoded enum
     item.innerHTML = '<span class="timestamp">[' + timestamp + ']</span>' + message;
 
     itemsEl.appendChild(item);
@@ -1891,7 +1897,7 @@ export function initRemoteAgent() {
                     sensorBtn.textContent = 'Setup';
                     sensorBtn.disabled = false;
                     if (callout) {
-                        callout.innerHTML = '<span style="color:#bf616a;">Install failed: ' + (data.error || 'Unknown error') + '</span>';
+                        callout.innerHTML = '<span style="color:#bf616a;">Install failed: ' + escapeHtml(data.error || 'Unknown error') + '</span>';
                     }
                     return;
                 }

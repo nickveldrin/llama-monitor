@@ -27,6 +27,7 @@ async function loadModels() {
         const resp = await fetch('/api/models');
         const models = await resp.json();
         summary.textContent = models.length ? models.length + ' model' + (models.length === 1 ? '' : 's') + ' found' : 'No models found';
+        // eslint-disable-next-line no-unsanitized/property -- all server strings (path, name, filename, meta) wrapped in escapeHtml()
         list.innerHTML = models.length ? models.map(model => {
             const name = model.model_name || model.filename;
             const meta = [

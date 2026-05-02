@@ -439,6 +439,7 @@ async function checkLHMAndPrompt() {
         if (currentRow) {
             const existingCells = currentRow.querySelectorAll('td');
             if (existingCells.length >= 2) {
+                // eslint-disable-next-line no-unsanitized/property -- tempColumn is built entirely from hardcoded HTML strings with no external data
                 existingCells[1].outerHTML = tempColumn;
             }
         }

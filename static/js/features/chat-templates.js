@@ -239,6 +239,7 @@ function closeTemplateManager() {
 async function renderTemplateList() {
     const templates = await loadTemplates();
     const list = document.getElementById('template-list');
+    // eslint-disable-next-line no-unsanitized/property -- t.name and t.id wrapped in escapeHtml(); selectedTemplateId/editingTemplateId are internal IDs
     list.innerHTML = templates.map(t => {
         const name = escapeHtml(t.name);
         const id = escapeHtml(t.id);

@@ -44,7 +44,7 @@ export async function fileBrowserGo(path) {
         const resp = await fetch('/api/browse?' + params);
         const data = await resp.json();
         if (data.error) {
-            entriesEl.innerHTML = '<div class="fb-empty">' + data.error + '</div>';
+            entriesEl.innerHTML = '<div class="fb-empty">' + escapeHtml(data.error) + '</div>';
             return;
         }
 
@@ -55,6 +55,7 @@ export async function fileBrowserGo(path) {
             return;
         }
 
+        // eslint-disable-next-line no-unsanitized/property -- all server strings (name, path, size_display) wrapped in escapeHtml()
         entriesEl.innerHTML = data.entries.map(e => {
             const name = escapeHtml(e.name);
             const size = escapeHtml(e.size_display || '');
@@ -70,7 +71,7 @@ export async function fileBrowserGo(path) {
             }
         }).join('');
     } catch (err) {
-        entriesEl.innerHTML = '<div class="fb-empty">Error: ' + err.message + '</div>';
+        entriesEl.innerHTML = '<div class="fb-empty">Error: ' + escapeHtml(err.message) + '</div>';
     }
 }
 

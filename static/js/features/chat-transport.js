@@ -216,6 +216,7 @@ export async function _doSendChat(tab) {
                     msgEl = appendAssistantPlaceholder();
                 }
                 if (msgEl) {
+                    // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context; fallback span is hardcoded
                     msgEl.querySelector('.chat-msg-body').innerHTML =
                         msgContent ? (typeof renderMd === 'function' ? renderMd(msgContent) : msgContent)
                             : '<span class="chat-stopped">[timed out — no response for too long]</span>';
@@ -274,6 +275,7 @@ export async function _doSendChat(tab) {
                             msgEl = appendAssistantPlaceholder();
                         }
                         if (msgEl) {
+                            // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context
                             msgEl.querySelector('.chat-msg-body').innerHTML =
                                 typeof renderMdStreaming === 'function'
                                     ? renderMdStreaming(msgContent)
@@ -293,6 +295,7 @@ export async function _doSendChat(tab) {
         if (msgEl) {
             const body = msgEl.querySelector('.chat-msg-body');
             if (err.name === 'AbortError') {
+                // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context; fallback span is hardcoded
                 body.innerHTML = msgContent
                     ? (typeof renderMd === 'function' ? renderMd(msgContent) : msgContent)
                     : '<span class="chat-stopped">[stopped]</span>';

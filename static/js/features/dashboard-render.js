@@ -7,6 +7,7 @@ import {
     lastGpuData,
     lastSystemMetrics,
     lastCapabilities,
+    wsData,
     setLastGpuData,
 } from '../core/app-state.js';
 
@@ -43,6 +44,7 @@ function renderSparkline(id, points, className, isBlocked) {
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
     const wallLine = isBlocked ? '<line x1="120" y1="0" x2="120" y2="28" stroke="#ebcb8b" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>' : '';
+    // eslint-disable-next-line no-unsanitized/property -- SVG path data from numeric array values; className is a hardcoded CSS class
     svg.innerHTML = '<path class="sparkline-fill ' + className + '" d="' + path + ' L 120 28 L 0 28 Z"></path><path class="sparkline-line ' + className + '" d="' + path + '"></path>' + wallLine;
 }
 
@@ -64,6 +66,7 @@ function renderLiveSparkline(id, points) {
         if (value > peak.value) peak = { value, x, y };
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
+    // eslint-disable-next-line no-unsanitized/property -- SVG path data built from numeric array values only
     svg.innerHTML = [
         '<path class="sparkline-fill live-output" d="' + path + ' L 120 28 L 0 28 Z"></path>',
         '<path class="sparkline-line live-output" d="' + path + '"></path>',
@@ -185,6 +188,7 @@ function renderActivityRail(active) {
         rail.innerHTML = '<span class="activity-empty">No recent tasks</span>';
         return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- all values are numeric (toFixed) or internal hardcoded enums ('active'/'complete')
     rail.innerHTML = segments.map(segment => {
         let start = Math.max(0, Math.min(100, ((segment.startedAtMs - (now - windowMs)) / windowMs) * 100));
         const endMs = segment.endedAtMs || now;
@@ -225,6 +229,7 @@ function renderSamplerParamsInline(slot) {
         el.innerHTML = '';
         return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- all interpolated values wrapped in escapeHtml()
     el.innerHTML = priorityItems.slice(0, 5).map(item => {
         const displayValue = formatConfigValue(item.value);
         return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
@@ -244,9 +249,11 @@ function renderConfigItems(id, items, emptyText) {
     const el = document.getElementById(id);
     if (!el) return;
     if (!items || !items.length) {
+        // eslint-disable-next-line no-unsanitized/property -- emptyText is always a hardcoded string literal at every call site
         el.innerHTML = '<span class="config-empty">' + emptyText + '</span>';
         return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- all interpolated values wrapped in escapeHtml()
     el.innerHTML = items.map(item => {
         const displayValue = formatConfigValue(item.value);
         return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
@@ -263,6 +270,7 @@ function renderSlotGrid(l, hasActiveEndpoint) {
     }
     const slotSnapshots = Array.isArray(l.slots) ? l.slots : [];
     if (slotSnapshots.length > 0) {
+        // eslint-disable-next-line no-unsanitized/property -- server strings (slot.id, task id) are wrapped in escapeHtml(); busy/idle are hardcoded
         grid.innerHTML = slotSnapshots.map(slot => {
             const busy = !!slot.is_processing;
             const task = busy && slot.id_task !== null && slot.id_task !== undefined ? 'task ' + slot.id_task : 'idle';
@@ -299,6 +307,7 @@ function renderSlotGrid(l, hasActiveEndpoint) {
         );
     }
 
+    // eslint-disable-next-line no-unsanitized/property -- tiles built from numeric index, numeric formatMetricNumber output, and hardcoded 'busy'/'idle'/'active' strings
     grid.innerHTML = tiles.join('');
 }
 
@@ -347,6 +356,7 @@ function renderRequestStats() {
 
 function renderGenerationDetailItems(el, parts) {
     if (!el) return;
+    // eslint-disable-next-line no-unsanitized/property -- all parts wrapped in escapeHtml()
     el.innerHTML = parts
         .filter(Boolean)
         .map(part => '<span class="generation-detail-chip">' + escapeHtml(part) + '</span>')
@@ -372,6 +382,7 @@ function renderDecodingConfig(l, hasActiveEndpoint, isGenerating) {
                 parts.push(escapeHtml(formatParamCount(modelParams)));
             }
             const stateClass = isGenerating ? 'generating' : 'idle';
+            // eslint-disable-next-line no-unsanitized/property -- stateClass is hardcoded enum; parts array members are all wrapped in escapeHtml()
             modelInfoRow.innerHTML = '<span class="model-info-text ' + stateClass + '">' + parts.join(' · ') + '</span>';
         } else {
             modelInfoRow.innerHTML = '';
@@ -439,6 +450,7 @@ function renderCapabilityPopover(d, l, generationAvailable, contextLiveAvailable
         ['Host metrics', d.host_metrics_available ? 'live' : 'unavailable', !!d.host_metrics_available],
         ['Remote agent', d.remote_agent_connected ? 'connected' : 'disconnected', !!d.remote_agent_connected]
     ];
+    // eslint-disable-next-line no-unsanitized/property -- label and value are all hardcoded string literals from the rows array above; ok is boolean
     popover.innerHTML = rows.map(([label, value, ok]) => {
         return '<span class="capability-row"><span class="capability-led ' + (ok ? 'ok' : 'muted') + '"></span><span>' + label + '</span><strong>' + value + '</strong></span>';
     }).join('');
@@ -475,6 +487,7 @@ function getTempSeverityColor(temp) {
 
 function setVizContent(container, html) {
     if (!container) return;
+    // eslint-disable-next-line no-unsanitized/property -- html is always built internally from numeric values, hardcoded CSS class names, and getSeverityColor() hex strings
     container.innerHTML = html;
 }
 
@@ -522,6 +535,7 @@ function renderHwMetricSparkline(svgId, history, color, show) {
         const y = height - (((value - min) / range) * (height - 4)) - 2;
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
+    // eslint-disable-next-line no-unsanitized/property -- SVG path built from numeric history values; color is a hex string from getSeverityColor()
     svg.innerHTML =
         '<path class="sparkline-fill" d="' + path + ' L 120 28 L 0 28 Z" fill="' + color + '" opacity="0.16"></path>' +
         '<path class="sparkline-line" d="' + path + '" stroke="' + color + '" fill="none" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 4px ' + color + ')"></path>' +
@@ -948,7 +962,7 @@ function renderSystemCard(sys, visible) {
     // Show temp unavailable badge when connected to remote agent without temp data
     var tempBadge = document.getElementById('sys-temp-unavailable-badge');
     if (tempBadge) {
-        var isRemoteAgent = appState.wsData && appState.wsData.endpoint_kind === 'Remote';
+        var isRemoteAgent = wsData && wsData.endpoint_kind === 'Remote';
         if (!hasTemp && isRemoteAgent) {
             var reason = sys.cpu_temp_available
                 ? 'Sensor returned no data'

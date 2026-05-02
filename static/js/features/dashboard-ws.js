@@ -21,6 +21,7 @@ import {
     setLastGpuData,
     lastLlamaMetrics,
     lastSystemMetrics,
+    wsData,
     currentPollInterval,
     monitorState,
     setupViewState,
@@ -50,6 +51,7 @@ import {
 } from './dashboard-render.js';
 import { animateNumber } from './animate.js';
 import { updateContextCard } from './context-card.js';
+import { activeChatTab } from './chat-state.js';
 import { setRemoteAgentStatus } from './remote-agent.js';
 import { hideConnectingState, switchView } from './setup-view.js';
 
@@ -223,6 +225,7 @@ function updateEndpointStrip(d) {
             endpointUrlEl.textContent = d.active_session_endpoint || d.active_session_id || 'No session';
         }
         if (endpointStatusEl) {
+            // eslint-disable-next-line no-unsanitized/property -- statusClass and statusText are hardcoded string enums set in this function
             endpointStatusEl.innerHTML = '<span class="status-dot ' + statusClass + '"></span>' + statusText;
         }
     }

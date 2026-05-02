@@ -160,7 +160,7 @@ function renderChatStrip(model) {
         pill.className = `context-pill ${item.state}`;
         pill.innerHTML = `
             <span class="context-pill-name">${escapeHtml(item.name)}</span>
-            <span class="context-pill-value">${item.ctxPct != null ? Math.round(item.ctxPct) + '%' : '—'}</span>
+            <span class="context-pill-value">${escapeHtml(item.ctxPct != null ? Math.round(item.ctxPct) + '%' : '—')}</span>
         `;
         strip.appendChild(pill);
     }
@@ -226,18 +226,23 @@ function renderFleetView(model) {
         return;
     }
 
+    // eslint-disable-next-line no-unsanitized/property
     fleetRows.innerHTML = rows.map(item => {
         const pct = item.ctxPct != null ? Math.round(item.ctxPct) : null;
+        const state = escapeHtml(item.state);
+        const pctLabel = escapeHtml(pct != null ? pct + '%' : 'unknown');
+        const width = escapeHtml(String(pct != null ? Math.min(100, pct) : 8));
+        const meta = escapeHtml((item.autoCompact ? 'auto-compact' : 'manual') + (item.isStale ? ' · stale' : ''));
         return `
-            <div class="context-fleet-row ${item.state}">
+            <div class="context-fleet-row ${state}">
                 <div class="context-fleet-row-top">
                     <span class="context-fleet-name">${escapeHtml(item.name)}</span>
-                    <span class="context-fleet-value">${pct != null ? pct + '%' : 'unknown'}</span>
+                    <span class="context-fleet-value">${pctLabel}</span>
                 </div>
                 <div class="context-fleet-bar">
-                    <div class="context-fleet-fill ${item.state}" style="width:${pct != null ? Math.min(100, pct) : 8}%"></div>
+                    <div class="context-fleet-fill ${state}" style="width:${width}%"></div>
                 </div>
-                <div class="context-fleet-meta">${item.autoCompact ? 'auto-compact' : 'manual'}${item.isStale ? ' · stale' : ''}</div>
+                <div class="context-fleet-meta">${meta}</div>
             </div>
         `;
     }).join('');

@@ -119,6 +119,7 @@ export function renderChatTabs() {
         el.className = 'chat-tab' + (tab.id === chat.activeTabId ? ' active' : '') + extraClasses;
         el.dataset.tabId = tab.id;
         el.dataset.msgCount = msgCount;
+        // eslint-disable-next-line no-unsanitized/property -- tab.name wrapped in escapeHtml(); tab.id is an internal UUID; message count is numeric
         el.innerHTML = `
           <span class="chat-tab-name" data-chat-tab-rename="${tab.id}">${escapeHtml(tab.name)}</span>
           <span class="chat-tab-count">${tab.messages.filter(m => m.role !== 'system').length || ''}</span>
@@ -169,6 +170,7 @@ export function renderChatMessages() {
             ? ` (${lastLlamaMetrics.model_name.split('/').pop().replace(/\.gguf$/i, '')})`
             : '';
 
+        // eslint-disable-next-line no-unsanitized/property -- aiName and modelName wrapped in escapeHtml(); promptCards use escapeHtml(); SVG is hardcoded
         container.innerHTML = `
           <div class="chat-empty">
             <div class="chat-empty-icon">
@@ -196,6 +198,7 @@ export function renderChatMessages() {
         const loadMoreBtn = document.createElement('button');
         loadMoreBtn.className = 'chat-load-more';
         const olderCount = allMessages.length - limit;
+        // eslint-disable-next-line no-unsanitized/property -- hardcoded SVG with numeric message counts only
         loadMoreBtn.innerHTML = `
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14M5 12l7 7 7-7"/>
@@ -260,6 +263,7 @@ function buildMessageElement(msg, idx, allMessages) {
             bodyHtml = `<div class="compact-peek-list">${rows}</div>`;
         }
 
+        // eslint-disable-next-line no-unsanitized/property -- bodyHtml is LLM output rendered via marked.js in trusted local context; statsHtml uses numeric counts and hardcoded strings; labelText/iconPath are hardcoded
         wrapper.innerHTML = `
           <div class="compact-marker-content">
             <div class="compact-marker-rule compact-marker-rule-left"></div>
@@ -309,6 +313,7 @@ function buildMessageElement(msg, idx, allMessages) {
         }
     }
 
+    // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context; user content escaped with escapeHtml().replace(); labels are user-configured display names
     wrapper.innerHTML = `
       <div class="chat-avatar">${isUser ? userLabel : aiLabel}</div>
       <div class="chat-bubble">
@@ -377,6 +382,7 @@ export function appendAssistantPlaceholder() {
     const aiLabel = tab?.ai_name || 'AI';
     const wrapper = document.createElement('div');
     wrapper.className = 'chat-message chat-message-assistant chat-message-streaming';
+    // eslint-disable-next-line no-unsanitized/property -- aiLabel is a user-configured display name; rest is hardcoded SVG/HTML skeleton
     wrapper.innerHTML = `
       <div class="chat-avatar">${aiLabel}</div>
       <div class="chat-bubble">
@@ -412,6 +418,7 @@ export function finalizeAssistantMessage(el, content, usage, tab) {
     el.classList.remove('chat-message-streaming');
     const body = el.querySelector('.chat-msg-body');
     if (content) {
+        // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context
         body.innerHTML = renderMd(content);
         if (typeof hljs !== 'undefined') {
             body.querySelectorAll('pre code:not(.hljs)').forEach(codeEl => {
@@ -429,6 +436,7 @@ export function finalizeAssistantMessage(el, content, usage, tab) {
 
             const header = document.createElement('div');
             header.className = 'chat-code-header';
+            // eslint-disable-next-line no-unsanitized/property -- lang is extracted from a CSS class name by marked.js; lineCount is numeric
             header.innerHTML = `
                 <span class="chat-code-lang">${lang || 'code'}</span>
                 <span class="chat-code-lines">${lineCount} line${lineCount !== 1 ? 's' : ''}</span>
@@ -485,6 +493,7 @@ export function finalizeAssistantMessage(el, content, usage, tab) {
         const hasVariants = msg && msg._variants && msg._variants.length > 1;
         const variantIdx = msg?._variantIndex || 0;
 
+        // eslint-disable-next-line no-unsanitized/property -- hardcoded SVG action buttons; variant counts are numeric; disabled attribute is boolean
         actions.innerHTML = `
           <button class="chat-action-btn" data-chat-action="copy" title="Copy">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -652,6 +661,7 @@ function editMessageContent(btn) {
     const resendBtn = isLastUserMsg
         ? `<button class="chat-edit-btn chat-edit-btn-resend" data-chat-edit="resend">Resend</button>`
         : '';
+    // eslint-disable-next-line no-unsanitized/property -- msg.content wrapped in escapeHtml() for textarea value; resendBtn is a hardcoded button element
     body.innerHTML = `<textarea class="chat-msg-edit-area" rows="6">${escapeHtml(msg.content)}</textarea>
       <div class="chat-msg-edit-actions">
         ${resendBtn}

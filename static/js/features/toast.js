@@ -44,6 +44,7 @@ export function showToast(title, type = 'error', message = '') {
         `;
     }
 
+    // eslint-disable-next-line no-unsanitized/property -- content is built from hardcoded template; type is a caller-controlled enum used only in CSS class; title/message wrapped in escapeHtml()
     toast.innerHTML = content;
     container.appendChild(toast);
     requestAnimationFrame(() => { toast.classList.add('show'); });
@@ -93,6 +94,7 @@ export function showToastWithActions(title, type, message, actions = []) {
             }).join('') + '</div>';
     }
 
+    // eslint-disable-next-line no-unsanitized/property -- type is a hardcoded enum used only in CSS class; title/message wrapped in escapeHtml(); actionsHtml uses escapeHtml(); getToastIcon returns hardcoded strings
     toast.innerHTML = `
         <div class="toast-icon ${type}">${getToastIcon(iconType)}</div>
         <div class="toast-content">
@@ -129,6 +131,7 @@ function showToastProgress(title, type = 'info') {
 
     const toast = document.createElement('div');
     toast.className = 'toast toast-' + type;
+    // eslint-disable-next-line no-unsanitized/property -- type is a hardcoded enum used only in CSS class; title wrapped in escapeHtml(); getToastIcon returns hardcoded strings
     toast.innerHTML = `
         <div class="toast-icon ${type}">${getToastIcon(type)}</div>
         <div class="toast-content">

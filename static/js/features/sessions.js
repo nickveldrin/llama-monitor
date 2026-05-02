@@ -49,6 +49,7 @@ export function renderSessionList() {
     }
     if (empty) empty.style.display = 'none';
 
+    // eslint-disable-next-line no-unsanitized/property -- all server strings (name, endpoint, id, presetName, status) wrapped in escapeHtml(); mode/status text values are from controlled enums
     list.innerHTML = sessionState.sessions.map(s => {
         const is_active = s.id === sessionState.activeSessionId;
         const isAttach = s.mode && s.mode.Attach;
