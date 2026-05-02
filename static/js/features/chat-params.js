@@ -106,7 +106,7 @@ function resetParamsToDefaults() {
     showToast('Parameters reset to defaults', 'success');
 }
 
-function updateParamsDirtyIndicator() {
+export function updateParamsDirtyIndicator() {
     const tab = activeChatTab();
     if (!tab) return;
     const p = tab.model_params;
