@@ -15,7 +15,7 @@ function getToastIcon(type) {
     return icons[type] || 'ℹ';
 }
 
-function showToast(title, type = 'error', message = '') {
+export function showToast(title, type = 'error', message = '') {
     const container = document.getElementById('toast-container');
     if (!container) return null;
 
@@ -69,7 +69,7 @@ function updateToastProgress(toastElement, percent, message) {
     }
 }
 
-function showToastWithActions(title, type, message, actions = []) {
+export function showToastWithActions(title, type, message, actions = []) {
     const container = document.getElementById('toast-container');
     if (!container) return;
 

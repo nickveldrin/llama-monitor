@@ -1,6 +1,8 @@
 // ── Models ────────────────────────────────────────────────────────────────────
 // Models modal: open, close, load, refresh.
 
+import { showToast } from './toast.js';
+
 let initialized = false;
 
 export function openModelsModal() {
@@ -49,9 +51,9 @@ async function refreshModels() {
     try {
         const resp = await fetch('/api/models/refresh', { method: 'POST' });
         const data = await resp.json();
-        if (!data.ok) window.showToast('Model refresh failed: ' + (data.error || 'unknown'), 'error');
+        if (!data.ok) showToast('Model refresh failed: ' + (data.error || 'unknown'), 'error');
     } catch (err) {
-        window.showToast('Model refresh failed: ' + err.message, 'error');
+        showToast('Model refresh failed: ' + err.message, 'error');
     }
     await loadModels();
 }

@@ -2,6 +2,7 @@
 // Tab collection, active tab, busy flags, persistence scheduling, tab CRUD.
 
 import { chat } from '../core/app-state.js';
+import { showToast } from './toast.js';
 
 const CHAT_TABS_PERSIST_DEBOUNCE_MS = 500;
 
@@ -74,9 +75,7 @@ export async function initChatTabs() {
     if (!localStorage.getItem('llama-monitor-chat-welcomed')) {
         localStorage.setItem('llama-monitor-chat-welcomed', 'true');
         setTimeout(() => {
-            if (typeof window.showToast === 'function') {
-                window.showToast('Tip: try a suggested prompt below to get started', 'info');
-            }
+            showToast('Tip: try a suggested prompt below to get started', 'info');
         }, 800);
     }
 }

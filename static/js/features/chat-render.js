@@ -11,6 +11,7 @@ import {
     closeChatTab,
     renameChatTab,
 } from './chat-state.js';
+import { showToast } from './toast.js';
 
 // Getter for transport functions — avoids circular import (chat-render ↔ chat-transport)
 let _getTransport = null;
@@ -755,7 +756,7 @@ function importChatTab() {
                         chat.tabs.push(newTab);
                         switchChatTab(newTab.id);
                         scheduleChatPersist();
-                        window.showToast('Conversation imported', 'success');
+                        showToast('Conversation imported', 'success');
                     }
                 } else {
                     const lines = ev.target.result.split(/\n---\n/);
@@ -776,11 +777,11 @@ function importChatTab() {
                         tab.updated_at = Date.now();
                         renderChatMessages();
                         scheduleChatPersist();
-                        window.showToast(`Imported ${messages.length} messages`, 'success');
+                        showToast(`Imported ${messages.length} messages`, 'success');
                     }
                 }
             } catch (err) {
-                window.showToast('Import failed: ' + err.message, 'error');
+                showToast('Import failed: ' + err.message, 'error');
             }
         };
         reader.readAsText(file);

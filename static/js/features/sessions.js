@@ -3,6 +3,7 @@
 
 import { sessionState } from '../core/app-state.js';
 import { escapeHtml } from '../core/format.js';
+import { showToast } from './toast.js';
 
 // ── Load ───────────────────────────────────────────────────────────────────────
 
@@ -113,13 +114,13 @@ export async function deleteSession(sessionId) {
         const resp = await fetch('/api/sessions/' + encodeURIComponent(sessionId), { method: 'DELETE' });
         const data = await resp.json();
         if (data.ok) {
-            window.showToast('Session deleted', 'success');
+            showToast('Session deleted', 'success');
             loadSessions();
         } else {
-            window.showToast('Delete failed: ' + (data.error || 'unknown'), 'error');
+            showToast('Delete failed: ' + (data.error || 'unknown'), 'error');
         }
     } catch (e) {
-        window.showToast('Delete failed: ' + e.message, 'error');
+        showToast('Delete failed: ' + e.message, 'error');
     }
 }
 
@@ -134,13 +135,13 @@ export async function switchSession(sessionId) {
         if (data.ok) {
             sessionState.activeSessionId = sessionId;
             renderSessionList();
-            window.showToast('Switched to session', 'success');
+            showToast('Switched to session', 'success');
             if (window.loadPresets) window.loadPresets();
         } else {
-            window.showToast('Failed to switch session: ' + data.error, 'error');
+            showToast('Failed to switch session: ' + data.error, 'error');
         }
     } catch (err) {
-        window.showToast('Failed to switch session: ' + err.message, 'error');
+        showToast('Failed to switch session: ' + err.message, 'error');
     }
 }
 
@@ -221,7 +222,7 @@ export function saveSession(event) {
     const name = document.getElementById('modal-session-name').value.trim();
 
     if (!name) {
-        window.showToast('Please enter a session name', 'error');
+        showToast('Please enter a session name', 'error');
         return;
     }
 
@@ -244,12 +245,12 @@ export function saveSession(event) {
           };
 
     if (mode === 'attach' && !endpoint) {
-        window.showToast('Please enter an endpoint', 'error');
+        showToast('Please enter an endpoint', 'error');
         return;
     }
 
     if (mode === 'spawn' && !modalPresetId && !presetId) {
-        window.showToast('Select a model preset before creating a spawn session', 'error');
+        showToast('Select a model preset before creating a spawn session', 'error');
         return;
     }
 
@@ -264,12 +265,12 @@ export function saveSession(event) {
             closeSessionModal();
             loadSessions();
             updateActiveSessionInfo();
-            window.showToast(mode === 'attach' ? 'Attached to endpoint' : 'Session created', 'success');
+            showToast(mode === 'attach' ? 'Attached to endpoint' : 'Session created', 'success');
         } else {
-            window.showToast('Failed to create session: ' + data.error, 'error');
+            showToast('Failed to create session: ' + data.error, 'error');
         }
     })
-    .catch(err => window.showToast('Failed to create session: ' + err.message, 'error'));
+    .catch(err => showToast('Failed to create session: ' + err.message, 'error'));
 }
 
 // ── Active session info ────────────────────────────────────────────────────────

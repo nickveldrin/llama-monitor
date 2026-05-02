@@ -3,6 +3,7 @@
 
 import { sessionState } from '../core/app-state.js';
 import { escapeHtml } from '../core/format.js';
+import { showToast } from './toast.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ export function openPresetModal(mode) {
     if (mode === 'edit') {
         const id = document.getElementById('preset-select').value;
         const p = sessionState.presets.find(pr => pr.id === id);
-        if (!p) { window.showToast('No preset selected', 'warn'); return; }
+        if (!p) { showToast('No preset selected', 'warn'); return; }
         title.textContent = 'Edit Preset';
         setVal('modal-preset-id', p.id);
         // Model & Memory
@@ -192,7 +193,7 @@ export async function savePreset(event) {
         valid = false;
     }
     if (!valid) {
-        window.showToast('Please fill in all required fields', 'error');
+        showToast('Please fill in all required fields', 'error');
         return;
     }
 
@@ -211,7 +212,7 @@ export async function savePreset(event) {
             });
             if (!resp.ok) {
                 const err = await resp.text().catch(() => 'Unknown error');
-                window.showToast('Save failed: ' + err, 'error');
+                showToast('Save failed: ' + err, 'error');
                 return;
             }
             savedId = id;
@@ -223,7 +224,7 @@ export async function savePreset(event) {
             });
             if (!resp.ok) {
                 const err = await resp.text().catch(() => 'Unknown error');
-                window.showToast('Save failed: ' + err, 'error');
+                showToast('Save failed: ' + err, 'error');
                 return;
             }
             const data = await resp.json();
@@ -231,9 +232,9 @@ export async function savePreset(event) {
         }
         closePresetModal();
         await loadPresets(savedId);
-        window.showToast('Preset saved', 'success');
+        showToast('Preset saved', 'success');
     } catch (err) {
-        window.showToast('Save failed: ' + err.message, 'error');
+        showToast('Save failed: ' + err.message, 'error');
     } finally {
         saveBtn.classList.remove('saving');
         saveBtn.textContent = 'Save';
@@ -243,7 +244,7 @@ export async function savePreset(event) {
 export async function copyPreset() {
     const id = document.getElementById('preset-select').value;
     const p = sessionState.presets.find(pr => pr.id === id);
-    if (!p) { window.showToast('No preset selected', 'warn'); return; }
+    if (!p) { showToast('No preset selected', 'warn'); return; }
 
     const copy = Object.assign({}, p);
     delete copy.id;
@@ -257,34 +258,34 @@ export async function copyPreset() {
         });
         if (!resp.ok) {
             const err = await resp.text().catch(() => 'Unknown error');
-            window.showToast('Copy failed: ' + err, 'error');
+            showToast('Copy failed: ' + err, 'error');
             return;
         }
         const data = await resp.json();
         await loadPresets(data.preset?.id || null);
-        window.showToast('Preset copied', 'success');
+        showToast('Preset copied', 'success');
     } catch (err) {
-        window.showToast('Copy failed: ' + err.message, 'error');
+        showToast('Copy failed: ' + err.message, 'error');
     }
 }
 
 export async function deletePreset() {
     const id = document.getElementById('preset-select').value;
     const p = sessionState.presets.find(pr => pr.id === id);
-    if (!p) { window.showToast('No preset selected', 'warn'); return; }
+    if (!p) { showToast('No preset selected', 'warn'); return; }
     if (!confirm('Delete preset "' + p.name + '"?')) return;
 
     try {
         const resp = await fetch('/api/presets/' + encodeURIComponent(id), { method: 'DELETE' });
         if (!resp.ok) {
             const err = await resp.text().catch(() => 'Unknown error');
-            window.showToast('Delete failed: ' + err, 'error');
+            showToast('Delete failed: ' + err, 'error');
             return;
         }
         await loadPresets();
-        window.showToast('Preset deleted', 'success');
+        showToast('Preset deleted', 'success');
     } catch (err) {
-        window.showToast('Delete failed: ' + err.message, 'error');
+        showToast('Delete failed: ' + err.message, 'error');
     }
 }
 
@@ -294,13 +295,13 @@ export async function resetPresets() {
         const resp = await fetch('/api/presets/reset', { method: 'POST' });
         if (!resp.ok) {
             const err = await resp.text().catch(() => 'Unknown error');
-            window.showToast('Reset failed: ' + err, 'error');
+            showToast('Reset failed: ' + err, 'error');
             return;
         }
         await loadPresets();
-        window.showToast('Presets reset to defaults', 'success');
+        showToast('Presets reset to defaults', 'success');
     } catch (err) {
-        window.showToast('Reset failed: ' + err.message, 'error');
+        showToast('Reset failed: ' + err.message, 'error');
     }
 }
 

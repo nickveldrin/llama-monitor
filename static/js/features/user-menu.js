@@ -1,6 +1,8 @@
 // ── User Menu ─────────────────────────────────────────────────────────────────
 // User menu, profile, preferences modal, theme toggle.
 
+import { showToast } from './toast.js';
+
 // ── User Menu ─────────────────────────────────────────────────────────────────
 
 function toggleUserMenu(event) {
@@ -25,7 +27,7 @@ function openUserProfile(event) {
     event?.preventDefault();
     closeUserMenu();
     openUserPreferencesModal();
-    window.showToast('Profile is local-only for now. Preferences are available here.', 'info');
+    showToast('Profile is local-only for now. Preferences are available here.', 'info');
 }
 
 // ── User Preferences Modal ────────────────────────────────────────────────────
@@ -66,7 +68,7 @@ function saveUserPreferences() {
     }));
 
     closeUserPreferencesModal();
-    window.showToast('Preferences saved', 'success');
+    showToast('Preferences saved', 'success');
 }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -86,7 +88,7 @@ function toggleTheme(event) {
     document.documentElement.dataset.theme = next;
     const pref = document.getElementById('pref-theme-mode');
     if (pref) pref.value = next;
-    window.showToast('Theme set to ' + next, 'success');
+    showToast('Theme set to ' + next, 'success');
 }
 
 // ── User Help ─────────────────────────────────────────────────────────────────
@@ -102,7 +104,7 @@ function openUserHelp(event) {
 function logoutUser(event) {
     event?.preventDefault();
     closeUserMenu();
-    window.showToast('No signed-in account is configured for this local app.', 'info');
+    showToast('No signed-in account is configured for this local app.', 'info');
 }
 
 // ── Load saved preferences on import ──────────────────────────────────────────

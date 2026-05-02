@@ -1,6 +1,8 @@
 // ── Config ────────────────────────────────────────────────────────────────────
 // Config modal, GPU environment, and config save.
 
+import { showToast } from './toast.js';
+
 // ── Config Modal ──────────────────────────────────────────────────────────────
 
 function openConfigModal() {
@@ -75,13 +77,13 @@ function saveConfig() {
     }).catch(() => {});
 
     closeConfigModal();
-    window.showToast('Configuration saved', 'success');
+    showToast('Configuration saved', 'success');
 }
 
 function usePathServerBinary() {
     const input = document.getElementById('set-server-path');
     if (input) input.value = '';
-    window.showToast('llama-server will be resolved from PATH', 'info');
+    showToast('llama-server will be resolved from PATH', 'info');
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

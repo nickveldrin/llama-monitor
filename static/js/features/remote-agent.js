@@ -4,6 +4,7 @@
 
 import { remoteAgent } from '../core/app-state.js';
 import { escapeHtml } from '../core/format.js';
+import { showToast } from './toast.js';
 
 let initialized = false;
 
@@ -1713,8 +1714,8 @@ function showRemoteAgentFirewall(showAlert = true) {
     if (firewallEl) {
         firewallEl.style.display = '';
     }
-    if (showAlert && typeof window.showToast === 'function') {
-        window.showToast('Firewall blocked - Agent HTTP access is not reachable', 'error');
+    if (showAlert && typeof showToast === 'function') {
+        showToast('Firewall blocked - Agent HTTP access is not reachable', 'error');
     }
 }
 

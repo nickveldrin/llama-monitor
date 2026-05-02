@@ -9,6 +9,7 @@ import {
     updateChatName,
 } from './chat-state.js';
 import { renderChatMessages } from './chat-render.js';
+import { showToast, showToastWithActions } from './toast.js';
 
 // Local state — previously on window, migrated to local variables
 let chatFont = parseInt(localStorage.getItem('llama-monitor-chat-font') || '100');
@@ -62,7 +63,7 @@ function onParamChange(key, value) {
     }
     scheduleChatPersist();
     clearTimeout(window.paramToastTimer);
-    window.paramToastTimer = setTimeout(() => window.showToast('Parameter saved', 'success'), 2000);
+    window.paramToastTimer = setTimeout(() => showToast('Parameter saved', 'success'), 2000);
     updateParamsDirtyIndicator();
 }
 
@@ -92,7 +93,7 @@ function resetParamsToDefaults() {
     syncParamPanelToTab();
     scheduleChatPersist();
     updateParamsDirtyIndicator();
-    window.showToast('Parameters reset to defaults', 'success');
+    showToast('Parameters reset to defaults', 'success');
 }
 
 function updateParamsDirtyIndicator() {
@@ -122,7 +123,7 @@ function duplicateTabSettings(sourceId) {
     const indicator = document.getElementById('system-prompt-indicator');
     indicator.style.display = target.system_prompt ? 'inline' : 'none';
     document.getElementById('chat-system-input').value = target.system_prompt;
-    window.showToast('Settings copied from "' + source.name + '"', 'success');
+    showToast('Settings copied from "' + source.name + '"', 'success');
 }
 
 function showCopySettingsDropdown() {
@@ -130,10 +131,10 @@ function showCopySettingsDropdown() {
     if (!target) return;
     const others = chat.tabs.filter(t => t.id !== target.id);
     if (others.length === 0) {
-        window.showToast('No other tabs to copy from', 'info');
+        showToast('No other tabs to copy from', 'info');
         return;
     }
-    const toast = window.showToastWithActions(
+    const toast = showToastWithActions(
         'Copy settings from',
         'info',
         'Select a tab to copy its system prompt and parameters',
@@ -404,7 +405,7 @@ function selectChatStyle(style) {
     const select = document.getElementById('pref-chat-style');
     if (select) select.value = style;
     document.getElementById('chat-style-panel').style.display = 'none';
-    window.showToast(`Style: ${CHAT_STYLE_LABELS[style]}`, 'success');
+    showToast(`Style: ${CHAT_STYLE_LABELS[style]}`, 'success');
 }
 
 function updateChatStyleLabel(style) {

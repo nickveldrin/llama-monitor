@@ -2,6 +2,7 @@
 // System prompt templates, template manager, and explicit-mode policy.
 
 import { activeChatTab, scheduleChatPersist } from './chat-state.js';
+import { showToast } from './toast.js';
 
 // ── Built-in system prompt templates ──────────────────────────────────────────
 
@@ -214,7 +215,7 @@ async function saveUserTemplates(templates) {
         _userTemplates = templates;
     } catch (e) {
         console.error('Failed to save templates:', e);
-        window.showToast('Failed to save template', 'error');
+        showToast('Failed to save template', 'error');
     }
 }
 
@@ -350,7 +351,7 @@ async function saveTemplate() {
     const name = document.getElementById('template-name-input').value.trim();
     const prompt = document.getElementById('template-prompt-input').value.trim();
     if (!name || !prompt) {
-        window.showToast('Name and prompt are required', 'error');
+        showToast('Name and prompt are required', 'error');
         return;
     }
     if (editingTemplateId === 'new') {
@@ -367,14 +368,14 @@ async function saveTemplate() {
             }
         } catch (e) {
             console.error('Failed to create template:', e);
-            window.showToast('Failed to save template', 'error');
+            showToast('Failed to save template', 'error');
             return;
         }
     } else {
         const templates = await loadTemplates();
         const t = templates.find(x => x.id === editingTemplateId);
         if (!t) {
-            window.showToast('Template not found', 'error');
+            showToast('Template not found', 'error');
             return;
         }
         if (t._isDefault) {
@@ -385,12 +386,12 @@ async function saveTemplate() {
                     body: JSON.stringify({ id: crypto.randomUUID(), name, prompt })
                 });
                 if (!(await res.json()).ok) {
-                    window.showToast('Failed to save template', 'error');
+                    showToast('Failed to save template', 'error');
                     return;
                 }
             } catch (e) {
                 console.error('Failed to create template:', e);
-                window.showToast('Failed to save template', 'error');
+                showToast('Failed to save template', 'error');
                 return;
             }
         } else {
@@ -401,12 +402,12 @@ async function saveTemplate() {
                     body: JSON.stringify({ id: editingTemplateId, name, prompt })
                 });
                 if (!(await res.json()).ok) {
-                    window.showToast('Failed to save template', 'error');
+                    showToast('Failed to save template', 'error');
                     return;
                 }
             } catch (e) {
                 console.error('Failed to update template:', e);
-                window.showToast('Failed to save template', 'error');
+                showToast('Failed to save template', 'error');
                 return;
             }
         }
@@ -415,13 +416,13 @@ async function saveTemplate() {
     editingTemplateId = null;
     await renderTemplateList();
     await renderTemplatePreview();
-    window.showToast('Template saved', 'success');
+    showToast('Template saved', 'success');
 }
 
 async function deleteTemplate(id) {
     if (!confirm('Delete this template?')) return;
     if (id.startsWith('default:')) {
-        window.showToast('Cannot delete default templates', 'error');
+        showToast('Cannot delete default templates', 'error');
         return;
     }
     try {
@@ -432,11 +433,11 @@ async function deleteTemplate(id) {
             editingTemplateId = null;
             await renderTemplateList();
             await renderTemplatePreview();
-            window.showToast('Template deleted', 'success');
+            showToast('Template deleted', 'success');
         }
     } catch (e) {
         console.error('Failed to delete template:', e);
-        window.showToast('Failed to delete template', 'error');
+        showToast('Failed to delete template', 'error');
     }
 }
 
@@ -474,7 +475,7 @@ function applySystemPromptTemplate(templateValue) {
     const indicator = document.getElementById('system-prompt-indicator');
     indicator.style.display = templateValue ? 'inline' : 'none';
     scheduleChatPersist();
-    window.showToast('Template applied', 'success');
+    showToast('Template applied', 'success');
 }
 
 // ── Explicit mode ─────────────────────────────────────────────────────────────
@@ -552,7 +553,7 @@ function onSystemPromptChange() {
     indicator.style.display = tab.system_prompt ? 'inline' : 'none';
     scheduleChatPersist();
     clearTimeout(window.systemPromptToastTimer);
-    window.systemPromptToastTimer = setTimeout(() => window.showToast('System prompt saved', 'success'), 10000);
+    window.systemPromptToastTimer = setTimeout(() => showToast('System prompt saved', 'success'), 10000);
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

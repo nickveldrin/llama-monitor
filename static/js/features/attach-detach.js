@@ -2,6 +2,7 @@
 // LLM lifecycle: start, stop, attach, detach, kill.
 
 import { sessionState } from '../core/app-state.js';
+import { showToast } from './toast.js';
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 
@@ -53,7 +54,7 @@ export function getConfig() {
 export async function doStart() {
     const config = getConfig();
     if (!config.model_path) {
-        window.showToast('No model path set. Edit the preset to select a model.', 'error');
+        showToast('No model path set. Edit the preset to select a model.', 'error');
         return;
     }
 
@@ -70,7 +71,7 @@ export async function doStart() {
     const data = await resp.json();
 
     if (!data.ok) {
-        window.showToast('Start failed: ' + (data.error || 'unknown'), 'error');
+        showToast('Start failed: ' + (data.error || 'unknown'), 'error');
         if (window.hideConnectingState) window.hideConnectingState();
     } else {
         if (window.switchView) window.switchView('monitor');
@@ -98,10 +99,10 @@ export async function doKillLlama() {
         const resp = await fetch('/api/kill-llama', { method: 'POST' });
         const data = await resp.json();
 
-        if (!data.ok) window.showToast('Kill failed: ' + (data.error || 'unknown'), 'error');
-        else window.showToast('llama-server killed', 'success');
+        if (!data.ok) showToast('Kill failed: ' + (data.error || 'unknown'), 'error');
+        else showToast('llama-server killed', 'success');
     } catch (e) {
-        window.showToast('Kill failed: ' + e.message, 'error');
+        showToast('Kill failed: ' + e.message, 'error');
     } finally {
         if (btnKill) btnKill.disabled = false;
     }
@@ -122,7 +123,7 @@ export async function doAttach() {
     const endpoint = endpointInput.value.trim();
 
     if (!endpoint) {
-        window.showToast('Please enter a server endpoint', 'error');
+        showToast('Please enter a server endpoint', 'error');
         return;
     }
 
@@ -134,14 +135,14 @@ export async function doAttach() {
     const data = await resp.json();
 
     if (!data.ok) {
-        window.showToast('Attach failed: ' + (data.error || 'unknown'), 'error');
+        showToast('Attach failed: ' + (data.error || 'unknown'), 'error');
         if (window.hideConnectingState) window.hideConnectingState();
     } else {
-        window.showToast('Attached to server', 'success');
+        showToast('Attached to server', 'success');
         if (window.hideConnectingState) window.hideConnectingState();
 
         if (data.warning) {
-            window.showToast(data.warning, 'warning');
+            showToast(data.warning, 'warning');
         }
 
         const serverHeader = document.getElementById('server-header');
@@ -159,9 +160,9 @@ export async function doDetach() {
     const data = await resp.json();
 
     if (!data.ok) {
-        window.showToast('Detach failed: ' + (data.error || 'unknown'), 'error');
+        showToast('Detach failed: ' + (data.error || 'unknown'), 'error');
     } else {
-        window.showToast('Detached from server', 'success');
+        showToast('Detached from server', 'success');
 
         if (window.saveLastSessionData) {
             window.saveLastSessionData({
