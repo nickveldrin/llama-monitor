@@ -299,6 +299,7 @@ document.getElementById('open-models-btn')?.addEventListener('click', () => {
 - Lazy init must not break keyboard shortcuts, modal open/close behavior, or existing tests.
 - Do not lazily initialize anything required by inline-rendered visible UI.
 - Prefer deferring event wiring for hidden modals over deferring visible navigation controls.
+- Guard every deferred `initXxx()` with a module-local `initialized` flag so future call sites cannot accidentally double-bind listeners.
 
 ## Expected benefit
 
@@ -557,6 +558,10 @@ npm test --prefix tests/ui -- chat-ui.spec.js
 - watch live dashboard updates
 - stream a chat response
 - compact a long conversation
+- open the models modal after a fresh load
+- open the file browser from presets, sessions, and config after a fresh load
+- open the remote-agent menu and setup modal after a fresh load
+- verify update checks still occur when the app becomes visible after being backgrounded
 
 ## Execution Status
 
@@ -564,11 +569,12 @@ npm test --prefix tests/ui -- chat-ui.spec.js
 |-------|--------|--------|
 | Phase 1: Baseline | ✅ Done | 31 JS, ~350ms |
 | Phase 2: Remove hybrid startup | ✅ Done | Removed `init-state.js` and `app.js` from startup, 30 JS |
-| Phase 3: Deferred init | ⚠ Partial | LHM deferred (24KB), 29 JS |
+| Phase 3: Deferred init | ✅ Done | LHM, file browser, models, remote agent, and updates deferred |
 | Phase 4: Dashboard DOM cache | ✅ Done | ~50 DOM queries cached per WS message |
 | Phase 5: Chat DOM cache | ✅ Done | ~10 DOM queries cached per render |
 | Phase 6: Cache headers | ✅ Done | max-age=3600 on JS/CSS |
 | Phase 7: Bundling | ⏭ Skipped | Not needed — architecture stable |
+| Follow-up hardening | ✅ Done | Module-local init guards; config import-time listener removed; update check scheduled on idle/visible |
 
 ## Recommended Execution Order For A Fresh Agent
 
@@ -616,3 +622,6 @@ Review of the 2026-05-01 performance work against the current codebase found a f
 2. The legacy startup file `static/js/core/init-state.js` was removed from the tree now that `bootstrap.js` is the sole startup entrypoint.
 3. The deprecated `static/lhm.js` compatibility asset and its Rust route/embed path were removed. Lazy loading now uses only `static/js/features/lhm.js`.
 4. Validation tooling was cleaned up so the JS validation script only references the current module tree.
+5. Deferred modules now protect themselves with module-local `initialized` guards, so repeated lazy-entry calls cannot double-bind listeners.
+6. `config.js` no longer binds its modal overlay listener at import time; the handler is now attached inside `initConfig()`.
+7. The update flow now schedules `checkForUpdate()` on idle when the app is visible, or when the tab becomes visible later, instead of immediately treating update polling as startup-critical work.

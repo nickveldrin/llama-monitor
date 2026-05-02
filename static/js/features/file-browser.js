@@ -4,6 +4,7 @@
 let fbTargetId = '';
 let fbFilter = '';
 let fbCurrentPath = '';
+let initialized = false;
 
 export function openFileBrowser(targetId, filter) {
     fbTargetId = targetId;
@@ -88,6 +89,9 @@ export function fileBrowserSelect(path) {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 export function initFileBrowser() {
+    if (initialized) return;
+    initialized = true;
+
     // Bind file browser buttons
     const fbClose = document.getElementById('filebrowser-close');
     if (fbClose) fbClose.addEventListener('click', closeFileBrowser);

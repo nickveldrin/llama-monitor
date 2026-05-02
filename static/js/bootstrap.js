@@ -206,14 +206,30 @@ document.getElementById('settings-open-config-btn')?.addEventListener('click', (
     ensureRemoteAgent();
 });
 
-window.requestIdleCallback?.(() => {
-    ensureUpdates();
-});
-if (!window.requestIdleCallback) {
-    setTimeout(() => {
-        ensureUpdates();
-    }, 1500);
+function scheduleDeferredUpdateCheck() {
+    const runCheck = () => {
+        ensureUpdates().then(mod => mod.checkForUpdate());
+    };
+
+    if (document.visibilityState === 'visible') {
+        if (window.requestIdleCallback) {
+            window.requestIdleCallback(runCheck, { timeout: 3000 });
+        } else {
+            setTimeout(runCheck, 1500);
+        }
+        return;
+    }
+
+    const onVisible = () => {
+        if (document.visibilityState === 'visible') {
+            document.removeEventListener('visibilitychange', onVisible);
+            runCheck();
+        }
+    };
+    document.addEventListener('visibilitychange', onVisible);
 }
+
+scheduleDeferredUpdateCheck();
 
 // LHM: defer until LHM show button is clicked (in settings modal)
 (function() {

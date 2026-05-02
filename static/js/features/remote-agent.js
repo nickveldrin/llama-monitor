@@ -2,6 +2,8 @@
 // Remote agent setup modal, SSH guide, install/start/stop/update/remove,
 // host key scanning, and status indicator.
 
+let initialized = false;
+
 // ── State ──────────────────────────────────────────────────────────────────────
 
 const remoteAgentSetupState = {
@@ -1751,6 +1753,9 @@ function clearTimeline() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 export function initRemoteAgent() {
+    if (initialized) return;
+    initialized = true;
+
     // Bind agent menu toggle
     document.getElementById('nav-agent-btn')?.addEventListener('click', (e) => toggleAgentMenu(e));
 

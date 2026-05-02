@@ -5,6 +5,8 @@ import { compareVersions } from '../core/format.js';
 
 // Holds the current pending release object
 let _pendingRelease = null;
+let initialized = false;
+let updateCheckStarted = false;
 
 // ── App Version ───────────────────────────────────────────────────────────────
 
@@ -18,6 +20,9 @@ export function initAppVersion() {
 // ── Update Check ──────────────────────────────────────────────────────────────
 
 export async function checkForUpdate() {
+    if (updateCheckStarted) return;
+    updateCheckStarted = true;
+
     try {
         const resp = await fetch('/api/remote-agent/releases/latest');
         if (!resp.ok) return;
@@ -164,9 +169,11 @@ function _pollForReconnect(newVersion) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initUpdates() {
-    // Call setup functions (idempotent — safe to call multiple times)
+    if (initialized) return;
+    initialized = true;
+
+    // Call setup functions
     initAppVersion();
-    checkForUpdate();
 
     // Bind update pill click
     const updatePill = document.getElementById('update-pill');

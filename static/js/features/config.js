@@ -12,11 +12,6 @@ function closeConfigModal() {
     document.getElementById('config-modal').classList.remove('open');
 }
 
-// Config modal click-to-close
-document.addEventListener('click', e => {
-    if (e.target.id === 'config-modal') closeConfigModal();
-});
-
 // ── GPU Environment ───────────────────────────────────────────────────────────
 
 async function loadGpuEnv() {
@@ -92,6 +87,13 @@ function usePathServerBinary() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initConfig() {
+    const configModal = document.getElementById('config-modal');
+    if (configModal) {
+        configModal.addEventListener('click', e => {
+            if (e.target === e.currentTarget) closeConfigModal();
+        });
+    }
+
     // Bind config modal buttons
     const configClose = document.getElementById('config-modal-close');
     if (configClose) configClose.addEventListener('click', closeConfigModal);

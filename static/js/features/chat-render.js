@@ -807,6 +807,8 @@ function updateChatTabBadge() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initChatRender() {
+    window.startRenameTab = startRenameTab;
+
     // Call setup functions that bind DOM event listeners
     initChatScrollButton();
 

@@ -165,7 +165,7 @@ export async function doDetach() {
             window.saveLastSessionData({
                 promptRate: window.speedMax.prompt > 0 ? window.speedMax.prompt + ' t/s' : '—',
                 genRate: window.speedMax.generation > 0 ? window.speedMax.generation + ' t/s' : '—',
-                sessionName: window.currentSessionId || '—'
+                sessionName: window.activeSessionId || '—'
             });
         }
 
@@ -239,6 +239,9 @@ export async function initAttachDetachButtons() {
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 export function initAttachDetach() {
+    window.doAttach = doAttach;
+    window.doStart = doStart;
+
     // Bind top detach button
     const detachTop = document.getElementById('btn-detach-top');
     if (detachTop) detachTop.addEventListener('click', doDetach);

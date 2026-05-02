@@ -1,6 +1,8 @@
 // ── Models ────────────────────────────────────────────────────────────────────
 // Models modal: open, close, load, refresh.
 
+let initialized = false;
+
 function openModelsModal() {
     document.getElementById('models-modal')?.classList.add('open');
     loadModels();
@@ -57,6 +59,9 @@ async function refreshModels() {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initModels() {
+    if (initialized) return;
+    initialized = true;
+
     // Bind sidebar button
     const sidebarBtn = document.getElementById('sidebar-btn-models');
     if (sidebarBtn) sidebarBtn.addEventListener('click', openModelsModal);
