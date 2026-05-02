@@ -2,6 +2,22 @@
 // Rendering functions for chat tabs, messages, compaction markers, and actions.
 // Calls rendering functions via window.* to avoid circular imports.
 
+// ── Cached DOM elements (populated at init time) ──────────────────────────────
+let chatMessagesEl = null;
+let chatTabBarEl = null;
+let chatScrollBottomBtn = null;
+let chatScrollBadge = null;
+let sidebarBadgeChat = null;
+
+function ensureChatElements() {
+    if (chatMessagesEl) return;
+    chatMessagesEl = document.getElementById('chat-messages');
+    chatTabBarEl = document.getElementById('chat-tab-bar');
+    chatScrollBottomBtn = document.getElementById('chat-scroll-bottom');
+    chatScrollBadge = document.getElementById('chat-scroll-badge');
+    sidebarBadgeChat = document.getElementById('sidebar-badge-chat');
+}
+
 // ── Markdown rendering ────────────────────────────────────────────────────────
 
 function renderMd(src) {
@@ -21,7 +37,8 @@ function renderMdStreaming(src) {
 // ── Scroll ────────────────────────────────────────────────────────────────────
 
 function chatScroll(force = false) {
-    const c = document.getElementById('chat-messages');
+    ensureChatElements();
+    const c = chatMessagesEl;
     if (!c) return;
     const distFromBottom = c.scrollHeight - c.scrollTop - c.clientHeight;
     if (force || distFromBottom < 80) {
@@ -29,14 +46,14 @@ function chatScroll(force = false) {
     }
     if (force) {
         window.unreadChatCount = 0;
-        const badge = document.getElementById('chat-scroll-badge');
-        if (badge) badge.style.display = 'none';
+        if (chatScrollBadge) chatScrollBadge.style.display = 'none';
     }
 }
 
 function initChatScrollButton() {
-    const container = document.getElementById('chat-messages');
-    const btn = document.getElementById('chat-scroll-bottom');
+    ensureChatElements();
+    const container = chatMessagesEl;
+    const btn = chatScrollBottomBtn;
     if (!container || !btn) return;
 
     const checkScroll = () => {
@@ -49,15 +66,15 @@ function initChatScrollButton() {
 }
 
 function incrementUnreadCount() {
-    const container = document.getElementById('chat-messages');
+    ensureChatElements();
+    const container = chatMessagesEl;
     if (!container) return;
     const distFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
     if (distFromBottom > 80) {
         window.unreadChatCount++;
-        const badge = document.getElementById('chat-scroll-badge');
-        if (badge) {
-            badge.textContent = window.unreadChatCount;
-            badge.style.display = 'flex';
+        if (chatScrollBadge) {
+            chatScrollBadge.textContent = window.unreadChatCount;
+            chatScrollBadge.style.display = 'flex';
         }
     }
 }
@@ -65,9 +82,10 @@ function incrementUnreadCount() {
 // ── Tab rendering ─────────────────────────────────────────────────────────────
 
 function renderChatTabs() {
-    const bar = document.getElementById('chat-tab-bar');
-    const addBtn = bar.querySelector('.chat-tab-add');
-    bar.querySelectorAll('.chat-tab').forEach(el => el.remove());
+    ensureChatElements();
+    const bar = chatTabBarEl;
+    const addBtn = bar?.querySelector('.chat-tab-add');
+    bar?.querySelectorAll('.chat-tab').forEach(el => el.remove());
 
     for (const tab of window.chatTabs) {
         const el = document.createElement('div');
@@ -105,7 +123,8 @@ function updateTabBarOverflowMask() {
 // ── Message rendering ─────────────────────────────────────────────────────────
 
 function renderChatMessages() {
-    const container = document.getElementById('chat-messages');
+    ensureChatElements();
+    const container = chatMessagesEl;
     const tab = window.activeChatTab();
 
     if (!tab || tab.messages.filter(m => m.role !== 'system').length === 0) {
@@ -180,8 +199,7 @@ function loadMoreMessages(tab, currentLimit) {
     const allMessages = tab.messages.filter(m => m.role !== 'system' || m.compaction_marker);
     tab.visible_message_limit = Math.min(currentLimit * 2, allMessages.length);
     renderChatMessages();
-    const container = document.getElementById('chat-messages');
-    if (container) container.scrollTop = 0;
+    if (chatMessagesEl) chatMessagesEl.scrollTop = 0;
 }
 
 function buildMessageElement(msg, idx, allMessages) {
@@ -330,7 +348,8 @@ function formatTokenCount(n) {
 // ── Streaming helpers ─────────────────────────────────────────────────────────
 
 function appendAssistantPlaceholder() {
-    const container = document.getElementById('chat-messages');
+    ensureChatElements();
+    const container = chatMessagesEl;
     const tab = window.activeChatTab();
     const aiLabel = tab?.ai_name || 'AI';
     const wrapper = document.createElement('div');
@@ -779,10 +798,10 @@ function startRenameTab(id) {
 // ── Badge ─────────────────────────────────────────────────────────────────────
 
 function updateChatTabBadge() {
+    ensureChatElements();
     const tab = window.activeChatTab();
     const count = tab ? tab.messages.filter(m => m.role !== 'system').length : 0;
-    const badge = document.getElementById('sidebar-badge-chat');
-    if (badge) badge.textContent = count > 0 ? count : '';
+    if (sidebarBadgeChat) sidebarBadgeChat.textContent = count > 0 ? count : '';
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

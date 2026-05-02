@@ -962,7 +962,7 @@ function remoteAgentSshPayload() {
     return payload;
 }
 
-function setRemoteAgentStatus(message, kind) {
+export function setRemoteAgentStatus(message, kind) {
     const el = document.getElementById('remote-agent-status');
     if (!el) return;
 

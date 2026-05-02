@@ -131,390 +131,205 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         warp::reply::html(html)
     });
 
+    // Helper: serve static JS with cache headers (1 hour — embedded at compile time, versioned by binary)
+    fn js_reply(content: &'static str) -> impl warp::Reply {
+        warp::reply::with_header(
+            warp::reply::with_header(content, "content-type", "application/javascript"),
+            "cache-control",
+            "max-age=3600",
+        )
+    }
+
+    // Helper: serve static CSS with cache headers
+    fn css_reply(content: &'static str) -> impl warp::Reply {
+        warp::reply::with_header(
+            warp::reply::with_header(content, "content-type", "text/css"),
+            "cache-control",
+            "max-age=3600",
+        )
+    }
+
     let css_tokens = warp::path("css")
         .and(warp::path("tokens.css"))
         .and(warp::get())
-        .map(|| warp::reply::with_header(static_assets::CSS_TOKENS, "content-type", "text/css"));
+        .map(|| css_reply(static_assets::CSS_TOKENS));
     let css_base = warp::path("css")
         .and(warp::path("base.css"))
         .and(warp::get())
-        .map(|| warp::reply::with_header(static_assets::CSS_BASE, "content-type", "text/css"));
+        .map(|| css_reply(static_assets::CSS_BASE));
     let css_layout = warp::path("css")
         .and(warp::path("layout.css"))
         .and(warp::get())
-        .map(|| warp::reply::with_header(static_assets::CSS_LAYOUT, "content-type", "text/css"));
+        .map(|| css_reply(static_assets::CSS_LAYOUT));
     let css_cards_inference = warp::path("css")
         .and(warp::path("cards-inference.css"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::CSS_CARDS_INFERENCE,
-                "content-type",
-                "text/css",
-            )
-        });
+        .map(|| css_reply(static_assets::CSS_CARDS_INFERENCE));
     let css_agent_modal = warp::path("css")
         .and(warp::path("agent-modal.css"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(static_assets::CSS_AGENT_MODAL, "content-type", "text/css")
-        });
+        .map(|| css_reply(static_assets::CSS_AGENT_MODAL));
     let css_cards_hardware = warp::path("css")
         .and(warp::path("cards-hardware.css"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::CSS_CARDS_HARDWARE,
-                "content-type",
-                "text/css",
-            )
-        });
+        .map(|| css_reply(static_assets::CSS_CARDS_HARDWARE));
     let css_components = warp::path("css")
         .and(warp::path("components.css"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(static_assets::CSS_COMPONENTS, "content-type", "text/css")
-        });
+        .map(|| css_reply(static_assets::CSS_COMPONENTS));
     let css_chat = warp::path("css")
         .and(warp::path("chat.css"))
         .and(warp::get())
-        .map(|| warp::reply::with_header(static_assets::CSS_CHAT, "content-type", "text/css"));
+        .map(|| css_reply(static_assets::CSS_CHAT));
     let css_setup_view = warp::path("css")
         .and(warp::path("setup-view.css"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(static_assets::CSS_SETUP_VIEW, "content-type", "text/css")
-        });
+        .map(|| css_reply(static_assets::CSS_SETUP_VIEW));
     let css_settings_modal = warp::path("css")
         .and(warp::path("settings-modal.css"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::CSS_SETTINGS_MODAL,
-                "content-type",
-                "text/css",
-            )
-        });
+        .map(|| css_reply(static_assets::CSS_SETTINGS_MODAL));
 
     // Module bootstrap and supporting files (Phase 1 of app.js refactor)
     let js_bootstrap = warp::path("js")
         .and(warp::path("bootstrap.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::BOOTSTRAP_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::BOOTSTRAP_JS));
     let js_compat_globals = warp::path("js")
         .and(warp::path("compat"))
         .and(warp::path("globals.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::COMPAT_GLOBALS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::COMPAT_GLOBALS_JS));
     let js_core_format = warp::path("js")
         .and(warp::path("core"))
         .and(warp::path("format.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::CORE_FORMAT_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::CORE_FORMAT_JS));
     let js_core_app_state = warp::path("js")
         .and(warp::path("core"))
         .and(warp::path("app-state.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::CORE_APP_STATE_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
-    let js_core_init_state = warp::path("js")
-        .and(warp::path("core"))
-        .and(warp::path("init-state.js"))
-        .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::CORE_INIT_STATE_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::CORE_APP_STATE_JS));
     let js_features_dashboard_ws = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("dashboard-ws.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_DASHBOARD_WS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_DASHBOARD_WS_JS));
     let js_features_file_browser = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("file-browser.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_FILE_BROWSER_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_FILE_BROWSER_JS));
     let js_features_presets = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("presets.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_PRESETS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_PRESETS_JS));
     let js_features_sessions = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("sessions.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_SESSIONS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_SESSIONS_JS));
     let js_features_attach_detach = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("attach-detach.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_ATTACH_DETACH_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_ATTACH_DETACH_JS));
     let js_features_animate = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("animate.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_ANIMATE_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_ANIMATE_JS));
     let js_features_chat_params = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("chat-params.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_CHAT_PARAMS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_CHAT_PARAMS_JS));
     let js_features_chat_render = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("chat-render.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_CHAT_RENDER_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_CHAT_RENDER_JS));
     let js_features_chat_state = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("chat-state.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_CHAT_STATE_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_CHAT_STATE_JS));
     let js_features_chat_templates = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("chat-templates.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_CHAT_TEMPLATES_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_CHAT_TEMPLATES_JS));
     let js_features_chat_transport = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("chat-transport.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_CHAT_TRANSPORT_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_CHAT_TRANSPORT_JS));
     let js_features_config = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("config.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_CONFIG_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_CONFIG_JS));
     let js_features_lhm = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("lhm.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_LHM_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_LHM_JS));
     let js_features_models = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("models.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_MODELS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_MODELS_JS));
     let js_features_nav = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("nav.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_NAV_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_NAV_JS));
     let js_features_remote_agent = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("remote-agent.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_REMOTE_AGENT_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_REMOTE_AGENT_JS));
     let js_features_sensor_bridge = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("sensor-bridge.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_SENSOR_BRIDGE_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_SENSOR_BRIDGE_JS));
     let js_features_settings = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("settings.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_SETTINGS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_SETTINGS_JS));
     let js_features_setup_view = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("setup-view.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_SETUP_VIEW_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_SETUP_VIEW_JS));
     let js_features_shortcuts = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("shortcuts.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_SHORTCUTS_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_SHORTCUTS_JS));
     let js_features_updates = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("updates.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_UPDATES_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_UPDATES_JS));
     let js_features_user_menu = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("user-menu.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_USER_MENU_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_USER_MENU_JS));
     let js_features_dashboard_render = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("dashboard-render.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_DASHBOARD_RENDER_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_DASHBOARD_RENDER_JS));
     let js_features_toast = warp::path("js")
         .and(warp::path("features"))
         .and(warp::path("toast.js"))
         .and(warp::get())
-        .map(|| {
-            warp::reply::with_header(
-                static_assets::FEATURES_TOAST_JS,
-                "content-type",
-                "application/javascript",
-            )
-        });
+        .map(|| js_reply(static_assets::FEATURES_TOAST_JS));
 
     let manifest = warp::path("manifest.json").and(warp::get()).map(|| {
         warp::reply::with_header(
@@ -524,21 +339,13 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         )
     });
 
-    let sw = warp::path("sw.js").and(warp::get()).map(|| {
-        warp::reply::with_header(
-            static_assets::SW_JS,
-            "content-type",
-            "application/javascript",
-        )
-    });
+    let sw = warp::path("sw.js")
+        .and(warp::get())
+        .map(|| js_reply(static_assets::SW_JS));
 
-    let lhm_js = warp::path("lhm.js").and(warp::get()).map(|| {
-        warp::reply::with_header(
-            static_assets::LHM_JS,
-            "content-type",
-            "application/javascript",
-        )
-    });
+    let lhm_js = warp::path("lhm.js")
+        .and(warp::get())
+        .map(|| js_reply(static_assets::LHM_JS));
 
     let icon = warp::path("icon.svg")
         .and(warp::get())
@@ -559,7 +366,6 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .or(js_compat_globals)
         .or(js_core_format)
         .or(js_core_app_state)
-        .or(js_core_init_state)
         .or(js_features_dashboard_ws)
         .or(js_features_file_browser)
         .or(js_features_presets)

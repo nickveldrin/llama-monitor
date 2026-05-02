@@ -8,7 +8,7 @@ let _pendingRelease = null;
 
 // ── App Version ───────────────────────────────────────────────────────────────
 
-function initAppVersion() {
+export function initAppVersion() {
     const el = document.getElementById('app-version');
     if (el && typeof APP_VERSION !== 'undefined') {
         el.textContent = `v${APP_VERSION}`;
@@ -17,7 +17,7 @@ function initAppVersion() {
 
 // ── Update Check ──────────────────────────────────────────────────────────────
 
-async function checkForUpdate() {
+export async function checkForUpdate() {
     try {
         const resp = await fetch('/api/remote-agent/releases/latest');
         if (!resp.ok) return;
@@ -52,7 +52,7 @@ function showUpdatePill(release) {
 
 // ── Release Notes ─────────────────────────────────────────────────────────────
 
-function openReleaseNotes() {
+export function openReleaseNotes() {
     const release = _pendingRelease;
     if (!release?.tag_name) return;
 
@@ -164,7 +164,7 @@ function _pollForReconnect(newVersion) {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export function initUpdates() {
-    // Call setup functions
+    // Call setup functions (idempotent — safe to call multiple times)
     initAppVersion();
     checkForUpdate();
 

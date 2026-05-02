@@ -74,7 +74,22 @@ perf(ui): reduce chat render work during compaction
 END_COMMIT_OVERRIDE
 ```
 
-9. **Do not rely on intermediate commit messages for release notes** - Because PRs are typically squash-merged, release-please usually sees the merged PR title/body, not every branch commit. If multiple entries are needed in the changelog, use the PR body override block above.
+9. **Use overrides more often than you think** - If the branch contains several meaningful user-visible commits, do not collapse them into one generic `feat:` or `fix:` line just because the PR is being squash-merged. Prefer a richer override block whenever the work naturally breaks into multiple release-note bullets.
+10. **Derive override entries from the branch's releasable commits** - Before merge, review the PR commits and identify the distinct user-facing `feat`, `fix`, and `perf` items. The override block should summarize those outcomes, not internal refactor steps, and should usually track the major releasable commits on the branch.
+11. **Prefer several precise bullets over one vague bullet** - If a PR ships multiple UI improvements, chat behavior changes, or fixes, list them separately in the override block. Example:
+
+```text
+BEGIN_COMMIT_OVERRIDE
+feat(chat): add send-to-stop generation toggle
+feat(chat): add assistant variant navigation and resend after user edits
+fix(chat): default auto-compaction on restored tabs
+fix(ui): restore endpoint status interaction after module extraction
+END_COMMIT_OVERRIDE
+```
+
+12. **Do not include non-user-facing maintenance unless it matters to release notes** - Pure refactors, internal cleanup, docs-only changes, test-only changes, and CI-only changes should usually stay out of the override block unless they have a direct user-visible effect worth calling out.
+13. **Do not rely on intermediate commit messages for release notes** - Because PRs are typically squash-merged, release-please usually sees the merged PR title/body, not every branch commit. If multiple entries are needed in the changelog, use the PR body override block above.
+14. **PR body overrides should be updated before merge, not after** - If the scope of the PR changes during review, the agent should revise the override block so the final merged PR body matches what actually shipped.
 
 ## Development Workflow
 
@@ -128,6 +143,7 @@ cargo fmt
 - **Version bump**: `feat:` → MINOR, `fix:` → PATCH, others → no bump
 - **Published release notes source**: GitHub Releases should preserve the `release-please` body generated from `CHANGELOG.md`; do not replace it with GitHub auto-generated notes for normal tagged releases.
 - **Multi-entry release notes**: If one PR contains several distinct releasable changes that should appear as separate bullets, update the PR body with a `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` block before merge.
+- **Override quality bar**: Override blocks should usually contain one line per meaningful user-facing `feat`, `fix`, or `perf` item that shipped in the PR, based on the branch's releasable commits. Prefer several specific bullets over one catch-all summary.
 
 ## File Persistence
 

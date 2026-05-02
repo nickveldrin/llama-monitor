@@ -3,7 +3,7 @@
 
 // ── LHM Notification ──────────────────────────────────────────────────────────
 
-async function showLHMNotification() {
+export async function showLHMNotification() {
     return new Promise(async (resolve) => {
         window.lhmResolve = resolve;
         const overlay = document.createElement('div');

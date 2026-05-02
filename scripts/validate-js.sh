@@ -5,7 +5,7 @@
 set -e
 
 echo "=== Step 1: Validate syntax as ES module ==="
-for f in static/js/features/*.js static/js/core/*.js static/js/bootstrap.js static/js/compat/*.js static/js/init-state.js; do
+for f in static/js/features/*.js static/js/core/*.js static/js/bootstrap.js static/js/compat/*.js; do
     if [ -f "$f" ]; then
         cp "$f" /tmp/test.mjs
         if ! node --check /tmp/test.mjs 2>&1; then
