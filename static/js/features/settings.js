@@ -1,15 +1,17 @@
 // ── Settings ──────────────────────────────────────────────────────────────────
 // Settings modal: collect, save, apply, dirty tracking, and event bindings.
 
+import { settingsState } from '../core/app-state.js';
+
 // ── Dirty tracking ────────────────────────────────────────────────────────────
 
 function markSettingsDirty() {
-    window.settingsIsDirty = true;
-    clearTimeout(window.settingsSaveTimer);
+    settingsState.isDirty = true;
+    clearTimeout(settingsState.saveTimer);
 }
 
 function clearSettingsDirty() {
-    window.settingsIsDirty = false;
+    settingsState.isDirty = false;
 }
 
 // ── Collect / Save / Apply ────────────────────────────────────────────────────
@@ -44,7 +46,7 @@ function collectSettings() {
 }
 
 function saveSettings() {
-    clearTimeout(window.settingsSaveTimer);
+    clearTimeout(settingsState.saveTimer);
 
     // Ripple effect on save button
     const saveBtn = document.querySelector('#settings-modal .btn-modal-save');
@@ -69,7 +71,7 @@ function saveSettings() {
 
     clearSettingsDirty();
 
-    window.settingsSaveTimer = setTimeout(() => {
+    settingsState.saveTimer = setTimeout(() => {
         fetch('/api/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

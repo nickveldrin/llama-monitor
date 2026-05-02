@@ -12,33 +12,15 @@ window.closeExportModal = () => {};
 window.exportData = () => {};
 
 // Initialize window.* state from app-state.js (replaces init-state.js classic script)
-window.prevValues = state.prevValues;
-window.metricSeries = state.metricSeries;
-window.slotSnapshots = state.slotSnapshots;
-window.requestActivity = state.requestActivity;
-window.recentTasks = state.recentTasks;
-window.metricCapabilities = state.metricCapabilities;
-window.liveOutputTracker = state.liveOutputTracker;
-window.lastServerState = state.lastServerState;
-window.lastLlamaMetrics = state.lastLlamaMetrics;
-window.lastSystemMetrics = state.lastSystemMetrics;
-window.lastGpuMetrics = state.lastGpuMetrics;
-window.lastCapabilities = state.lastCapabilities;
-window.currentPollInterval = state.currentPollInterval;
-window.lastGpuData = state.lastGpuData;
-window.presets = state.presets;
-window.sessions = state.sessions;
-window.activeSessionId = state.activeSessionId;
-window.activeSessionPort = state.activeSessionPort;
-window.serverRunning = state.serverRunning;
-window.prevLogLen = state.prevLogLen;
-window.settingsIsDirty = state.settingsIsDirty;
-window.settingsSaveTimer = state.settingsSaveTimer;
-// Chat and remote-agent state live in container objects (chat, remoteAgent) —
-// no bootstrap copy needed; modules import directly from app-state.js.
-window.lhmResolve = state.lhmResolve;
-window.enterToSend = localStorage.getItem('llama-monitor-enter-to-send') !== 'false';
-window.chatFontSize = parseInt(localStorage.getItem('llama-monitor-chat-font') || '100');
+// Only variables still consumed via window.* by unmigrated modules are kept here.
+// Dashboard/chat/remote-agent modules import directly from app-state.js.
+window.presets = state.sessionState.presets;
+window.sessions = state.sessionState.sessions;
+window.activeSessionId = state.sessionState.activeSessionId;
+window.activeSessionPort = state.sessionState.activeSessionPort;
+window.settingsIsDirty = state.settingsState.isDirty;
+window.settingsSaveTimer = state.settingsState.saveTimer;
+window.lhmResolve = state.lhm.resolve;
 
 import { initDashboardRender } from './features/dashboard-render.js';
 import { initWebSocket } from './features/dashboard-ws.js';

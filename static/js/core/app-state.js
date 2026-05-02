@@ -61,24 +61,24 @@ export let currentPollInterval = 5000;
 export let lastGpuData = null;
 
 // ── Presets / Sessions ────────────────────────────────────────────────────────
+// Container object so that reassignments (presets = [...]) are visible through
+// ES module imports (live binding to the object, not the variable).
 
-/** Loaded presets from backend */
-export let presets = [];
-
-/** Loaded sessions from backend */
-export let sessions = [];
-
-/** Currently active session ID */
-export let activeSessionId = 'default';
-
-/** Currently active session port */
-export let activeSessionPort = 8080;
-
-/** Whether the local server is running */
-export let serverRunning = false;
-
-/** Previous log length for incremental rendering */
-export let prevLogLen = 0;
+/** Presets/sessions state container — mutable properties, imported as a live reference */
+export const sessionState = {
+    /** Loaded presets from backend */
+    presets: [],
+    /** Loaded sessions from backend */
+    sessions: [],
+    /** Currently active session ID */
+    activeSessionId: 'default',
+    /** Currently active session port */
+    activeSessionPort: 8080,
+    /** Whether the local server is running */
+    serverRunning: false,
+    /** Previous log length for incremental rendering */
+    prevLogLen: 0,
+};
 
 // ── Remote Agent ──────────────────────────────────────────────────────────────
 // Container object so that reassignments are visible through ES module imports.
@@ -95,11 +95,13 @@ export const remoteAgent = {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
-/** Whether settings modal has unsaved changes */
-export let settingsIsDirty = false;
-
-/** Timer ID for debounced settings save */
-export let settingsSaveTimer = null;
+/** Settings state container — mutable properties, imported as a live reference */
+export const settingsState = {
+    /** Whether settings modal has unsaved changes */
+    isDirty: false,
+    /** Timer ID for debounced settings save */
+    saveTimer: null,
+};
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
 // Container object so that reassignments (chatTabs = [...]) are visible through
@@ -131,8 +133,11 @@ export const chat = {
 
 // ── LHM (Windows Hardware Monitor) ───────────────────────────────────────────
 
-/** Temporary bridge for LHM overlay flow */
-export let lhmResolve = null;
+/** LHM state container — mutable properties, imported as a live reference */
+export const lhm = {
+    /** Temporary bridge for LHM overlay flow */
+    resolve: null,
+};
 
 // ── Updates ───────────────────────────────────────────────────────────────────
 

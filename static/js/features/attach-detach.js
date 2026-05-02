@@ -1,11 +1,13 @@
 // ── Attach / Detach / Start / Stop ─────────────────────────────────────────────
 // LLM lifecycle: start, stop, attach, detach, kill.
 
+import { sessionState } from '../core/app-state.js';
+
 // ── Config ─────────────────────────────────────────────────────────────────────
 
 export function getConfig() {
     const id = document.getElementById('preset-select').value;
-    const p = window.presets.find(pr => pr.id === id) || {};
+    const p = sessionState.presets.find(pr => pr.id === id) || {};
 
     return {
         model_path: p.model_path || '',
@@ -165,7 +167,7 @@ export async function doDetach() {
             window.saveLastSessionData({
                 promptRate: window.speedMax.prompt > 0 ? window.speedMax.prompt + ' t/s' : '—',
                 genRate: window.speedMax.generation > 0 ? window.speedMax.generation + ' t/s' : '—',
-                sessionName: window.activeSessionId || '—'
+                sessionName: sessionState.activeSessionId || '—'
             });
         }
 

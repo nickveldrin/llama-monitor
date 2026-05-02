@@ -132,7 +132,7 @@ export function initWebSocket() {
     ws.onclose = () => {
         ensureCachedElements();
         if (cachedElements.statusText) cachedElements.statusText.textContent = 'Disconnected';
-        state.prevLogLen = 0;
+        state.sessionState.prevLogLen = 0;
     };
 
     return ws;
@@ -311,7 +311,7 @@ function updateAttachDetach(d) {
 // ── Server state ─────────────────────────────────────────────────────────────
 
 function updateServerState(d) {
-    state.serverRunning = d.server_running;
+    state.sessionState.serverRunning = d.server_running;
     const ce = cachedElements;
 
     const dot = ce.statusDot;
@@ -319,8 +319,8 @@ function updateServerState(d) {
     const btnStart = ce.btnStart;
     const btnStop = ce.btnStop;
 
-    dot.className = 'status-dot ' + (state.serverRunning ? 'running' : 'stopped');
-    txt.textContent = state.serverRunning ? 'Running' : 'Stopped';
+    dot.className = 'status-dot ' + (state.sessionState.serverRunning ? 'running' : 'stopped');
+    txt.textContent = state.sessionState.serverRunning ? 'Running' : 'Stopped';
 
     const localRunning = d.local_server_running || false;
     if (btnStart) btnStart.disabled = localRunning;
@@ -610,7 +610,7 @@ function updateSystemCard(d) {
 function updateLogs(d) {
     const logs = d.logs || [];
 
-    if (logs.length !== state.prevLogLen) {
+    if (logs.length !== state.sessionState.prevLogLen) {
         const el = cachedElements.logPanel;
         const wasAtBottom = el && (el.scrollHeight - el.scrollTop - el.clientHeight < 40);
 
@@ -619,7 +619,7 @@ function updateLogs(d) {
             if (wasAtBottom) el.scrollTop = el.scrollHeight;
         }
 
-        state.prevLogLen = logs.length;
+        state.sessionState.prevLogLen = logs.length;
     }
 }
 

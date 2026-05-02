@@ -1,6 +1,9 @@
 // ── Presets ────────────────────────────────────────────────────────────────────
 // Preset CRUD: load, save, copy, delete, reset. Modal management.
 
+import { sessionState } from '../core/app-state.js';
+import { escapeHtml } from '../core/format.js';
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function setVal(id, v) { document.getElementById(id).value = v ?? ''; }
@@ -23,12 +26,12 @@ export async function loadPresets(selectId) {
         selectId === undefined ? fetch('/api/settings') : Promise.resolve(null),
     ]);
 
-    window.presets = await presetsResp.json();
+    sessionState.presets = await presetsResp.json();
     const saved = settingsResp ? await settingsResp.json() : null;
 
     const sel = document.getElementById('preset-select');
     sel.innerHTML = '';
-    window.presets.forEach(p => {
+    sessionState.presets.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
         opt.textContent = p.name;
@@ -36,10 +39,10 @@ export async function loadPresets(selectId) {
     });
 
     const targetId = selectId ?? (saved?.preset_id || null);
-    if (targetId && window.presets.find(p => p.id === targetId)) {
+    if (targetId && sessionState.presets.find(p => p.id === targetId)) {
         sel.value = targetId;
-    } else if (window.presets.length > 0) {
-        sel.value = window.presets[0].id;
+    } else if (sessionState.presets.length > 0) {
+        sel.value = sessionState.presets[0].id;
     }
 
     if (selectId === undefined && saved && window.applySettings) {
@@ -61,7 +64,7 @@ export function openPresetModal(mode) {
 
     if (mode === 'edit') {
         const id = document.getElementById('preset-select').value;
-        const p = window.presets.find(pr => pr.id === id);
+        const p = sessionState.presets.find(pr => pr.id === id);
         if (!p) { window.showToast('No preset selected', 'warn'); return; }
         title.textContent = 'Edit Preset';
         setVal('modal-preset-id', p.id);
@@ -239,7 +242,7 @@ export async function savePreset(event) {
 
 export async function copyPreset() {
     const id = document.getElementById('preset-select').value;
-    const p = window.presets.find(pr => pr.id === id);
+    const p = sessionState.presets.find(pr => pr.id === id);
     if (!p) { window.showToast('No preset selected', 'warn'); return; }
 
     const copy = Object.assign({}, p);
@@ -267,7 +270,7 @@ export async function copyPreset() {
 
 export async function deletePreset() {
     const id = document.getElementById('preset-select').value;
-    const p = window.presets.find(pr => pr.id === id);
+    const p = sessionState.presets.find(pr => pr.id === id);
     if (!p) { window.showToast('No preset selected', 'warn'); return; }
     if (!confirm('Delete preset "' + p.name + '"?')) return;
 

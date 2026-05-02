@@ -10,7 +10,7 @@ import {
 } from './chat-state.js';
 import { renderChatMessages } from './chat-render.js';
 
-// Local state — previously window.chatFontSize and window.enterToSend
+// Local state — previously on window, migrated to local variables
 let chatFont = parseInt(localStorage.getItem('llama-monitor-chat-font') || '100');
 let enterToSend = localStorage.getItem('llama-monitor-enter-to-send') !== 'false';
 

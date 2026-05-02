@@ -1,11 +1,13 @@
 // ── LHM (LibreHardwareMonitor) ────────────────────────────────────────────────
 // LHM notification, install/start/uninstall flow, UAC warning, and status check.
 
+import { lhm } from '../core/app-state.js';
+
 // ── LHM Notification ──────────────────────────────────────────────────────────
 
 export async function showLHMNotification() {
     return new Promise(async (resolve) => {
-        window.lhmResolve = resolve;
+        lhm.resolve = resolve;
         const overlay = document.createElement('div');
         overlay.className = 'notification-container';
         overlay.style.cssText = `
@@ -37,7 +39,7 @@ export async function showLHMNotification() {
         // Bind cancel button
         document.getElementById('lhm-cancel-btn')?.addEventListener('click', () => {
             overlay.remove();
-            window.lhmResolve('cancel');
+            lhm.resolve('cancel');
         });
 
         const lhmStatusEl = document.getElementById('lhm-status-text');
