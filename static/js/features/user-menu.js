@@ -34,7 +34,7 @@ function openUserPreferencesModal(event) {
     event?.preventDefault();
     closeUserMenu();
     const enterCheckbox = document.getElementById('pref-enter-to-send');
-    if (enterCheckbox) enterCheckbox.checked = window.enterToSend;
+    if (enterCheckbox) enterCheckbox.checked = enterToSend;
     document.getElementById('user-preferences-modal')?.classList.add('open');
 }
 
@@ -56,8 +56,8 @@ function saveUserPreferences() {
     window.applyChatStyle(chatStyle);
     localStorage.setItem('llama-monitor-chat-style', chatStyle);
 
-    window.enterToSend = enterToSendChecked;
-    localStorage.setItem('llama-monitor-enter-to-send', window.enterToSend ? 'true' : 'false');
+    enterToSend = enterToSendChecked;
+    // enterToSend saved locally in chat-params.js ? 'true' : 'false');
 
     localStorage.setItem('llama-monitor-preferences', JSON.stringify({
         theme,

@@ -2,7 +2,17 @@
 // Model parameter panel, system prompt panel, style/font/enter-to-send controls,
 // and compaction settings.
 
-import { activeChatTab } from './chat-state.js';
+import { chat } from '../core/app-state.js';
+import {
+    activeChatTab,
+    scheduleChatPersist,
+    updateChatName,
+} from './chat-state.js';
+import { renderChatMessages } from './chat-render.js';
+
+// Local state — previously window.chatFontSize and window.enterToSend
+let chatFont = parseInt(localStorage.getItem('llama-monitor-chat-font') || '100');
+let enterToSend = localStorage.getItem('llama-monitor-enter-to-send') !== 'false';
 
 // ── Model params panel ────────────────────────────────────────────────────────
 
@@ -50,7 +60,7 @@ function onParamChange(key, value) {
         const el = document.getElementById(dispId);
         if (el) el.textContent = value ?? '';
     }
-    window.scheduleChatPersist();
+    scheduleChatPersist();
     clearTimeout(window.paramToastTimer);
     window.paramToastTimer = setTimeout(() => window.showToast('Parameter saved', 'success'), 2000);
     updateParamsDirtyIndicator();
@@ -80,7 +90,7 @@ function resetParamsToDefaults() {
     };
     tab.updated_at = Date.now();
     syncParamPanelToTab();
-    window.scheduleChatPersist();
+    scheduleChatPersist();
     updateParamsDirtyIndicator();
     window.showToast('Parameters reset to defaults', 'success');
 }
@@ -100,13 +110,13 @@ function updateParamsDirtyIndicator() {
 // ── Copy settings between tabs ────────────────────────────────────────────────
 
 function duplicateTabSettings(sourceId) {
-    const source = window.chatTabs.find(t => t.id === sourceId);
+    const source = chat.tabs.find(t => t.id === sourceId);
     const target = activeChatTab();
     if (!source || !target || source.id === target.id) return;
     target.system_prompt = source.system_prompt;
     target.model_params = JSON.parse(JSON.stringify(source.model_params));
     target.updated_at = Date.now();
-    window.scheduleChatPersist();
+    scheduleChatPersist();
     syncParamPanelToTab();
     updateParamsDirtyIndicator();
     const indicator = document.getElementById('system-prompt-indicator');
@@ -118,7 +128,7 @@ function duplicateTabSettings(sourceId) {
 function showCopySettingsDropdown() {
     const target = activeChatTab();
     if (!target) return;
-    const others = window.chatTabs.filter(t => t.id !== target.id);
+    const others = chat.tabs.filter(t => t.id !== target.id);
     if (others.length === 0) {
         window.showToast('No other tabs to copy from', 'info');
         return;
@@ -145,8 +155,8 @@ function onMessageLimitChange(value) {
     const limit = Math.max(5, Math.min(200, value));
     tab.visible_message_limit = limit;
     tab.updated_at = Date.now();
-    window.renderChatMessages();
-    window.scheduleChatPersist();
+    renderChatMessages();
+    scheduleChatPersist();
 }
 
 function syncMessageLimitInput() {
@@ -165,7 +175,7 @@ async function compactChatTab(tab, keepTail = 10, summarize = true) {
 
     if (conversational.length <= keepTail) return;
 
-    window.compactionInProgress = true;
+    chat.compactionInProgress = true;
     setCompactButtonBusy(true);
 
     const dropped = conversational.slice(0, conversational.length - keepTail);
@@ -237,10 +247,10 @@ async function compactChatTab(tab, keepTail = 10, summarize = true) {
         console.warn('[COMPACT] kept markers:', kept.filter(m => m.compaction_marker).length);
     }
     tab.updated_at = Date.now();
-    window.scheduleChatPersist();
-    window.renderChatMessages();
+    scheduleChatPersist();
+    renderChatMessages();
     setCompactButtonBusy(false);
-    window.compactionInProgress = false;
+    chat.compactionInProgress = false;
 
     setTimeout(() => {
         const markers = document.querySelectorAll('.chat-compact-marker');
@@ -271,7 +281,7 @@ function onAutoCompactChange(checked) {
     document.getElementById('compact-threshold-field').style.opacity = checked ? '1' : '0.4';
     const summarizeField = document.getElementById('compact-summarize-field');
     if (summarizeField) summarizeField.style.opacity = checked ? '1' : '0.4';
-    window.scheduleChatPersist();
+    scheduleChatPersist();
 }
 
 function onAutoCompactSummarizeChange(checked) {
@@ -279,7 +289,7 @@ function onAutoCompactSummarizeChange(checked) {
     if (!tab) return;
     tab.auto_compact_summarize = checked;
     tab.updated_at = Date.now();
-    window.scheduleChatPersist();
+    scheduleChatPersist();
 }
 
 function onCompactModeChange(mode) {
@@ -287,7 +297,7 @@ function onCompactModeChange(mode) {
     if (!tab) return;
     tab.compact_mode = mode;
     tab.updated_at = Date.now();
-    window.scheduleChatPersist();
+    scheduleChatPersist();
     syncCompactSettingsUI(tab);
 }
 
@@ -297,7 +307,7 @@ function onCompactThresholdChange(value) {
     tab.compact_threshold = value / 100;
     tab.updated_at = Date.now();
     document.getElementById('chat-compact-threshold-val').textContent = `${value}%`;
-    window.scheduleChatPersist();
+    scheduleChatPersist();
 }
 
 function updateCtxPressureBar(pct) {
@@ -403,22 +413,22 @@ function updateChatStyleLabel(style) {
 }
 
 function adjustChatFont(delta) {
-    window.chatFontSize = Math.max(70, Math.min(150, window.chatFontSize + delta * 10));
-    localStorage.setItem('llama-monitor-chat-font', window.chatFontSize);
+    chatFont = Math.max(70, Math.min(150, chatFont + delta * 10));
+    localStorage.setItem('llama-monitor-chat-font', chatFont);
     applyChatFontSize();
 }
 
 function applyChatFontSize() {
     const messages = document.getElementById('chat-messages');
     if (messages) {
-        messages.style.setProperty('--chat-font-scale', window.chatFontSize / 100);
+        messages.style.setProperty('--chat-font-scale', chatFont / 100);
     }
     const label = document.getElementById('chat-font-value');
-    if (label) label.textContent = window.chatFontSize + '%';
+    if (label) label.textContent = chatFont + '%';
 }
 
 function onEnterToggleChange(checked) {
-    window.enterToSend = checked;
+    enterToSend = checked;
     localStorage.setItem('llama-monitor-enter-to-send', checked ? 'true' : 'false');
     const prefCheckbox = document.getElementById('pref-enter-to-send');
     if (prefCheckbox) prefCheckbox.checked = checked;
@@ -426,7 +436,7 @@ function onEnterToggleChange(checked) {
 
 function initEnterToggle() {
     const toggle = document.getElementById('chat-enter-toggle-input');
-    if (toggle) toggle.checked = window.enterToSend;
+    if (toggle) toggle.checked = enterToSend;
 }
 
 function initChatStyle() {
@@ -441,7 +451,7 @@ function initChatInputHandler() {
     const input = document.getElementById('chat-input');
     if (!input) return;
     input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey && window.enterToSend) {
+        if (e.key === 'Enter' && !e.shiftKey && enterToSend) {
             e.preventDefault();
             window.sendChat();
         }
@@ -477,8 +487,8 @@ export function initChatParams() {
     document.getElementById('btn-compact')?.addEventListener('click', onManualCompact);
 
     // Bind chat name inputs
-    document.getElementById('chat-ai-name')?.addEventListener('input', (e) => window.updateChatName('ai_name', e.target.value));
-    document.getElementById('chat-user-name')?.addEventListener('input', (e) => window.updateChatName('user_name', e.target.value));
+    document.getElementById('chat-ai-name')?.addEventListener('input', (e) => updateChatName('ai_name', e.target.value));
+    document.getElementById('chat-user-name')?.addEventListener('input', (e) => updateChatName('user_name', e.target.value));
 
     // Bind explicit toggle (footer)
     document.getElementById('chat-explicit-toggle-footer')?.addEventListener('click', () => window.toggleExplicitMode());
@@ -535,7 +545,7 @@ export function initChatParams() {
     window.updateCtxPressureBar = updateCtxPressureBar;
     window.syncCompactSettingsUI = syncCompactSettingsUI;
     window.loadChatNames = loadChatNames;
-    window.updateChatName = updateChatName;
+    updateChatName = updateChatName;
     window.toggleSystemPromptPanel = toggleSystemPromptPanel;
     window.onSystemPromptChange = onSystemPromptChange;
     window.toggleExplicitMode = toggleExplicitMode;

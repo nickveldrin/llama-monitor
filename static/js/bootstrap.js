@@ -12,6 +12,7 @@ window.closeExportModal = () => {};
 window.exportData = () => {};
 
 // Initialize window.* state from app-state.js (replaces init-state.js classic script)
+const chat = state.chat;
 window.prevValues = state.prevValues;
 window.metricSeries = state.metricSeries;
 window.slotSnapshots = state.slotSnapshots;
@@ -37,6 +38,16 @@ window.remoteAgentSshConnection = state.remoteAgentSshConnection;
 window.latestSshHostKey = state.latestSshHostKey;
 window.settingsIsDirty = state.settingsIsDirty;
 window.settingsSaveTimer = state.settingsSaveTimer;
+// Chat state — copy to chat container (window.* copies kept for compat, removed in Phase 3.5)
+chat.tabs = state.chatTabs;
+chat.activeTabId = state.activeChatTabId;
+chat.busy = state.chatBusy;
+chat.compactionInProgress = state.compactionInProgress;
+chat.unreadChatCount = state.unreadChatCount;
+chat.abortController = state.chatAbortController;
+chat.tabsDirty = state.chatTabsDirty;
+chat.persistTimer = state.chatPersistTimer;
+chat.initialized = state.chatInitialized;
 window.chatTabs = state.chatTabs;
 window.activeChatTabId = state.activeChatTabId;
 window.chatBusy = state.chatBusy;

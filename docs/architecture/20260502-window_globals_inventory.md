@@ -143,15 +143,45 @@ These are **action** functions exposed on `window` for inline HTML handlers or c
 
 ---
 
-## E. Chat Module Globals
+## E. Chat Module Globals — ✅ COMPLETE (2026-05-02)
 
 | Global | Assigned By | Read By | Category | Action |
 |--------|------------|---------|----------|--------|
-| `window.chatScroll` | chat-render | bootstrap (inline handler) | shim | keep temporarily |
-| `window.addChatTab` | chat-state | bootstrap (inline handler) | shim | keep temporarily |
-| (many more chat functions) | chat-state, chat-render, chat-transport | cross-module | action/shim | Phase 3 |
+| `window.chatTabs` | bootstrap | chat-state, chat-render, chat-params, shortcuts | state | ✅ replaced with `chat.tabs` |
+| `window.activeChatTabId` | bootstrap | chat-state, chat-render, shortcuts | state | ✅ replaced with `chat.activeTabId` |
+| `window.chatBusy` | bootstrap | chat-state, chat-render, chat-transport | state | ✅ replaced with `chat.busy` |
+| `window.compactionInProgress` | bootstrap | chat-params, chat-transport | state | ✅ replaced with `chat.compactionInProgress` |
+| `window.unreadChatCount` | bootstrap | chat-render | state | ✅ replaced with `chat.unreadChatCount` |
+| `window.chatAbortController` | bootstrap | chat-transport | state | ✅ replaced with `chat.abortController` |
+| `window.chatTabsDirty` | bootstrap | chat-state | state | ✅ replaced with `chat.tabsDirty` |
+| `window.chatPersistTimer` | bootstrap | chat-state | state | ✅ replaced with `chat.persistTimer` |
+| `window.chatInitialized` | bootstrap | chat-render | state | ✅ replaced with `chat.initialized` |
+| `window.chatFontSize` | bootstrap | chat-params | state | ✅ local `chatFont` in chat-params |
+| `window.enterToSend` | bootstrap | chat-params, user-menu | state | ✅ local `enterToSend` in chat-params |
+| `window.renderChatTabs` | chat-render | chat-state | render | ✅ ES export |
+| `window.renderChatMessages` | chat-render | chat-state, chat-transport, chat-params | render | ✅ ES export |
+| `window.appendAssistantPlaceholder` | chat-render | chat-transport | render | ✅ ES export |
+| `window.finalizeAssistantMessage` | chat-render | chat-transport | render | ✅ ES export |
+| `window.appendThinkingBlock` | chat-render | chat-transport | render | ✅ ES export |
+| `window.renderMd` | chat-render | chat-transport | render | ✅ ES export |
+| `window.renderMdStreaming` | chat-render | chat-transport | render | ✅ ES export |
+| `window.chatScroll` | chat-render | chat-transport, bootstrap | render | ✅ ES export |
+| `window.incrementUnreadCount` | chat-render | chat-transport | render | ✅ ES export |
+| `window.updateChatTabBadge` | chat-render | chat-transport | render | ✅ ES export |
+| `window.switchChatTab` | chat-state | chat-render, shortcuts | action | ✅ ES export |
+| `window.closeChatTab` | chat-state | chat-render | action | ✅ ES export |
+| `window.renameChatTab` | chat-state | chat-render | action | ✅ ES export |
+| `window.scheduleChatPersist` | chat-state | chat-render, chat-params, chat-templates | action | ✅ ES export |
+| `window.sendChatResend` | chat-transport | chat-render | action | ✅ transport getter |
+| `window.getExplicitModePolicy` | chat-templates | chat-transport | action | ✅ ES export |
 
-**Summary:** Chat is the most globally-coupled slice. Deferred to Phase 3.
+**Summary:** ~28 chat globals eliminated. Key architectural change: **chat container object** in `app-state.js` replaces individual `window.*` state variables (avoids stale ES module bindings on reassignment). **Transport getter** breaks circular dependency between chat-render ↔ chat-transport.
+
+### What was NOT changed
+
+- `window.showToast`, `window.syncCompactSettingsUI`, `window.sendSuggestedPrompt` — still used as cross-module bridges via `window.*`
+- `window.escapeHtml` — still used by inline HTML handlers (compat shim)
+- `window.*` exports in `initChatState()`, `initChatRender()`, `initChatTransport()` — kept for compat, removed when all consumers migrate
 
 ---
 
@@ -186,10 +216,10 @@ These are **action** functions exposed on `window` for inline HTML handlers or c
 | Render bridges (B) | 22 | Phase 2 |
 | Transport state writes (C) | 10 | Phase 2 |
 | Action bridges (D) | 14 | Phase 2-4 |
-| Chat globals (E) | ~30+ | Phase 3 |
+| Chat globals (E) | ~30+ | Phase 3 (✅ done) |
 | Compat shims (F) | 6 | keep temporarily |
 
-**Total actionable: ~117** (excluding chat and browser-native)
+**Total actionable: ~117** (excluding browser-native)
 
 ---
 
@@ -218,3 +248,29 @@ For Phase 2, the dashboard slice cleanup should eliminate these:
 
 - `bootstrap.js` still copies state to `window.*` — other modules (sessions, attach-detach, chat) still read from `window.*`. Safe to remove only after all consumers are migrated.
 - Inline HTML handlers still use `window.*` shims (e.g., `window.doAttach`, `window.doStart`). These are intentional compat bridges.
+
+---
+
+## Phase 3 Target (Chat Slice) — ✅ COMPLETE (2026-05-02)
+
+**Phase 3 result: eliminated ~28 `window.*` globals from chat slice.**
+
+### What changed
+
+- **Chat container object** (`chat`) in `app-state.js` replaces individual `window.*` state variables. This avoids stale ES module bindings when `chatTabs = [...]` reassigns (ES module `import` is a live binding to the variable, not the value).
+- **Transport getter** breaks circular dependency: `chat-transport` imports render functions from `chat-render` directly; `chat-render` calls transport via a lazy getter (`_getTransport?.sendChatResend()`).
+- `chat-transport.js` imports 10 render functions from `chat-render.js` directly (eliminates `typeof window.*` guards)
+- `chat-render.js` imports state functions from `chat-state.js` directly (`switchChatTab`, `closeChatTab`, `renameChatTab`)
+- `chat-params.js` imports `scheduleChatPersist`, `updateChatName`, `renderChatMessages` directly
+- `chat-templates.js` imports `scheduleChatPersist` directly
+- `shortcuts.js` imports `chat` and `switchChatTab` directly
+- `user-menu.js` uses local `enterToSend` variable
+- `renderMd`, `renderMdStreaming`, `appendThinkingBlock`, `updateChatTabBadge` exported from `chat-render.js`
+- `getExplicitModePolicy` exported from `chat-templates.js`
+
+### What was NOT changed
+
+- `window.showToast`, `window.syncCompactSettingsUI`, `window.sendSuggestedPrompt` — still used as cross-module bridges via `window.*`
+- `window.escapeHtml` — still used by inline HTML handlers (compat shim)
+- `window.*` exports in `initChatState()`, `initChatRender()`, `initChatTransport()` — kept for compat, removed when all consumers migrate
+- `bootstrap.js` still copies chat state to `window.*` for compat — safe to remove only after all remaining consumers migrate

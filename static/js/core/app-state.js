@@ -100,36 +100,32 @@ export let settingsIsDirty = false;
 export let settingsSaveTimer = null;
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
+// Container object so that reassignments (chatTabs = [...]) are visible through
+// ES module imports (live binding to the object, not the variable).
 
-/** Whether a chat request is in progress */
-export let chatBusy = false;
-
-/** Whether compaction is in progress */
-export let compactionInProgress = false;
-
-/** Unread chat count */
-export let unreadChatCount = 0;
-
-/** Abort controller for the current chat request */
-export let chatAbortController = null;
-
-/** Chat tab collection */
-export let chatTabs = [];
-
-/** ID of the active chat tab */
-export let activeChatTabId = null;
-
-/** Index of the active chat tab */
-export let activeChatTabIdx = 0;
-
-/** Whether the chat tabs have unsaved changes */
-export let chatTabsDirty = false;
-
-/** Timer ID for debounced chat tab persistence */
-export let chatPersistTimer = null;
-
-/** Whether the chat view has been initialized */
-export let chatInitialized = false;
+/** Chat state container — mutable properties, imported as a live reference */
+export const chat = {
+    /** Whether a chat request is in progress */
+    busy: false,
+    /** Whether compaction is in progress */
+    compactionInProgress: false,
+    /** Unread chat count */
+    unreadChatCount: 0,
+    /** Abort controller for the current chat request */
+    abortController: null,
+    /** Chat tab collection */
+    tabs: [],
+    /** ID of the active chat tab */
+    activeTabId: null,
+    /** Index of the active chat tab */
+    activeTabIdx: 0,
+    /** Whether the chat tabs have unsaved changes */
+    tabsDirty: false,
+    /** Timer ID for debounced chat tab persistence */
+    persistTimer: null,
+    /** Whether the chat view has been initialized */
+    initialized: false,
+};
 
 // ── LHM (Windows Hardware Monitor) ───────────────────────────────────────────
 
