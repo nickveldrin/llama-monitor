@@ -577,7 +577,7 @@
 .widget-context {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-height: 280px;
   position: relative;
   overflow: hidden;
@@ -598,9 +598,17 @@
   opacity: 0.9;
 }
 
+/* Stack title+chip on row 1, toggle on row 2 — prevents wrapping in narrow cards */
+.widget-context .metric-card-topline {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
 .context-topline-main {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   min-width: 0;
 }
@@ -608,14 +616,14 @@
 .context-view-toggle {
   position: relative;
   z-index: 1;
-  display: inline-grid;
-  grid-template-columns: repeat(2, minmax(60px, 1fr));
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 3px;
   padding: 3px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
-  min-height: 44px;
+  min-height: 28px;
 }
 
 .context-toggle-btn {
@@ -627,8 +635,8 @@
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 0 14px;
-  min-height: 38px;
+  padding: 0 10px;
+  min-height: 22px;
   cursor: pointer;
   transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
@@ -980,15 +988,6 @@
 @media (max-width: 860px) {
   .widget-context {
     min-height: 316px;
-  }
-
-  .widget-context .metric-card-topline {
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .context-view-toggle {
-    width: 100%;
   }
 
   .context-pill-name {
