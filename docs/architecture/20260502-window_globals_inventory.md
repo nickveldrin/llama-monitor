@@ -293,3 +293,20 @@ For Phase 2, the dashboard slice cleanup should eliminate these:
 - `window.escapeHtml` — still used by inline HTML handlers (compat shim)
 - `window.*` exports in `initChatState()`, `initChatRender()`, `initChatTransport()` — kept for compat, removed when all consumers migrate
 - `bootstrap.js` still copies chat state to `window.*` for compat — safe to remove only after all remaining consumers migrate
+
+---
+
+## Phase 5 Target (Bootstrap Cleanup) — ✅ COMPLETE (2026-05-02)
+
+**Phase 5 result: removed 12 `window.*` copies from bootstrap.js.**
+
+### What changed
+
+- Removed `window.chatTabs`, `window.activeChatTabId`, `window.chatBusy`, `window.compactionInProgress`, `window.unreadChatCount`, `window.chatAbortController`, `window.chatTabsDirty`, `window.chatPersistTimer`, `window.chatInitialized` — no longer needed, chat modules import from container
+- Removed `window.remoteAgentInProgress`, `window.remoteAgentSshConnection`, `window.latestSshHostKey` — no longer needed, remote-agent imports from container
+- Removed no-op bootstrap copy lines (`chat.tabs = state.chatTabs`, `remoteAgent.inProgress = state.remoteAgentInProgress`) — containers already have default values
+- Removed dead `export let` aliases from app-state.js (`remoteAgentInProgress`, `remoteAgentSshConnection`, `latestSshHostKey`)
+
+### What was NOT changed
+
+- `window.prevValues`, `window.metricSeries`, `window.slotSnapshots`, `window.requestActivity`, `window.recentTasks`, `window.metricCapabilities`, `window.liveOutputTracker`, `window.lastServerState`, `window.lastLlamaMetrics`, `window.lastSystemMetrics`, `window.lastGpuMetrics`, `window.lastCapabilities`, `window.currentPollInterval`, `window.lastGpuData`, `window.presets`, `window.sessions`, `window.activeSessionId`, `window.activeSessionPort`, `window.serverRunning`, `window.prevLogLen`, `window.settingsIsDirty`, `window.settingsSaveTimer`, `window.lhmResolve`, `window.enterToSend`, `window.chatFontSize` — still consumed by modules not yet migrated (sessions, attach-detach, settings)

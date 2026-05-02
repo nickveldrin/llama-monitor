@@ -12,8 +12,6 @@ window.closeExportModal = () => {};
 window.exportData = () => {};
 
 // Initialize window.* state from app-state.js (replaces init-state.js classic script)
-const chat = state.chat;
-const remoteAgent = state.remoteAgent;
 window.prevValues = state.prevValues;
 window.metricSeries = state.metricSeries;
 window.slotSnapshots = state.slotSnapshots;
@@ -34,34 +32,10 @@ window.activeSessionId = state.activeSessionId;
 window.activeSessionPort = state.activeSessionPort;
 window.serverRunning = state.serverRunning;
 window.prevLogLen = state.prevLogLen;
-// Remote agent state — copy to container (window.* copies kept for compat)
-remoteAgent.inProgress = state.remoteAgentInProgress;
-remoteAgent.sshConnection = state.remoteAgentSshConnection;
-remoteAgent.latestHostKey = state.latestSshHostKey;
-window.remoteAgentInProgress = state.remoteAgentInProgress;
-window.remoteAgentSshConnection = state.remoteAgentSshConnection;
-window.latestSshHostKey = state.latestSshHostKey;
 window.settingsIsDirty = state.settingsIsDirty;
 window.settingsSaveTimer = state.settingsSaveTimer;
-// Chat state — copy to chat container (window.* copies kept for compat, removed in Phase 3.5)
-chat.tabs = state.chatTabs;
-chat.activeTabId = state.activeChatTabId;
-chat.busy = state.chatBusy;
-chat.compactionInProgress = state.compactionInProgress;
-chat.unreadChatCount = state.unreadChatCount;
-chat.abortController = state.chatAbortController;
-chat.tabsDirty = state.chatTabsDirty;
-chat.persistTimer = state.chatPersistTimer;
-chat.initialized = state.chatInitialized;
-window.chatTabs = state.chatTabs;
-window.activeChatTabId = state.activeChatTabId;
-window.chatBusy = state.chatBusy;
-window.compactionInProgress = state.compactionInProgress;
-window.unreadChatCount = state.unreadChatCount;
-window.chatAbortController = state.chatAbortController;
-window.chatTabsDirty = state.chatTabsDirty;
-window.chatPersistTimer = state.chatPersistTimer;
-window.chatInitialized = state.chatInitialized;
+// Chat and remote-agent state live in container objects (chat, remoteAgent) —
+// no bootstrap copy needed; modules import directly from app-state.js.
 window.lhmResolve = state.lhmResolve;
 window.enterToSend = localStorage.getItem('llama-monitor-enter-to-send') !== 'false';
 window.chatFontSize = parseInt(localStorage.getItem('llama-monitor-chat-font') || '100');

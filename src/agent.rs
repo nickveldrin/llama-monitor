@@ -847,7 +847,8 @@ async fn maybe_autostart_remote_agent(
     // poller can authenticate on its next attempt.
     if started
         && settings.remote_agent_token.is_empty()
-        && let Some(token) = read_remote_agent_token(&connection, remote_os, Some(&settings.remote_agent_url)).await
+        && let Some(token) =
+            read_remote_agent_token(&connection, remote_os, Some(&settings.remote_agent_url)).await
     {
         let mut s = state.ui_settings.lock().unwrap();
         if s.remote_agent_token.is_empty() {
@@ -1253,9 +1254,7 @@ fn write_token_to_temp_file(token: &str) -> Vec<std::path::PathBuf> {
                     let name = entry.file_name().to_string_lossy().to_string();
                     !name.starts_with("$") && name != "Default" && name != "Public"
                 })
-                .map(|entry| {
-                    entry.path().join(".llama-monitor")
-                })
+                .map(|entry| entry.path().join(".llama-monitor"))
                 .collect(),
             Err(_) => Vec::new(),
         }
@@ -1278,10 +1277,7 @@ fn write_token_to_temp_file(token: &str) -> Vec<std::path::PathBuf> {
                     let _ = std::fs::remove_dir(parent);
                 }
             });
-            eprintln!(
-                "[agent] Token written to temp file: {}",
-                home_dir.display()
-            );
+            eprintln!("[agent] Token written to temp file: {}", home_dir.display());
             paths.push(home_dir);
         } else {
             eprintln!(
