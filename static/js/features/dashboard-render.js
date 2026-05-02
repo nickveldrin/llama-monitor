@@ -1,5 +1,5 @@
-import { metricSeries, recentTasks, requestActivity, liveOutputTracker } from '../core/app-state.js';
 import { escapeHtml, formatMetricNumber, formatDuration, formatClockReadout } from '../core/format.js';
+import * as state from '../core/app-state.js';
 
 function setChipState(el, label, state) {
     if (!el) return;
@@ -14,10 +14,10 @@ function setCardState(card, state) {
 }
 
 function pushSparklinePoint(name, value) {
-    metricSeries[name].push(Number.isFinite(value) ? value : 0);
+    state.metricSeries[name].push(Number.isFinite(value) ? value : 0);
     const limit = name === 'liveOutput' ? 90 : 40;
-    if (metricSeries[name].length > limit) {
-        metricSeries[name].shift();
+    if (state.metricSeries[name].length > limit) {
+        state.metricSeries[name].shift();
     }
 }
 
@@ -68,7 +68,7 @@ function getTaskKey(taskId, active) {
 }
 
 function updateLiveOutputEstimate(taskId, decoded, active, nowMs) {
-    const tracker = liveOutputTracker;
+    const tracker = state.liveOutputTracker;
     const taskChanged = tracker.taskId !== taskId;
     if (taskChanged) {
         tracker.taskId = taskId;
@@ -76,7 +76,7 @@ function updateLiveOutputEstimate(taskId, decoded, active, nowMs) {
         tracker.previousMs = nowMs;
         tracker.latestRate = 0;
         tracker.rates = [];
-        metricSeries.liveOutput = [];
+        state.metricSeries.liveOutput = [];
         pushSparklinePoint('liveOutput', 0);
         return 0;
     }
@@ -108,16 +108,16 @@ function updateLiveOutputEstimate(taskId, decoded, active, nowMs) {
 
 function updateRequestActivity(taskId, active, outputTokens, nowMs) {
     const taskKey = getTaskKey(taskId, active);
-    let openSegment = requestActivity.find(segment => !segment.endedAtMs);
+    let openSegment = state.requestActivity.find(segment => !segment.endedAtMs);
 
     if (active && taskKey) {
         if (!openSegment || openSegment.taskKey !== taskKey) {
             if (openSegment) {
                 openSegment.endedAtMs = nowMs;
                 openSegment.outputTokens = outputTokens || openSegment.outputTokens || 0;
-                recentTasks.unshift(openSegment);
+                state.recentTasks.unshift(openSegment);
             }
-            requestActivity.push({
+            state.requestActivity.push({
                 taskKey,
                 taskId,
                 startedAtMs: nowMs,
@@ -139,20 +139,20 @@ function updateRequestActivity(taskId, active, outputTokens, nowMs) {
             openSegment.firstOutputAtMs = nowMs;
         }
         openSegment.outputTokens = outputTokens || openSegment.outputTokens || 0;
-        recentTasks.unshift(openSegment);
+        state.recentTasks.unshift(openSegment);
     }
 
     const cutoff = nowMs - (10 * 60 * 1000);
-    window.requestActivity = requestActivity
+    state.requestActivity = state.requestActivity
         .filter(segment => !segment.endedAtMs || segment.endedAtMs >= cutoff)
         .slice(-100);
-    window.recentTasks = recentTasks.slice(0, 8);
+    state.recentTasks = state.recentTasks.slice(0, 8);
 }
 
 function renderRecentTask() {
     const el = document.getElementById('m-recent-task');
     if (!el) return;
-    const task = recentTasks[0];
+    const task = state.recentTasks[0];
     if (!task || !task.endedAtMs) {
         el.style.display = 'none';
         el.textContent = '';
@@ -170,7 +170,7 @@ function renderActivityRail(active) {
     if (!rail) return;
     const now = Date.now();
     const windowMs = 5 * 60 * 1000;
-    const segments = requestActivity.slice(-28);
+    const segments = state.requestActivity.slice(-28);
     if (!segments.length) {
         rail.innerHTML = '<span class="activity-empty">No recent tasks</span>';
         return;
@@ -323,7 +323,7 @@ function renderRequestStats() {
     const reqAvg = document.getElementById('m-req-avg');
     const now = Date.now();
     const windowMs = 10 * 60 * 1000;
-    const segments = requestActivity.filter(s => (s.endedAtMs || now) >= now - windowMs);
+    const segments = state.requestActivity.filter(s => (s.endedAtMs || now) >= now - windowMs);
     const completed = segments.filter(s => s.endedAtMs);
     if (reqCount) reqCount.textContent = formatMetricNumber(completed.length);
     if (reqAvg && completed.length > 0) {
@@ -1036,27 +1036,30 @@ export function initDashboardRender() {
             selectVizStyle(card, metric, style);
         });
     });
-
-    window.setChipState = setChipState;
-    window.setCardState = setCardState;
-    window.pushSparklinePoint = pushSparklinePoint;
-    window.renderSparkline = renderSparkline;
-    window.renderLiveSparkline = renderLiveSparkline;
-    window.updateLiveOutputEstimate = updateLiveOutputEstimate;
-    window.updateRequestActivity = updateRequestActivity;
-    window.renderRecentTask = renderRecentTask;
-    window.renderActivityRail = renderActivityRail;
-    window.renderSlotGrid = renderSlotGrid;
-    window.getPrimarySlot = getPrimarySlot;
-    window.renderSlotUtilization = renderSlotUtilization;
-    window.renderRequestStats = renderRequestStats;
-    window.renderGenerationDetailItems = renderGenerationDetailItems;
-    window.renderDecodingConfig = renderDecodingConfig;
-    window.formatParamCount = formatParamCount;
-    window.renderCapabilityPopover = renderCapabilityPopover;
-    window.updateMetricDelta = updateMetricDelta;
-    window.setEmptyState = setEmptyState;
-    window.renderGpuCard = renderGpuCard;
-    window.renderSystemCard = renderSystemCard;
-    window.setMetricSectionVisibility = setMetricSectionVisibility;
 }
+
+// Export render functions for dashboard-ws.js (replaces window.* bridges)
+export {
+    setChipState,
+    setCardState,
+    pushSparklinePoint,
+    renderSparkline,
+    renderLiveSparkline,
+    updateLiveOutputEstimate,
+    updateRequestActivity,
+    renderRecentTask,
+    renderActivityRail,
+    renderSlotGrid,
+    getPrimarySlot,
+    renderSlotUtilization,
+    renderRequestStats,
+    renderGenerationDetailItems,
+    renderDecodingConfig,
+    formatParamCount,
+    renderCapabilityPopover,
+    updateMetricDelta,
+    setEmptyState,
+    renderGpuCard,
+    renderSystemCard,
+    setMetricSectionVisibility,
+};
