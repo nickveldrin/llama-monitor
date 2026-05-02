@@ -369,7 +369,7 @@ static/
   compact.html         -- Compact tray popover view
   manifest.json        -- PWA manifest
   sw.js                -- Service worker (PWA offline support)
-  lhm.js               -- LibreHardwareMonitor frontend integration
+  js/features/lhm.js   -- LibreHardwareMonitor frontend integration
   icon.svg             -- Application icon
   css/                 -- Stylesheet modules (split for AI agent readability)
     tokens.css         -- CSS custom properties, light theme variable overrides

@@ -343,10 +343,6 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .and(warp::get())
         .map(|| js_reply(static_assets::SW_JS));
 
-    let lhm_js = warp::path("lhm.js")
-        .and(warp::get())
-        .map(|| js_reply(static_assets::LHM_JS));
-
     let icon = warp::path("icon.svg")
         .and(warp::get())
         .map(|| warp::reply::with_header(static_assets::ICON_SVG, "content-type", "image/svg+xml"));
@@ -390,7 +386,6 @@ fn static_routes() -> impl Filter<Extract = (impl warp::Reply,), Error = warp::R
         .or(js_features_user_menu)
         .or(js_features_dashboard_render)
         .or(js_features_toast)
-        .or(lhm_js)
         .or(manifest)
         .or(sw)
         .or(icon)

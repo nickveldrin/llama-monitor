@@ -52,25 +52,21 @@ window.chatFontSize = parseInt(localStorage.getItem('llama-monitor-chat-font') |
 
 import { initDashboardRender } from './features/dashboard-render.js';
 import { initWebSocket } from './features/dashboard-ws.js';
-import { initFileBrowser } from './features/file-browser.js';
 import { initPresets } from './features/presets.js';
 import { initSessions } from './features/sessions.js';
 import { initAttachDetach } from './features/attach-detach.js';
-import { initRemoteAgent, setRemoteAgentStatus } from './features/remote-agent.js';
 import { initChatState, initChatTabs, autoResizeChatInput } from './features/chat-state.js';
 import { initChatTransport } from './features/chat-transport.js';
 import { initChatRender } from './features/chat-render.js';
 import { initChatTemplates } from './features/chat-templates.js';
 import { initChatParams } from './features/chat-params.js';
 import { initSetupView } from './features/setup-view.js';
-import { initUpdates } from './features/updates.js';
 import { initShortcuts } from './features/shortcuts.js';
 import { initNav } from './features/nav.js';
 import { initAnimate } from './features/animate.js';
 import { initSettings } from './features/settings.js';
 import { initUserMenu } from './features/user-menu.js';
 import { initConfig } from './features/config.js';
-import { initModels } from './features/models.js';
 import { initSensorBridge } from './features/sensor-bridge.js';
 import { initToast } from './features/toast.js';
 
@@ -90,9 +86,6 @@ console.log('[bootstrap] Module entrypoint loaded');
 // duplicates in app.js.
 window.escapeHtml = escapeHtml;
 
-// Put setRemoteAgentStatus on window for cross-module calls from dashboard-ws.js
-window.setRemoteAgentStatus = setRemoteAgentStatus;
-
 // Phase 1: Initialize rendering functions, then WebSocket.
 // dashboard-render provides rendering functions on window.*.
 // dashboard-ws calls those functions via window.*.
@@ -100,11 +93,9 @@ initDashboardRender();
 initWebSocket();
 
 // Phase 4: Initialize extracted features — puts inline-handler functions on window.
-initFileBrowser();
 initPresets();
 initSessions();
 initAttachDetach();
-initRemoteAgent();
 
 // Phase 6a: Chat state before transport (transport imports from state)
 initChatState();
@@ -126,7 +117,6 @@ autoResizeChatInput();
 
 // Phase 7: setup view, updates, shortcuts (LHM is deferred)
 initSetupView();
-initUpdates();
 initShortcuts();
 
 // Phase 8: Nav, animate, settings, user menu, config, models, sensor bridge, toast
@@ -135,23 +125,103 @@ initAnimate();
 initSettings();
 initUserMenu();
 initConfig();
-initModels();
 initSensorBridge();
 initToast();
 
 // ── Deferred feature initialization ──────────────────────────────────────────
 // These features are loaded on first use to reduce startup cost.
 
+const deferredInits = {
+    fileBrowser: null,
+    models: null,
+    remoteAgent: null,
+    updates: null,
+    lhm: null,
+};
+
+function once(key, loader) {
+    if (!deferredInits[key]) {
+        deferredInits[key] = loader();
+    }
+    return deferredInits[key];
+}
+
+function ensureFileBrowser() {
+    return once('fileBrowser', async () => {
+        const mod = await import('./features/file-browser.js');
+        mod.initFileBrowser();
+        return mod;
+    });
+}
+
+function ensureModels() {
+    return once('models', async () => {
+        const mod = await import('./features/models.js');
+        mod.initModels();
+        return mod;
+    });
+}
+
+function ensureRemoteAgent() {
+    return once('remoteAgent', async () => {
+        const mod = await import('./features/remote-agent.js');
+        mod.initRemoteAgent();
+        return mod;
+    });
+}
+
+function ensureUpdates() {
+    return once('updates', async () => {
+        const mod = await import('./features/updates.js');
+        mod.initUpdates();
+        return mod;
+    });
+}
+
+window.openFileBrowser = (targetId, filter) => {
+    ensureFileBrowser().then(mod => mod.openFileBrowser(targetId, filter));
+};
+
+window.setRemoteAgentStatus = (message, kind) => {
+    ensureRemoteAgent().then(mod => mod.setRemoteAgentStatus(message, kind));
+};
+
+document.getElementById('sidebar-btn-models')?.addEventListener('click', () => {
+    ensureModels();
+});
+
+document.getElementById('nav-agent-btn')?.addEventListener('click', () => {
+    ensureRemoteAgent();
+}, { once: true });
+
+document.getElementById('agent-status')?.addEventListener('click', () => {
+    ensureRemoteAgent();
+}, { once: true });
+
+document.getElementById('agent-fix-btn')?.addEventListener('click', () => {
+    ensureRemoteAgent();
+}, { once: true });
+
+document.getElementById('settings-open-config-btn')?.addEventListener('click', () => {
+    ensureRemoteAgent();
+});
+
+window.requestIdleCallback?.(() => {
+    ensureUpdates();
+});
+if (!window.requestIdleCallback) {
+    setTimeout(() => {
+        ensureUpdates();
+    }, 1500);
+}
+
 // LHM: defer until LHM show button is clicked (in settings modal)
 (function() {
-    let initialized = false;
     function ensureInit() {
-        if (initialized) return Promise.resolve();
-        initialized = true;
-        return import('./features/lhm.js').then(mod => {
+        return once('lhm', () => import('./features/lhm.js').then(mod => {
             mod.initLHM();
             return mod;
-        });
+        }));
     }
     // Wire LHM show button (data-lhm-action="show" is in settings modal)
     document.addEventListener('click', (e) => {

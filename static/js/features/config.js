@@ -104,13 +104,13 @@ export function initConfig() {
 
     // Bind Browse buttons in config modal
     const browseServerPath = document.getElementById('config-browse-server-path');
-    if (browseServerPath) browseServerPath.addEventListener('click', () => openFileBrowser('set-server-path', 'executable'));
+    if (browseServerPath) browseServerPath.addEventListener('click', () => window.openFileBrowser('set-server-path', 'executable'));
 
     const usePathBtn = document.getElementById('config-use-path-btn');
     if (usePathBtn) usePathBtn.addEventListener('click', usePathServerBinary);
 
     const browseCwd = document.getElementById('config-browse-cwd');
-    if (browseCwd) browseCwd.addEventListener('click', () => openFileBrowser('set-server-cwd', 'dir'));
+    if (browseCwd) browseCwd.addEventListener('click', () => window.openFileBrowser('set-server-cwd', 'dir'));
 
     // Bind "Open Runtime Configuration" in settings modal
     const openConfigBtn = document.getElementById('settings-open-config-btn');

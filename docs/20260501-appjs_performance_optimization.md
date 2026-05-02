@@ -610,15 +610,9 @@ The startup time increase is due to module resolution overhead from the single-m
 
 ## Review Follow-up
 
-Review of the 2026-05-01 performance work against the current codebase found a few remaining cleanup items:
+Review of the 2026-05-01 performance work against the current codebase found a few cleanup items, which have now been addressed:
 
-1. Phase 3 is only partially complete. `bootstrap.js` still eagerly imports and initializes several modules that this plan classified as defer candidates, including:
-   - `file-browser.js`
-   - `models.js`
-   - `remote-agent.js`
-   - `updates.js`
-2. The legacy startup file [`static/js/core/init-state.js`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/static/js/core/init-state.js:1) still exists in the tree even though [`static/index.html`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/static/index.html:2153) no longer loads it and [`static/js/bootstrap.js`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/static/js/bootstrap.js:3) is now the only startup entrypoint.
-3. The deprecated asset [`static/lhm.js`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/static/lhm.js:1) is still embedded and served by the Rust static asset layer for backward compatibility, even though lazy loading now uses [`static/js/features/lhm.js`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/static/js/features/lhm.js:1).
-4. Validation tooling still needed cleanup from the refactor. The JS validation script referenced the old `init-state` path and should only validate the current module tree.
-
-None of these block the current branch, but they are the remaining items if the goal is to fully align implementation with this optimization plan.
+1. Deferred initialization was expanded beyond LHM. `bootstrap.js` now lazy-loads `file-browser.js`, `models.js`, `remote-agent.js`, and `updates.js` instead of eagerly initializing them during startup.
+2. The legacy startup file `static/js/core/init-state.js` was removed from the tree now that `bootstrap.js` is the sole startup entrypoint.
+3. The deprecated `static/lhm.js` compatibility asset and its Rust route/embed path were removed. Lazy loading now uses only `static/js/features/lhm.js`.
+4. Validation tooling was cleaned up so the JS validation script only references the current module tree.
