@@ -209,13 +209,13 @@ function renderSamplerParamsInline(slot) {
         return;
     }
     const samplerItems = slot.sampler_config || [];
-    const priorityKeys = ['top_k', 'top_p', 'min_p', 'temperature', 'dry', 'xtc'];
+    const priorityKeys = ['top_k', 'top_p', 'min_p', 'temp', 'dry', 'xtc'];
     const priorityItems = samplerItems.filter(item => priorityKeys.includes(item.label));
     if (priorityItems.length === 0) {
         el.innerHTML = '';
         return;
     }
-    el.innerHTML = priorityItems.slice(0, 4).map(item => {
+    el.innerHTML = priorityItems.slice(0, 5).map(item => {
         const displayValue = formatConfigValue(item.value);
         return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
     }).join('');
@@ -343,13 +343,30 @@ function renderGenerationDetailItems(el, parts) {
         .join('');
 }
 
-function renderDecodingConfig(l, hasActiveEndpoint) {
+function renderDecodingConfig(l, hasActiveEndpoint, isGenerating) {
     const slot = getPrimarySlot(l);
     const specChip = document.getElementById('m-speculative-chip');
     const decodingState = document.getElementById('m-decoding-state');
+    const modelInfoRow = document.getElementById('model-info-row');
     const hasConfig = !!slot && ((slot.sampler_stack || []).length > 0 || (slot.speculative_config || []).length > 0);
 
     setChipState(decodingState, hasConfig ? 'config' : 'waiting', hasConfig ? 'live' : 'idle');
+
+    // Model info row
+    if (modelInfoRow) {
+        const modelName = l?.model_name || '';
+        const modelParams = l?.model_params || null;
+        if (modelName) {
+            const parts = [escapeHtml(modelName)];
+            if (modelParams) {
+                parts.push(formatParamCount(modelParams));
+            }
+            const stateClass = isGenerating ? 'generating' : 'idle';
+            modelInfoRow.innerHTML = '<span class="model-info-text ' + stateClass + '">' + parts.join(' · ') + '</span>';
+        } else {
+            modelInfoRow.innerHTML = '';
+        }
+    }
 
     if (!hasActiveEndpoint || !slot) {
         if (specChip) specChip.textContent = 'Attach an endpoint for decoding config';
@@ -373,6 +390,20 @@ function renderDecodingConfig(l, hasActiveEndpoint) {
     renderConfigItems('m-speculative-config', slot.speculative_config || [], 'Configuration only appears when exposed');
 
     renderSamplerParamsInline(slot);
+}
+
+function formatParamCount(params) {
+    if (!params || params === 0) return '';
+    if (params >= 1_000_000_000_000) {
+        return (params / 1_000_000_000_000).toFixed(0) + 'T params';
+    }
+    if (params >= 1_000_000_000) {
+        return (params / 1_000_000_000).toFixed(0) + 'B params';
+    }
+    if (params >= 1_000_000) {
+        return (params / 1_000_000).toFixed(0) + 'M params';
+    }
+    return params + ' params';
 }
 
 function renderCapabilityPopover(d, l, generationAvailable, contextLiveAvailable) {
@@ -1021,6 +1052,7 @@ export function initDashboardRender() {
     window.renderRequestStats = renderRequestStats;
     window.renderGenerationDetailItems = renderGenerationDetailItems;
     window.renderDecodingConfig = renderDecodingConfig;
+    window.formatParamCount = formatParamCount;
     window.renderCapabilityPopover = renderCapabilityPopover;
     window.updateMetricDelta = updateMetricDelta;
     window.setEmptyState = setEmptyState;

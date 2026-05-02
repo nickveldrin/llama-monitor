@@ -27,13 +27,10 @@ pub fn build_routes(
 
     // Apply HTTP security headers to all responses
     // Custom CSP: allow external CDN scripts, fonts, styles, and data URIs (app requirements)
+    // connect-src allows any HTTPS — needed for the service worker passthrough proxy to forward CDN requests
     let csp = ContentSecurityPolicy::new()
         .default_src(vec!["'self'", "data:"])
-        .connect_src(vec![
-            "'self'",
-            "https://fonts.googleapis.com",
-            "https://cdn.jsdelivr.net",
-        ])
+        .connect_src(vec!["'self'", "https:"])
         .script_src(vec![
             "'self'",
             "'unsafe-inline'",

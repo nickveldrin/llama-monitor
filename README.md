@@ -79,6 +79,7 @@ Sessions persist to `~/.config/llama-monitor/sessions.json` and survive restarts
 - **Smart Scroll** — Auto-scroll only when already near the bottom; scroll-to-bottom button shows unread message count badge
 - **Chat History Pagination** — Long conversations render only the most recent N messages (default 15) for performance; "Load More" button reveals older batches; limit is configurable per-tab
 - **Token Count Display** — Input character count shows approximate token estimate (`~N tok`) with warning color at 800+ tokens and error color at 1500+
+- **Context Compaction** — Manual and auto-compaction to recover from full context windows; summarizes earlier conversation into a tombstone message; per-tab auto-compact threshold control; multi-compact safe (tombstones preserved across re-compactions)
 - **Personalized Empty State** — Greeting shows active AI name and loaded model name; suggested prompts grid with stagger animation
 - **Animated Panels** — System prompt and model params panels open/close with smooth max-height transitions; send button shows spinner during generation
 
@@ -256,6 +257,7 @@ Control bar with preset selector and port. Start/stop the server. Live inference
 Multi-tab streaming chat proxied to the running llama-server's `/v1/chat/completions` endpoint. Features include:
 - Per-tab system prompts with template library
 - Model parameter controls (temperature, top_p, top_k, min_p, repeat_penalty); dirty-state indicator when non-defaults are active
+- Context compaction — manual and auto-compaction to recover from full context windows; summarizes earlier conversation into a tombstone; per-tab threshold control
 - Reasoning/thinking blocks, Markdown rendering, and syntax-highlighted code blocks (highlight.js)
 - Per-code-block headers: language label, line count, and copy button
 - Chat history pagination with configurable visible-message limit (default 15) — older messages load on demand
@@ -365,12 +367,16 @@ src/
     static_assets.rs   -- Embedded frontend assets (include_str! at compile time)
 static/
   index.html           -- Dashboard HTML (single-page app)
-  app.js               -- Frontend JavaScript (~8600 lines, vanilla JS)
   compact.html         -- Compact tray popover view
   manifest.json        -- PWA manifest
   sw.js                -- Service worker (PWA offline support)
-  js/features/lhm.js   -- LibreHardwareMonitor frontend integration
-  icon.svg             -- Application icon
+  js/                  -- Frontend JavaScript (22 ES modules, vanilla JS)
+    bootstrap.js       -- Module entrypoint and startup sequencing
+    core/              -- Shared infrastructure
+      app-state.js     -- Shared state module
+      format.js        -- Pure format helper functions
+    features/          -- Feature modules (dashboard, chat, remote-agent, etc.)
+    compat/            -- Compatibility shims and legacy bridges
   css/                 -- Stylesheet modules (split for AI agent readability)
     tokens.css         -- CSS custom properties, light theme variable overrides
     base.css           -- Reset, body, typography, element defaults
@@ -397,12 +403,16 @@ tests/
     screenshot.mjs     -- Screenshot automation
     gif.mjs            -- GIF capture for docs
 docs/
-  api.md                          -- REST API reference
-  cli-flags.md                    -- CLI flag reference
-  cross-compilation.md            -- Multi-platform build guide
-  20260426-security_hardening.md  -- Security audit findings and remediation status
-  20260427-chat_enhancements.md   -- Chat UI overhaul implementation plan
-  (+ additional design and implementation docs)
+  reference/                      -- API reference, CLI flags, cross-compilation guide
+  architecture/                   -- Frontend architecture, window cleanup, performance
+  chat/                           -- Chat enhancements, context compaction, context window redesign
+  ui-ux/                          -- UI modernization, settings, card proposals, welcome view
+  remote-agent/                   -- Remote agent API, SSH flow, Windows tray
+  gpu-hardware/                   -- Apple Silicon, GPU modernization, context tracking
+  security/                       -- Security audit, hardening, mTLS
+  implementation/                 -- Implementation plans, new metrics, app update capability
+  testing/                        -- Test runbook, visual QA, coverage gap analysis
+  screenshots/                    -- Screenshots and GIFs
 ```
 
 ### CSS Module Index

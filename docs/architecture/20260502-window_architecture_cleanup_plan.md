@@ -14,9 +14,9 @@ This document defines what remains, why it matters, and how a future AI agent sh
 
 This plan builds on:
 
-- [`docs/20260430-appjs_refactor.md`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/docs/20260430-appjs_refactor.md:1)
-- [`docs/20260430-phase9_window_facade_cleanup.md`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/docs/20260430-phase9_window_facade_cleanup.md:1)
-- [`docs/20260501-appjs_performance_optimization.md`](/Users/nick/SCRIPTS/CLAUDE/llama-monitor/docs/20260501-appjs_performance_optimization.md:1)
+- [`docs/architecture/20260430-appjs_refactor.md`](20260430-appjs_refactor.md)
+- [`docs/architecture/20260430-phase9_window_facade_cleanup.md`](20260430-phase9_window_facade_cleanup.md)
+- [`docs/architecture/20260501-appjs_performance_optimization.md`](20260501-appjs_performance_optimization.md)
 
 Those earlier phases got the frontend to a workable modular state. This document covers the next phase: turning the modular state into a cleaner architecture with explicit ownership and fewer global contracts.
 

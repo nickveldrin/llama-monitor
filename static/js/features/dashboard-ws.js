@@ -434,7 +434,7 @@ function updateInferenceMetrics(d) {
     window.renderSlotGrid(l, hasActiveEndpoint);
     window.renderSlotUtilization(l);
     window.renderRequestStats();
-    window.renderDecodingConfig(l, hasActiveEndpoint);
+    window.renderDecodingConfig(l, hasActiveEndpoint, generationActive);
     window.renderLiveSparkline('m-live-output-spark', window.metricSeries.liveOutput);
 
     window.setCardState(generationCard, !hasActiveEndpoint ? 'dormant' : generationActive ? 'live' : generationAvailable ? 'idle' : 'unavailable');

@@ -279,7 +279,7 @@ test.describe('inference metric rendering', () => {
       };
 
       renderSlotGrid(l, true);
-      renderDecodingConfig(l, true);
+      renderDecodingConfig(l, true, true);
       updateRequestActivity(6686, true, 690, Date.now());
       renderActivityRail(true);
       renderGenerationDetailItems(document.getElementById('m-generation-details'), [
