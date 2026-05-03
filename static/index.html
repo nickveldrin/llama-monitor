@@ -336,28 +336,40 @@
                         <!-- Context Card -->
                         <div class="widget-card widget-metric widget-context">
                             <div class="metric-card-topline">
-                                <div class="widget-metric-label">CONTEXT WINDOW</div>
-                                <div class="metric-live-chip" id="m-context-state">capacity</div>
-                            </div>
-                            <div class="inference-empty-state visible" id="m-context-empty">Context capacity appears after attach</div>
-                            <div class="context-rail-group">
-                                <div class="context-rail-label">
-                                    <span id="m-ctx-live-label">Live usage</span>
-                                    <span id="m-ctx-live-detail">&mdash;</span>
+                                <div class="context-topline-main">
+                                    <div class="widget-metric-label">CONTEXT WINDOW</div>
+                                    <div class="metric-live-chip" id="m-context-state">idle</div>
                                 </div>
-                                <div class="context-progress-bar context-live-bar" id="m-ctx-bar">
-                                    <div class="context-progress-fill" id="m-ctx-fill"></div>
-                                </div>
-                                <div class="context-rail-label">
-                                    <span>Peak observed</span>
-                                    <span id="m-ctx-peak-detail">&mdash;</span>
-                                </div>
-                                <div class="context-progress-bar context-peak-bar">
-                                    <div class="context-progress-fill historic" id="m-ctx-peak-fill"></div>
+                                <div class="context-view-toggle" role="tablist" aria-label="Context card view">
+                                    <button type="button" class="context-toggle-btn active" id="context-view-toggle-gauge" role="tab" aria-selected="true">Gauge</button>
+                                    <button type="button" class="context-toggle-btn" id="context-view-toggle-fleet" role="tab" aria-selected="false">Fleet</button>
                                 </div>
                             </div>
-                            <div class="context-value" id="m-ctx">&mdash;</div>
-                            <div class="context-details" id="m-ctx-details">&mdash;</div>
+                            <div class="inference-empty-state visible" id="m-context-empty">Start a chat or attach to a server to track context pressure</div>
+                            <div class="context-subtitle" id="m-context-subtitle">&mdash;</div>
+                            <div class="context-body">
+                                <div class="context-card-view active" id="context-view-gauge">
+                                    <div class="context-gauge-shell">
+                                        <svg class="context-gauge-svg" viewBox="0 0 160 160" aria-hidden="true">
+                                            <circle class="context-gauge-track" cx="80" cy="80" r="64"/>
+                                            <circle class="context-gauge-ring idle" id="m-context-gauge-ring" cx="80" cy="80" r="64"/>
+                                        </svg>
+                                        <div class="context-gauge-center">
+                                            <div class="context-gauge-value" id="m-context-gauge-value">&mdash;</div>
+                                            <div class="context-gauge-secondary" id="m-context-gauge-secondary">&mdash;</div>
+                                        </div>
+                                    </div>
+                                    <div class="context-chat-strip-wrap">
+                                        <div class="context-chat-strip" id="m-context-chat-strip"></div>
+                                        <div class="context-chat-strip-meta" id="m-context-chat-strip-meta">&mdash;</div>
+                                    </div>
+                                </div>
+                                <div class="context-card-view hidden" id="context-view-fleet">
+                                    <div class="context-fleet-summary" id="m-context-fleet-summary">&mdash;</div>
+                                    <div class="context-fleet-rows" id="m-context-fleet-rows"></div>
+                                    <div class="context-fleet-footer" id="m-context-fleet-footer">&mdash;</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <div class="inference-detail-grid">
@@ -394,9 +406,10 @@
                         </div>
                         <div class="widget-card inference-mini-panel inference-config-panel">
                             <div class="metric-card-topline">
-                                <div class="widget-metric-label">DECODING CONFIG</div>
+                                <div class="widget-metric-label">MODEL & DECODING</div>
                                 <div class="metric-live-chip" id="m-decoding-state">config</div>
                             </div>
+                            <div class="model-info-row" id="model-info-row"></div>
                             <div class="speculative-chip" id="m-speculative-chip">Speculative decoding unavailable</div>
                             <div class="config-kv-grid" id="m-speculative-config"></div>
                             <div class="sampler-params-inline" id="m-sampler-params-inline"></div>
@@ -639,6 +652,12 @@
                         </svg>
                         <span class="chat-header-label">Export</span>
                     </button>
+                    <button class="chat-header-btn" id="chat-import-btn" title="Import conversation from file">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                        </svg>
+                        <span class="chat-header-label">Import</span>
+                    </button>
                 </div>
             </div>
 
@@ -723,6 +742,16 @@
                     <input type="number" id="chat-msg-limit" min="5" max="200" step="5"
                            value="15">
                     <span class="modal-help">Show only the most recent N messages. Older messages are hidden to improve performance.</span>
+                </label>
+                <label class="modal-field">
+                    Date format
+                    <select id="chat-date-format">
+                        <option value="MM/DD/YY">MM/DD/YY (US)</option>
+                        <option value="DD/MM/YY">DD/MM/YY (EU)</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD (ISO)</option>
+                        <option value="locale">OS default</option>
+                    </select>
+                    <span class="modal-help">Format for message timestamps. Applied immediately.</span>
                 </label>
                 <div class="chat-compact-settings">
                     <label class="modal-field">
@@ -2150,7 +2179,7 @@
     <span class="chat-scroll-badge" id="chat-scroll-badge" style="display:none;"></span>
 </button>
 
-    <script type="module" src="/js/bootstrap.js"></script>
+    <script type="module" src="/js/bootstrap.js?v={{ VERSION }}"></script>
 <!-- Release Notes Panel -->
 <div id="release-notes-overlay" class="modal-overlay" style="z-index:1399;"></div>
 <div id="release-notes-panel" class="slide-panel">

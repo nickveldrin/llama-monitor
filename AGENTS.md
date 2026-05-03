@@ -119,7 +119,20 @@ cargo clippy -- -D warnings
 
 # Format
 cargo fmt
+
+# Validate JavaScript syntax (catches errors before browser load)
+./scripts/validate-js.sh
+
+# Lint static/js with ESLint (catches XSS, no-undef, import-assign)
+npm run lint
 ```
+
+**Important:** Always run `npm run lint` after modifying any `.js` files under `static/js/`. This runs ESLint with three rules:
+- `no-import-assign` — catches assignment to ES module namespace bindings (the `TypeError: Assignment to constant variable` class of error)
+- `no-undef` — catches bare references to functions no longer on `window` after ES module extraction
+- `no-unsanitized/property` and `/method` — catches `innerHTML`/`insertAdjacentHTML` with unescaped user data (XSS); `escapeHtml()` is the approved sanitizer
+
+The lint job runs automatically in CI on every PR push that touches `static/**` or `tests/ui/**`, without requiring the `ready-to-test` label. Also run `./scripts/validate-js.sh` for syntax-only validation on all JS files.
 
 ## CI/CD Workflow
 

@@ -1,5 +1,15 @@
-import { metricSeries, recentTasks, requestActivity, liveOutputTracker } from '../core/app-state.js';
 import { escapeHtml, formatMetricNumber, formatDuration, formatClockReadout } from '../core/format.js';
+import {
+    metricSeries,
+    liveOutputTracker,
+    requestActivity,
+    recentTasks,
+    lastGpuData,
+    lastSystemMetrics,
+    lastCapabilities,
+    wsData,
+    setLastGpuData,
+} from '../core/app-state.js';
 
 function setChipState(el, label, state) {
     if (!el) return;
@@ -34,6 +44,7 @@ function renderSparkline(id, points, className, isBlocked) {
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
     const wallLine = isBlocked ? '<line x1="120" y1="0" x2="120" y2="28" stroke="#ebcb8b" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>' : '';
+    // eslint-disable-next-line no-unsanitized/property -- SVG path data from numeric array values; className is a hardcoded CSS class
     svg.innerHTML = '<path class="sparkline-fill ' + className + '" d="' + path + ' L 120 28 L 0 28 Z"></path><path class="sparkline-line ' + className + '" d="' + path + '"></path>' + wallLine;
 }
 
@@ -55,6 +66,7 @@ function renderLiveSparkline(id, points) {
         if (value > peak.value) peak = { value, x, y };
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
+    // eslint-disable-next-line no-unsanitized/property -- SVG path data built from numeric array values only
     svg.innerHTML = [
         '<path class="sparkline-fill live-output" d="' + path + ' L 120 28 L 0 28 Z"></path>',
         '<path class="sparkline-line live-output" d="' + path + '"></path>',
@@ -143,10 +155,11 @@ function updateRequestActivity(taskId, active, outputTokens, nowMs) {
     }
 
     const cutoff = nowMs - (10 * 60 * 1000);
-    window.requestActivity = requestActivity
+    const kept = requestActivity
         .filter(segment => !segment.endedAtMs || segment.endedAtMs >= cutoff)
         .slice(-100);
-    window.recentTasks = recentTasks.slice(0, 8);
+    requestActivity.splice(0, requestActivity.length, ...kept);
+    recentTasks.splice(8);
 }
 
 function renderRecentTask() {
@@ -175,6 +188,7 @@ function renderActivityRail(active) {
         rail.innerHTML = '<span class="activity-empty">No recent tasks</span>';
         return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- all values are numeric (toFixed) or internal hardcoded enums ('active'/'complete')
     rail.innerHTML = segments.map(segment => {
         let start = Math.max(0, Math.min(100, ((segment.startedAtMs - (now - windowMs)) / windowMs) * 100));
         const endMs = segment.endedAtMs || now;
@@ -209,13 +223,14 @@ function renderSamplerParamsInline(slot) {
         return;
     }
     const samplerItems = slot.sampler_config || [];
-    const priorityKeys = ['top_k', 'top_p', 'min_p', 'temperature', 'dry', 'xtc'];
+    const priorityKeys = ['top_k', 'top_p', 'min_p', 'temp', 'dry', 'xtc'];
     const priorityItems = samplerItems.filter(item => priorityKeys.includes(item.label));
     if (priorityItems.length === 0) {
         el.innerHTML = '';
         return;
     }
-    el.innerHTML = priorityItems.slice(0, 4).map(item => {
+    // eslint-disable-next-line no-unsanitized/property -- all interpolated values wrapped in escapeHtml()
+    el.innerHTML = priorityItems.slice(0, 5).map(item => {
         const displayValue = formatConfigValue(item.value);
         return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
     }).join('');
@@ -234,9 +249,11 @@ function renderConfigItems(id, items, emptyText) {
     const el = document.getElementById(id);
     if (!el) return;
     if (!items || !items.length) {
+        // eslint-disable-next-line no-unsanitized/property -- emptyText is always a hardcoded string literal at every call site
         el.innerHTML = '<span class="config-empty">' + emptyText + '</span>';
         return;
     }
+    // eslint-disable-next-line no-unsanitized/property -- all interpolated values wrapped in escapeHtml()
     el.innerHTML = items.map(item => {
         const displayValue = formatConfigValue(item.value);
         return '<span class="config-kv"><span>' + escapeHtml(item.label) + '</span><strong>' + escapeHtml(displayValue) + '</strong></span>';
@@ -253,6 +270,7 @@ function renderSlotGrid(l, hasActiveEndpoint) {
     }
     const slotSnapshots = Array.isArray(l.slots) ? l.slots : [];
     if (slotSnapshots.length > 0) {
+        // eslint-disable-next-line no-unsanitized/property -- server strings (slot.id, task id) are wrapped in escapeHtml(); busy/idle are hardcoded
         grid.innerHTML = slotSnapshots.map(slot => {
             const busy = !!slot.is_processing;
             const task = busy && slot.id_task !== null && slot.id_task !== undefined ? 'task ' + slot.id_task : 'idle';
@@ -289,6 +307,7 @@ function renderSlotGrid(l, hasActiveEndpoint) {
         );
     }
 
+    // eslint-disable-next-line no-unsanitized/property -- tiles built from numeric index, numeric formatMetricNumber output, and hardcoded 'busy'/'idle'/'active' strings
     grid.innerHTML = tiles.join('');
 }
 
@@ -337,19 +356,38 @@ function renderRequestStats() {
 
 function renderGenerationDetailItems(el, parts) {
     if (!el) return;
+    // eslint-disable-next-line no-unsanitized/property -- all parts wrapped in escapeHtml()
     el.innerHTML = parts
         .filter(Boolean)
         .map(part => '<span class="generation-detail-chip">' + escapeHtml(part) + '</span>')
         .join('');
 }
 
-function renderDecodingConfig(l, hasActiveEndpoint) {
+function renderDecodingConfig(l, hasActiveEndpoint, isGenerating) {
     const slot = getPrimarySlot(l);
     const specChip = document.getElementById('m-speculative-chip');
     const decodingState = document.getElementById('m-decoding-state');
+    const modelInfoRow = document.getElementById('model-info-row');
     const hasConfig = !!slot && ((slot.sampler_stack || []).length > 0 || (slot.speculative_config || []).length > 0);
 
     setChipState(decodingState, hasConfig ? 'config' : 'waiting', hasConfig ? 'live' : 'idle');
+
+    // Model info row
+    if (modelInfoRow) {
+        const modelName = l?.model_name || '';
+        const modelParams = l?.model_params || null;
+        if (modelName) {
+            const parts = [escapeHtml(modelName)];
+            if (modelParams) {
+                parts.push(escapeHtml(formatParamCount(modelParams)));
+            }
+            const stateClass = isGenerating ? 'generating' : 'idle';
+            // eslint-disable-next-line no-unsanitized/property -- stateClass is hardcoded enum; parts array members are all wrapped in escapeHtml()
+            modelInfoRow.innerHTML = '<span class="model-info-text ' + stateClass + '">' + parts.join(' · ') + '</span>';
+        } else {
+            modelInfoRow.innerHTML = '';
+        }
+    }
 
     if (!hasActiveEndpoint || !slot) {
         if (specChip) specChip.textContent = 'Attach an endpoint for decoding config';
@@ -375,6 +413,20 @@ function renderDecodingConfig(l, hasActiveEndpoint) {
     renderSamplerParamsInline(slot);
 }
 
+function formatParamCount(params) {
+    if (!params || params === 0) return '';
+    if (params >= 1_000_000_000_000) {
+        return (params / 1_000_000_000_000).toFixed(0) + 'T params';
+    }
+    if (params >= 1_000_000_000) {
+        return (params / 1_000_000_000).toFixed(0) + 'B params';
+    }
+    if (params >= 1_000_000) {
+        return (params / 1_000_000).toFixed(0) + 'M params';
+    }
+    return params + ' params';
+}
+
 function renderCapabilityPopover(d, l, generationAvailable, contextLiveAvailable) {
     const popover = document.getElementById('capability-popover');
     if (!popover) return;
@@ -398,6 +450,7 @@ function renderCapabilityPopover(d, l, generationAvailable, contextLiveAvailable
         ['Host metrics', d.host_metrics_available ? 'live' : 'unavailable', !!d.host_metrics_available],
         ['Remote agent', d.remote_agent_connected ? 'connected' : 'disconnected', !!d.remote_agent_connected]
     ];
+    // eslint-disable-next-line no-unsanitized/property -- label and value are all hardcoded string literals from the rows array above; ok is boolean
     popover.innerHTML = rows.map(([label, value, ok]) => {
         return '<span class="capability-row"><span class="capability-led ' + (ok ? 'ok' : 'muted') + '"></span><span>' + label + '</span><strong>' + value + '</strong></span>';
     }).join('');
@@ -434,6 +487,7 @@ function getTempSeverityColor(temp) {
 
 function setVizContent(container, html) {
     if (!container) return;
+    // eslint-disable-next-line no-unsanitized/property -- html is always built internally from numeric values, hardcoded CSS class names, and getSeverityColor() hex strings
     container.innerHTML = html;
 }
 
@@ -481,6 +535,7 @@ function renderHwMetricSparkline(svgId, history, color, show) {
         const y = height - (((value - min) / range) * (height - 4)) - 2;
         return (index === 0 ? 'M' : 'L') + x.toFixed(2) + ' ' + y.toFixed(2);
     }).join(' ');
+    // eslint-disable-next-line no-unsanitized/property -- SVG path built from numeric history values; color is a hex string from getSeverityColor()
     svg.innerHTML =
         '<path class="sparkline-fill" d="' + path + ' L 120 28 L 0 28 Z" fill="' + color + '" opacity="0.16"></path>' +
         '<path class="sparkline-line" d="' + path + '" stroke="' + color + '" fill="none" stroke-width="2.4" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" filter="drop-shadow(0 0 4px ' + color + ')"></path>' +
@@ -771,7 +826,7 @@ function renderGpuCard(gpuMap, visible) {
         return;
     }
 
-    lastGpuData = gpuMap;
+    setLastGpuData(gpuMap);
     setEmptyState(emptyEl, false);
 
     // Use first GPU (most common case)
@@ -907,7 +962,7 @@ function renderSystemCard(sys, visible) {
     // Show temp unavailable badge when connected to remote agent without temp data
     var tempBadge = document.getElementById('sys-temp-unavailable-badge');
     if (tempBadge) {
-        var isRemoteAgent = appState.wsData && appState.wsData.endpoint_kind === 'Remote';
+        var isRemoteAgent = wsData && wsData.endpoint_kind === 'Remote';
         if (!hasTemp && isRemoteAgent) {
             var reason = sys.cpu_temp_available
                 ? 'Sensor returned no data'
@@ -1005,26 +1060,30 @@ export function initDashboardRender() {
             selectVizStyle(card, metric, style);
         });
     });
-
-    window.setChipState = setChipState;
-    window.setCardState = setCardState;
-    window.pushSparklinePoint = pushSparklinePoint;
-    window.renderSparkline = renderSparkline;
-    window.renderLiveSparkline = renderLiveSparkline;
-    window.updateLiveOutputEstimate = updateLiveOutputEstimate;
-    window.updateRequestActivity = updateRequestActivity;
-    window.renderRecentTask = renderRecentTask;
-    window.renderActivityRail = renderActivityRail;
-    window.renderSlotGrid = renderSlotGrid;
-    window.getPrimarySlot = getPrimarySlot;
-    window.renderSlotUtilization = renderSlotUtilization;
-    window.renderRequestStats = renderRequestStats;
-    window.renderGenerationDetailItems = renderGenerationDetailItems;
-    window.renderDecodingConfig = renderDecodingConfig;
-    window.renderCapabilityPopover = renderCapabilityPopover;
-    window.updateMetricDelta = updateMetricDelta;
-    window.setEmptyState = setEmptyState;
-    window.renderGpuCard = renderGpuCard;
-    window.renderSystemCard = renderSystemCard;
-    window.setMetricSectionVisibility = setMetricSectionVisibility;
 }
+
+// Export render functions for dashboard-ws.js (replaces window.* bridges)
+export {
+    setChipState,
+    setCardState,
+    pushSparklinePoint,
+    renderSparkline,
+    renderLiveSparkline,
+    updateLiveOutputEstimate,
+    updateRequestActivity,
+    renderRecentTask,
+    renderActivityRail,
+    renderSlotGrid,
+    getPrimarySlot,
+    renderSlotUtilization,
+    renderRequestStats,
+    renderGenerationDetailItems,
+    renderDecodingConfig,
+    formatParamCount,
+    renderCapabilityPopover,
+    updateMetricDelta,
+    setEmptyState,
+    renderGpuCard,
+    renderSystemCard,
+    setMetricSectionVisibility,
+};

@@ -1,7 +1,29 @@
 // ── Chat Transport & Streaming ────────────────────────────────────────────────
 // /api/chat calls, streaming decode, abort controller, summarization requests.
 
-import { activeChatTab, substituteNames, scheduleChatPersist, setChatBusyUI } from './chat-state.js';
+import { chat } from '../core/app-state.js';
+import {
+    activeChatTab,
+    substituteNames,
+    scheduleChatPersist,
+    setChatBusyUI,
+    setTransportGetter,
+} from './chat-state.js';
+import {
+    renderChatMessages,
+    appendAssistantPlaceholder,
+    appendThinkingBlock,
+    finalizeAssistantMessage,
+    incrementUnreadCount,
+    chatScroll,
+    renderMd,
+    renderMdStreaming,
+    updateChatTabBadge,
+    setChatTransportGetter,
+} from './chat-render.js';
+import { escapeHtml } from '../core/format.js';
+import { autoResizeChatInput } from './chat-state.js';
+import { getExplicitModePolicy } from './chat-templates.js';
 
 // ── Summarization ──────────────────────────────────────────────────────────────
 
@@ -80,7 +102,7 @@ export async function sendSuggestedPrompt(text) {
 // ── Send Chat ──────────────────────────────────────────────────────────────────
 
 export async function sendChatWithContent(text) {
-    if (window.chatBusy || window.compactionInProgress) return;
+    if (chat.busy || chat.compactionInProgress) return;
     const tab = activeChatTab();
     if (!tab) return;
 
@@ -95,22 +117,22 @@ export async function sendChatWithContent(text) {
     tab.messages.push(userMsg);
     tab.updated_at = Date.now();
 
-    if (typeof window.renderChatMessages === 'function') window.renderChatMessages();
+    if (typeof renderChatMessages === 'function') renderChatMessages();
 
     _doSendChat(tab);
 }
 
 // Send a message that is already in tab.messages (for resend/regenerate — no duplicate push)
 export async function sendChatResend(tab) {
-    if (window.chatBusy || window.compactionInProgress) return;
+    if (chat.busy || chat.compactionInProgress) return;
 
-    if (typeof window.renderChatMessages === 'function') window.renderChatMessages();
+    if (typeof renderChatMessages === 'function') renderChatMessages();
 
     _doSendChat(tab);
 }
 
 export async function sendChat() {
-    if (window.chatBusy || window.compactionInProgress) return;
+    if (chat.busy || chat.compactionInProgress) return;
     const tab = activeChatTab();
     if (!tab) return;
 
@@ -118,7 +140,7 @@ export async function sendChat() {
     const text = input.value.trim();
     if (!text) return;
     input.value = '';
-    if (typeof window.autoResizeChatInput === 'function') window.autoResizeChatInput();
+    if (typeof autoResizeChatInput === 'function') autoResizeChatInput();
 
     const userMsg = {
         role: 'user',
@@ -128,7 +150,7 @@ export async function sendChat() {
     tab.messages.push(userMsg);
     tab.updated_at = Date.now();
 
-    if (typeof window.renderChatMessages === 'function') window.renderChatMessages();
+    if (typeof renderChatMessages === 'function') renderChatMessages();
 
     await _doSendChat(tab);
 }
@@ -138,8 +160,8 @@ export async function _doSendChat(tab) {
     const messages = [];
     let systemPrompt = tab.system_prompt ? substituteNames(tab.system_prompt, tab.ai_name, tab.user_name) : '';
     if (tab.explicit_mode) {
-        const explicitPolicy = typeof window.getExplicitModePolicy === 'function'
-            ? window.getExplicitModePolicy() : '';
+        const explicitPolicy = typeof getExplicitModePolicy === 'function'
+            ? getExplicitModePolicy() : '';
         if (explicitPolicy) {
             systemPrompt += `\n\n${explicitPolicy}`;
         }
@@ -149,9 +171,9 @@ export async function _doSendChat(tab) {
     }
     messages.push(...tab.messages.map(m => ({ role: m.role, content: m.content })));
 
-    window.chatBusy = true;
+    chat.busy = true;
     setChatBusyUI(true);
-    window.chatAbortController = new AbortController();
+    chat.abortController = new AbortController();
 
     let thinkEl = null;
     let thinkContent = '';
@@ -165,7 +187,7 @@ export async function _doSendChat(tab) {
         const chatResp = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            signal: window.chatAbortController.signal,
+            signal: chat.abortController.signal,
             body: JSON.stringify({
                 messages,
                 stream: true,
@@ -189,13 +211,14 @@ export async function _doSendChat(tab) {
 
         while (true) {
             if (streamTimeoutMs > 0 && Date.now() - lastContentTime > streamTimeoutMs) {
-                window.chatAbortController.abort();
-                if (!msgEl && typeof window.appendAssistantPlaceholder === 'function') {
-                    msgEl = window.appendAssistantPlaceholder();
+                chat.abortController.abort();
+                if (!msgEl && typeof appendAssistantPlaceholder === 'function') {
+                    msgEl = appendAssistantPlaceholder();
                 }
                 if (msgEl) {
+                    // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context; fallback span is hardcoded
                     msgEl.querySelector('.chat-msg-body').innerHTML =
-                        msgContent ? (typeof window.renderMd === 'function' ? window.renderMd(msgContent) : msgContent)
+                        msgContent ? (typeof renderMd === 'function' ? renderMd(msgContent) : msgContent)
                             : '<span class="chat-stopped">[timed out — no response for too long]</span>';
                 }
                 break;
@@ -233,11 +256,11 @@ export async function _doSendChat(tab) {
                     const rc = delta.reasoning_content ?? '';
                     if (rc) {
                         thinkContent += rc;
-                        if (!msgEl && typeof window.appendAssistantPlaceholder === 'function') {
-                            msgEl = window.appendAssistantPlaceholder();
+                        if (!msgEl && typeof appendAssistantPlaceholder === 'function') {
+                            msgEl = appendAssistantPlaceholder();
                         }
-                        if (msgEl && !thinkEl && typeof window.appendThinkingBlock === 'function') {
-                            thinkEl = window.appendThinkingBlock(msgEl);
+                        if (msgEl && !thinkEl && typeof appendThinkingBlock === 'function') {
+                            thinkEl = appendThinkingBlock(msgEl);
                         }
                         if (thinkEl) {
                             thinkEl.querySelector('.chat-thinking-body').textContent = thinkContent;
@@ -248,34 +271,38 @@ export async function _doSendChat(tab) {
                     if (c) {
                         msgContent += c;
                         lastContentTime = Date.now();
-                        if (!msgEl && typeof window.appendAssistantPlaceholder === 'function') {
-                            msgEl = window.appendAssistantPlaceholder();
+                        const isFirstToken = !msgEl;
+                        if (!msgEl && typeof appendAssistantPlaceholder === 'function') {
+                            msgEl = appendAssistantPlaceholder();
                         }
                         if (msgEl) {
+                            // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context
                             msgEl.querySelector('.chat-msg-body').innerHTML =
-                                typeof window.renderMdStreaming === 'function'
-                                    ? window.renderMdStreaming(msgContent)
+                                typeof renderMdStreaming === 'function'
+                                    ? renderMdStreaming(msgContent)
                                     : msgContent;
                         }
-                        if (typeof window.incrementUnreadCount === 'function') window.incrementUnreadCount();
+                        // Increment once per response (not per token) so badge = unread message count
+                        if (isFirstToken && typeof incrementUnreadCount === 'function') incrementUnreadCount();
                     }
                 } catch { /* malformed chunk — skip */ }
             }
-            if (typeof window.chatScroll === 'function') window.chatScroll();
+            if (typeof chatScroll === 'function') chatScroll();
         }
 
     } catch (err) {
-        if (!msgEl && typeof window.appendAssistantPlaceholder === 'function') {
-            msgEl = window.appendAssistantPlaceholder();
+        if (!msgEl && typeof appendAssistantPlaceholder === 'function') {
+            msgEl = appendAssistantPlaceholder();
         }
         if (msgEl) {
             const body = msgEl.querySelector('.chat-msg-body');
             if (err.name === 'AbortError') {
+                // eslint-disable-next-line no-unsanitized/property -- LLM output rendered via marked.js in trusted local context; fallback span is hardcoded
                 body.innerHTML = msgContent
-                    ? (typeof window.renderMd === 'function' ? window.renderMd(msgContent) : msgContent)
+                    ? (typeof renderMd === 'function' ? renderMd(msgContent) : msgContent)
                     : '<span class="chat-stopped">[stopped]</span>';
             } else {
-                body.innerHTML = `<span class="chat-error">[error] ${window.escapeHtml(err.message)}</span>`;
+                body.innerHTML = `<span class="chat-error">[error] ${escapeHtml(err.message)}</span>`;
             }
         }
     }
@@ -303,33 +330,31 @@ export async function _doSendChat(tab) {
     if (msgEl) {
         msgEl.dataset.msgIdx = tab.messages.length - 1;
     }
-    if (typeof window.finalizeAssistantMessage === 'function') {
-        window.finalizeAssistantMessage(msgEl, msgContent, tokenUsage, tab);
+    if (typeof finalizeAssistantMessage === 'function') {
+        finalizeAssistantMessage(msgEl, msgContent, tokenUsage, tab);
     }
     setChatBusyUI(false);
-    window.chatBusy = false;
-    window.chatAbortController = null;
-    if (typeof window.updateChatTabBadge === 'function') window.updateChatTabBadge();
+    chat.busy = false;
+    chat.abortController = null;
+    if (typeof updateChatTabBadge === 'function') updateChatTabBadge();
 }
 
 // ── Stop Chat ──────────────────────────────────────────────────────────────────
 
 export function stopChat() {
-    if (window.chatAbortController) {
-        window.chatAbortController.abort();
-        window.chatAbortController = null;
+    if (chat.abortController) {
+        chat.abortController.abort();
+        chat.abortController = null;
     }
-    window.chatBusy = false;
+    chat.busy = false;
     setChatBusyUI(false);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 
 export function initChatTransport() {
-    // Put on window for cross-module calls
-    window.sendChat = sendChat;
-    window.sendChatResend = sendChatResend;
-    window.sendSuggestedPrompt = sendSuggestedPrompt;
-    window.stopChat = stopChat;
-    window.fetchSummary = fetchSummary;
+    // Wire up transport getter for chat-state and chat-render (avoids circular import)
+    const transport = () => ({ sendChat, sendChatResend, sendSuggestedPrompt, stopChat });
+    setTransportGetter(transport);
+    setChatTransportGetter(transport);
 }
