@@ -25,6 +25,31 @@ function getTransport() {
     return _getTransport ? _getTransport() : null;
 }
 
+// ── Date formatting ───────────────────────────────────────────────────────────
+
+const DATE_FORMAT_KEY = 'llama-monitor-date-format';
+
+export function formatMessageDateTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    const fmt = localStorage.getItem(DATE_FORMAT_KEY) || 'MM/DD/YY';
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    let date;
+    if (fmt === 'locale') {
+        date = d.toLocaleDateString([], { month: 'numeric', day: 'numeric', year: '2-digit' });
+    } else if (fmt === 'DD/MM/YY') {
+        date = `${dd}/${mm}/${yy}`;
+    } else if (fmt === 'YYYY-MM-DD') {
+        date = `${d.getFullYear()}-${mm}-${dd}`;
+    } else {
+        date = `${mm}/${dd}/${yy}`;
+    }
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${date} ${time}`;
+}
+
 // ── Cached DOM elements (populated at init time) ──────────────────────────────
 let chatMessagesEl = null;
 let chatTabBarEl = null;
@@ -282,9 +307,7 @@ function buildMessageElement(msg, idx, allMessages) {
 
     wrapper.className = `chat-message chat-message-${msg.role}`;
 
-    const ts = msg.timestamp_ms
-        ? new Date(msg.timestamp_ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        : '';
+    const ts = formatMessageDateTime(msg.timestamp_ms);
     const aiLabel = tab?.ai_name || 'AI';
     const userLabel = tab?.user_name || 'You';
 
@@ -468,7 +491,7 @@ export function finalizeAssistantMessage(el, content, usage, tab) {
     }
     const time = el.querySelector('.chat-msg-time');
     if (time) {
-        time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        time.textContent = formatMessageDateTime(Date.now());
     }
     const actions = el.querySelector('.chat-msg-actions');
     if (actions && content) {

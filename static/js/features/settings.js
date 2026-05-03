@@ -3,6 +3,9 @@
 
 import { settingsState } from '../core/app-state.js';
 import { setContextCardViewPreference } from './context-card.js';
+import { renderChatMessages } from './chat-render.js';
+
+const DATE_FORMAT_KEY = 'llama-monitor-date-format';
 
 // ── Dirty tracking ────────────────────────────────────────────────────────────
 
@@ -152,6 +155,9 @@ export function openSettingsModal() {
     modal.classList.remove('closing');
     modal.classList.add('open');
     clearSettingsDirty();
+
+    const dateFmtEl = document.getElementById('chat-date-format');
+    if (dateFmtEl) dateFmtEl.value = localStorage.getItem(DATE_FORMAT_KEY) || 'MM/DD/YY';
 }
 
 export function closeSettingsModal() {
@@ -190,6 +196,12 @@ function _bindSettingsEvents() {
             e.preventDefault();
             saveSettings();
         }
+    });
+
+    // Date format — save immediately to localStorage and re-render messages
+    document.getElementById('chat-date-format')?.addEventListener('change', (e) => {
+        localStorage.setItem(DATE_FORMAT_KEY, e.target.value);
+        renderChatMessages();
     });
 
     // Auto-save on controls change

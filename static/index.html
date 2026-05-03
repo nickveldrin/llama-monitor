@@ -743,6 +743,16 @@
                            value="15">
                     <span class="modal-help">Show only the most recent N messages. Older messages are hidden to improve performance.</span>
                 </label>
+                <label class="modal-field">
+                    Date format
+                    <select id="chat-date-format">
+                        <option value="MM/DD/YY">MM/DD/YY (US)</option>
+                        <option value="DD/MM/YY">DD/MM/YY (EU)</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD (ISO)</option>
+                        <option value="locale">OS default</option>
+                    </select>
+                    <span class="modal-help">Format for message timestamps. Applied immediately.</span>
+                </label>
                 <div class="chat-compact-settings">
                     <label class="modal-field">
                         <span class="modal-label-row">
