@@ -30,6 +30,7 @@ function ensureElements() {
         fleetToggle: document.getElementById('context-view-toggle-fleet'),
         gaugeValue: document.getElementById('m-context-gauge-value'),
         gaugeSecondary: document.getElementById('m-context-gauge-secondary'),
+        gaugeRing: document.getElementById('m-context-gauge-ring'),
         strip: document.getElementById('m-context-chat-strip'),
         stripMeta: document.getElementById('m-context-chat-strip-meta'),
         fleetSummary: document.getElementById('m-context-fleet-summary'),
@@ -119,7 +120,8 @@ function deriveContextViewModel(d, l) {
     const pressureKnown = trackedChats.filter(chatItem => chatItem.ctxPct != null);
     const activeChatCount = trackedChats.length;
     const pressuredChatCount = pressureKnown.filter(chatItem => (chatItem.ctxPct || 0) >= 75).length;
-    const busiestChat = pressureKnown.slice().sort((a, b) => (b.ctxPct || 0) - (a.ctxPct || 0))[0] || trackedChats[0] || null;
+    // Show the most recently active chat in the gauge center (chatSummaries sorted by timestamp desc)
+    const busiestChat = trackedChats[0] || null;
     const avgPct = pressureKnown.length ? pressureKnown.reduce((sum, item) => sum + item.ctxPct, 0) / pressureKnown.length : null;
     const maxPct = pressureKnown.length ? Math.max(...pressureKnown.map(item => item.ctxPct)) : null;
     const staleChatCount = trackedChats.filter(chatItem => chatItem.isStale).length;
@@ -208,14 +210,24 @@ function renderChatStrip(model) {
         : `${model.chatSummaries.length} chat${model.chatSummaries.length !== 1 ? 's' : ''} tracked`;
 }
 
+const GAUGE_CIRCUMFERENCE = 402; // 2π × r64
+
 function renderGaugeView(model) {
-    const { gaugeValue, gaugeSecondary } = ensureElements();
+    const { gaugeValue, gaugeSecondary, gaugeRing } = ensureElements();
     const heroPct = model.mode === 'live-runtime'
         ? model.runtimeLivePct
         : model.mode === 'chat-derived'
             ? (model.busiestChat?.ctxPct ?? model.aggregateChatPressure.maxPct)
             : null;
     const displayPct = heroPct != null ? Math.max(0, Math.min(100, heroPct)) : 0;
+
+    if (gaugeRing) {
+        const offset = GAUGE_CIRCUMFERENCE * (1 - displayPct / 100);
+        gaugeRing.style.strokeDashoffset = String(offset);
+        const stateClass = `state-${pctState(heroPct)}`;
+        const animClass = model.mode === 'live-runtime' ? 'live' : heroPct != null ? 'chat' : 'idle';
+        gaugeRing.setAttribute('class', `context-gauge-ring ${stateClass} ${animClass}`);
+    }
 
     if (model.mode === 'live-runtime') {
         gaugeValue.textContent = `${Math.round(displayPct)}%`;

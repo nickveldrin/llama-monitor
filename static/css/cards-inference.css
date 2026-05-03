@@ -687,27 +687,69 @@
 }
 
 .context-gauge-shell {
-  position: relative;
   display: grid;
   place-items: center;
-  min-height: 112px;
-  padding: 16px;
+  padding: 8px 8px 0;
 }
 
-.context-gauge-shell::before {
-  content: '';
-  position: absolute;
-  width: 120px;
-  height: 120px;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(104, 211, 145, 0.06), transparent 70%);
-  filter: blur(14px);
-  opacity: 0.6;
+/* Grid stacking: SVG and center text share the same cell */
+.context-gauge-svg,
+.context-gauge-center {
+  grid-area: 1 / 1;
+}
+
+.context-gauge-svg {
+  width: 148px;
+  height: 148px;
+  overflow: visible;
+}
+
+.context-gauge-track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-width: 8;
+}
+
+.context-gauge-ring {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 8;
+  stroke-linecap: round;
+  /* circumference = 2π × 64 ≈ 402.12 */
+  stroke-dasharray: 402;
+  stroke-dashoffset: 402;
+  transform: rotate(-90deg);
+  transform-origin: 80px 80px;
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.4s ease;
+}
+
+.context-gauge-ring.state-warm  { stroke: #63b3ed; }
+.context-gauge-ring.state-warning  { stroke: var(--color-warning); }
+.context-gauge-ring.state-critical { stroke: #fc8181; }
+
+@keyframes gauge-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%       { opacity: 0.9; }
+}
+@keyframes gauge-live-glow {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(16, 185, 129, 0.35)); opacity: 1; }
+  50%       { filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.75)); opacity: 1; }
+}
+
+.context-gauge-ring.idle { animation: gauge-breathe 3.2s ease-in-out infinite; }
+.context-gauge-ring.live { animation: gauge-live-glow 1.6s ease-in-out infinite; }
+.context-gauge-ring.chat { opacity: 0.85; }
+
+.context-gauge-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  z-index: 1;
+  pointer-events: none;
 }
 
 .context-gauge-value {
-  position: relative;
-  z-index: 10;
   color: var(--color-text-primary);
   font-family: var(--font-mono);
   font-size: 2.2rem;
@@ -716,13 +758,12 @@
 }
 
 .context-gauge-secondary {
-  position: relative;
-  z-index: 10;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
   font-size: 0.7rem;
   line-height: 1.2;
-  margin-top: 4px;
+  text-align: center;
+  max-width: 100px;
 }
 
 
