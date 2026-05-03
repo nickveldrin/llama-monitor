@@ -304,7 +304,10 @@ function buildMessageElement(msg, idx, allMessages) {
         const cumTotal = cumInput + cumOutput;
         if (cumTotal > 0) parts.push(`R${formatTokenCount(cumTotal)}`);
         const capacity = lastLlamaMetrics?.context_capacity_tokens || 0;
-        const ctxPct = capacity > 0 ? Math.round((cumTotal / capacity) * 100) : 0;
+        // ctx% = (cumulative output tokens up to this message + this message's input) / capacity.
+        // KV cache means input_tokens is incremental; output tokens accumulate as the actual context content.
+        const ctxTokens = cumOutput + (msg.input_tokens || 0);
+        const ctxPct = capacity > 0 && ctxTokens > 0 ? Math.min(100, Math.round((ctxTokens / capacity) * 100)) : 0;
         if (ctxPct > 0) parts.push(`${ctxPct}% ctx`);
         const modelName = msg.model_name || lastLlamaMetrics?.model_name || '';
         if (modelName) parts.push(modelName);
@@ -546,7 +549,12 @@ export function finalizeAssistantMessage(el, content, usage, tab) {
         const totalOutput = tab ? (tab.totalOutputTokens || 0) : out;
         const total = totalInput + totalOutput;
         const capacity = lastLlamaMetrics?.context_capacity_tokens || 0;
-        const ctxPct = capacity > 0 ? Math.round((total / capacity) * 100) : 0;
+        // ctx% = (all generated output tokens in this chat + current request's input tokens) / capacity.
+        // llama.cpp KV cache means each request only sends incremental new tokens, so summing
+        // input_tokens alone overcounts. Summing all output tokens gives the true accumulated
+        // context content, and adding this request's input covers the new prompt tokens.
+        const ctxTokens = totalOutput + inp;
+        const ctxPct = capacity > 0 && ctxTokens > 0 ? Math.min(100, Math.round((ctxTokens / capacity) * 100)) : 0;
 
         if (tab) tab.lastCtxPct = ctxPct;
 

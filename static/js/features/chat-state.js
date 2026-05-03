@@ -46,6 +46,7 @@ export function newChatTab(name = 'New Chat') {
         messages: [],
         totalInputTokens: 0,
         totalOutputTokens: 0,
+        lastCtxPct: 0,
         model_params: {
             temperature: 0.7,
             top_p: 0.9,
@@ -61,9 +62,15 @@ export function newChatTab(name = 'New Chat') {
 }
 
 function normalizeChatTab(tab) {
+    const messages = tab.messages || [];
+    const totalInputTokens = messages.reduce((sum, m) => sum + (m.input_tokens || 0), 0);
+    const totalOutputTokens = messages.reduce((sum, m) => sum + (m.output_tokens || 0), 0);
     return {
         ...tab,
         auto_compact: tab.auto_compact ?? true,
+        lastCtxPct: tab.lastCtxPct ?? 0,
+        totalInputTokens: tab.totalInputTokens ?? totalInputTokens,
+        totalOutputTokens: tab.totalOutputTokens ?? totalOutputTokens,
     };
 }
 
@@ -90,6 +97,11 @@ export async function initChatTabs() {
     chatViewBindings.updateParamsDirtyIndicator?.();
     chatViewBindings.syncMessageLimitInput?.();
     chatViewBindings.syncCompactSettingsUI?.(activeChatTab());
+
+   // Trigger context card update - mark that chat tabs loaded so dashboard can poll
+    if (typeof window.onChatTabsLoaded === 'function') {
+        window.onChatTabsLoaded();
+    }
 
     // Show welcome tip on first visit
     if (!localStorage.getItem('llama-monitor-chat-welcomed')) {
@@ -174,8 +186,6 @@ export function updateChatName(field, value) {
 
 export function normalizeTabForSave(tab) {
     const t = { ...tab };
-    delete t.totalInputTokens;
-    delete t.totalOutputTokens;
     t.messages = (t.messages || []).map(m => {
         const msg = { ...m };
         delete msg.cumulativeInputTokens;

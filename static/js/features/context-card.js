@@ -4,6 +4,7 @@
 import { chat } from '../core/app-state.js';
 import { escapeHtml, formatMetricNumber } from '../core/format.js';
 import { setCardState, setChipState, setEmptyState } from './dashboard-render.js';
+import { scheduleChatPersist } from './chat-state.js';
 
 const STALE_CHAT_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_VISIBLE_CHATS = 5;
@@ -29,8 +30,6 @@ function ensureElements() {
         fleetToggle: document.getElementById('context-view-toggle-fleet'),
         gaugeValue: document.getElementById('m-context-gauge-value'),
         gaugeSecondary: document.getElementById('m-context-gauge-secondary'),
-        gaugeRing: document.getElementById('m-context-gauge-ring'),
-        gaugeTrack: document.getElementById('m-context-gauge-track'),
         strip: document.getElementById('m-context-chat-strip'),
         stripMeta: document.getElementById('m-context-chat-strip-meta'),
         fleetSummary: document.getElementById('m-context-fleet-summary'),
@@ -48,7 +47,38 @@ function pctState(pct) {
     return 'idle';
 }
 
-function deriveChatSummaries() {
+// Compute ctx% for a tab from its message history.
+// Formula: (cumulative output tokens + last request's input tokens) / capacity.
+// KV cache means each request's input_tokens is incremental, not the full context.
+// All output tokens remain in the KV cache as conversation content grows.
+function deriveCtxPctFromMessages(tab, capacity) {
+    if (!capacity) return null;
+    const messages = tab.messages || [];
+    const asst = messages.filter(m => m.role === 'assistant' && (m.output_tokens || m.input_tokens));
+    if (!asst.length) return null;
+    const totalOutput = asst.reduce((sum, m) => sum + (m.output_tokens || 0), 0);
+    const lastInput = asst.at(-1).input_tokens || 0;
+    const ctxTokens = totalOutput + lastInput;
+    return Math.min(100, Math.round((ctxTokens / capacity) * 100));
+}
+
+// Backfill lastCtxPct for tabs that don't have it persisted yet.
+// Called when llama metrics arrive with a known capacity.
+function backfillCtxPct(capacity) {
+    let dirty = false;
+    for (const tab of chat.tabs) {
+        if (!tab.lastCtxPct) {
+            const derived = deriveCtxPctFromMessages(tab, capacity);
+            if (derived != null && derived > 0) {
+                tab.lastCtxPct = derived;
+                dirty = true;
+            }
+        }
+    }
+    if (dirty) scheduleChatPersist();
+}
+
+function deriveChatSummaries(capacity) {
     const now = Date.now();
     return chat.tabs
         .map(tab => {
@@ -57,11 +87,17 @@ function deriveChatSummaries() {
                 || tab.updated_at
                 || tab.created_at
                 || 0;
+
+            // Prefer lastCtxPct (already computed / persisted), then derive from messages.
+            let ctxPct = (typeof tab.lastCtxPct === 'number' && tab.lastCtxPct > 0)
+                ? tab.lastCtxPct
+                : (capacity ? deriveCtxPctFromMessages(tab, capacity) : null);
+
             return {
                 id: tab.id,
                 name: tab.name || 'Untitled chat',
-                ctxPct: typeof tab.lastCtxPct === 'number' && tab.lastCtxPct > 0 ? tab.lastCtxPct : null,
-                state: pctState(typeof tab.lastCtxPct === 'number' ? tab.lastCtxPct : null),
+                ctxPct,
+                state: pctState(ctxPct),
                 lastMessageTimestamp: lastTimestamp,
                 isStale: lastTimestamp > 0 ? now - lastTimestamp > STALE_CHAT_MS : true,
                 autoCompact: !!tab.auto_compact,
@@ -77,7 +113,7 @@ function deriveContextViewModel(d, l) {
     const capacityTokens = l?.context_capacity_tokens || l?.kv_cache_max || 0;
     const runtimeLiveTokens = l?.context_live_tokens || l?.kv_cache_tokens || 0;
     const runtimeLiveAvailable = !!(l?.context_live_tokens_available || l?.kv_cache_tokens_available);
-    const chatSummaries = deriveChatSummaries();
+    const chatSummaries = deriveChatSummaries(capacityTokens);
     const trackedChats = chatSummaries.filter(chatItem => chatItem.messageCount > 0);
     const nonStaleChats = trackedChats.filter(chatItem => !chatItem.isStale);
     const pressureKnown = trackedChats.filter(chatItem => chatItem.ctxPct != null);
@@ -101,10 +137,10 @@ function deriveContextViewModel(d, l) {
         note = `${formatMetricNumber(runtimeLiveTokens)} / ${formatMetricNumber(capacityTokens)} live`;
     } else if (mode === 'chat-derived') {
         note = pressureKnown.length > 0
-            ? `${activeChatCount} chats tracked · ${pressuredChatCount} under pressure`
-            : `${activeChatCount} chats tracked · live runtime usage unavailable`;
+            ? `${activeChatCount} chat${activeChatCount !== 1 ? 's' : ''} · ${pressuredChatCount} under pressure`
+            : `${activeChatCount} chat${activeChatCount !== 1 ? 's' : ''} tracked`;
     } else if (mode === 'capacity-only') {
-        note = `Context size ${formatMetricNumber(capacityTokens)} · live usage unavailable`;
+        note = `Context size ${formatMetricNumber(capacityTokens)}`;
     } else {
         note = 'Start a chat or attach to a server to track context pressure';
     }
@@ -120,12 +156,9 @@ function deriveContextViewModel(d, l) {
         busiestChat,
         chatSummaries,
         staleChatCount,
-        aggregateChatPressure: {
-            avgPct,
-            maxPct,
-        },
+        aggregateChatPressure: { avgPct, maxPct },
         note,
-        hasActiveEndpoint: !!d.active_session_endpoint,
+        hasActiveEndpoint: !!(d?.active_session_endpoint),
         nonStaleChats,
         primaryChats,
     };
@@ -171,23 +204,18 @@ function renderChatStrip(model) {
     }
 
     stripMeta.textContent = model.staleChatCount > 0
-        ? `${model.chatSummaries.length} chats tracked · ${model.staleChatCount} stale`
-        : `${model.chatSummaries.length} chats tracked`;
+        ? `${model.chatSummaries.length} chats · ${model.staleChatCount} stale`
+        : `${model.chatSummaries.length} chat${model.chatSummaries.length !== 1 ? 's' : ''} tracked`;
 }
 
 function renderGaugeView(model) {
-    const { gaugeValue, gaugeSecondary, gaugeRing, gaugeTrack } = ensureElements();
+    const { gaugeValue, gaugeSecondary } = ensureElements();
     const heroPct = model.mode === 'live-runtime'
         ? model.runtimeLivePct
         : model.mode === 'chat-derived'
             ? (model.busiestChat?.ctxPct ?? model.aggregateChatPressure.maxPct)
             : null;
     const displayPct = heroPct != null ? Math.max(0, Math.min(100, heroPct)) : 0;
-    const ringPct = Math.max(0, Math.min(100, displayPct));
-    const dash = 314;
-    gaugeTrack.style.strokeDasharray = `${dash} ${dash}`;
-    gaugeRing.style.strokeDasharray = `${(ringPct / 100) * dash} ${dash}`;
-    gaugeRing.setAttribute('class', `context-gauge-ring ${pctState(heroPct)}`);
 
     if (model.mode === 'live-runtime') {
         gaugeValue.textContent = `${Math.round(displayPct)}%`;
@@ -195,14 +223,14 @@ function renderGaugeView(model) {
     } else if (model.mode === 'chat-derived') {
         gaugeValue.textContent = heroPct != null ? `${Math.round(displayPct)}%` : '—';
         gaugeSecondary.textContent = model.busiestChat
-            ? `${model.busiestChat.name} · ${model.busiestChat.autoCompact ? 'auto-compact on' : 'manual compaction'}`
-            : 'Based on tracked chats';
+            ? `${model.busiestChat.name} · ${model.busiestChat.autoCompact ? 'auto-compact' : 'manual'}`
+            : `${model.activeChatCount} chat${model.activeChatCount !== 1 ? 's' : ''}`;
     } else if (model.mode === 'capacity-only') {
         gaugeValue.textContent = formatMetricNumber(model.capacityTokens);
-        gaugeSecondary.textContent = 'Capacity only';
+        gaugeSecondary.textContent = 'Capacity';
     } else {
         gaugeValue.textContent = '—';
-        gaugeSecondary.textContent = 'Waiting for chat or runtime context';
+        gaugeSecondary.textContent = 'Attach to a server or start a chat';
     }
 
     renderChatStrip(model);
@@ -212,10 +240,11 @@ function renderFleetView(model) {
     const { fleetSummary, fleetRows, fleetFooter } = ensureElements();
     const source = model.nonStaleChats.length ? model.nonStaleChats : model.chatSummaries;
     const rows = expanded ? source : source.slice(0, MAX_VISIBLE_FLEET_ROWS);
+
     fleetSummary.textContent = model.mode === 'live-runtime'
-        ? `${model.activeChatCount} chats · runtime live`
+        ? `${model.activeChatCount} chat${model.activeChatCount !== 1 ? 's' : ''} · runtime live`
         : model.mode === 'chat-derived'
-            ? `${model.activeChatCount} chats · ${model.pressuredChatCount} under pressure`
+            ? `${model.activeChatCount} chat${model.activeChatCount !== 1 ? 's' : ''} · ${model.pressuredChatCount} under pressure`
             : model.mode === 'capacity-only'
                 ? `Capacity ${formatMetricNumber(model.capacityTokens)}`
                 : 'No active chat context yet';
@@ -230,9 +259,9 @@ function renderFleetView(model) {
     fleetRows.innerHTML = rows.map(item => {
         const pct = item.ctxPct != null ? Math.round(item.ctxPct) : null;
         const state = escapeHtml(item.state);
-        const pctLabel = escapeHtml(pct != null ? pct + '%' : 'unknown');
-        const width = escapeHtml(String(pct != null ? Math.min(100, pct) : 8));
-        const meta = escapeHtml((item.autoCompact ? 'auto-compact' : 'manual') + (item.isStale ? ' · stale' : ''));
+        const pctLabel = escapeHtml(pct != null ? pct + '%' : '—');
+        const width = escapeHtml(String(pct != null ? Math.min(100, pct) : 0));
+        const badge = escapeHtml(item.autoCompact ? 'auto-compact' : 'manual');
         return `
             <div class="context-fleet-row ${state}">
                 <div class="context-fleet-row-top">
@@ -242,7 +271,7 @@ function renderFleetView(model) {
                 <div class="context-fleet-bar">
                     <div class="context-fleet-fill ${state}" style="width:${width}%"></div>
                 </div>
-                <div class="context-fleet-meta">${meta}</div>
+                <div class="context-fleet-meta">${badge}</div>
             </div>
         `;
     }).join('');
@@ -256,15 +285,15 @@ function renderFleetView(model) {
     if (model.mode === 'live-runtime') {
         fleetFooter.textContent = `${formatMetricNumber(model.runtimeLiveTokens)} / ${formatMetricNumber(model.capacityTokens)} live`;
     } else if (model.aggregateChatPressure.avgPct != null) {
-        fleetFooter.textContent = `active chat pressure avg ${Math.round(model.aggregateChatPressure.avgPct)}%`;
+        fleetFooter.textContent = `avg ${Math.round(model.aggregateChatPressure.avgPct)}% · max ${Math.round(model.aggregateChatPressure.maxPct)}%`;
     } else {
-        fleetFooter.textContent = model.note || '';
+        fleetFooter.textContent = '';
     }
 }
 
 function applyViewMode(viewMode) {
     currentView = viewMode;
-    const { gaugeView, fleetView, gaugeToggle, fleetToggle } = ensureElements();
+    const { gaugeView, fleetView, gaugeToggle, fleetToggle, subtitle } = ensureElements();
     gaugeView.classList.toggle('active', viewMode === 'gauge');
     gaugeView.classList.toggle('hidden', viewMode !== 'gauge');
     fleetView.classList.toggle('active', viewMode === 'fleet');
@@ -273,6 +302,8 @@ function applyViewMode(viewMode) {
     fleetToggle.classList.toggle('active', viewMode === 'fleet');
     gaugeToggle?.setAttribute('aria-selected', String(viewMode === 'gauge'));
     fleetToggle?.setAttribute('aria-selected', String(viewMode === 'fleet'));
+    // Subtitle only makes sense in gauge view; hide it in fleet to avoid duplicate info
+    if (subtitle) subtitle.style.display = viewMode === 'gauge' ? '' : 'none';
 }
 
 function saveViewPreference() {
@@ -283,10 +314,7 @@ function saveViewPreference() {
             return fetch('/api/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...settings,
-                    context_card_view: currentView,
-                }),
+                body: JSON.stringify({ ...settings, context_card_view: currentView }),
             });
         })
         .catch(() => {});
@@ -314,7 +342,7 @@ export function initContextCard() {
     fleetToggle?.addEventListener('click', () => setViewMode('fleet', { persist: true }));
     card?.addEventListener('click', event => {
         if (handleCardClick(event)) {
-            updateContextCard(lastDashboard || {}, lastLlamaMetrics || null);
+            renderContextCard();
         }
     });
     applyViewMode(currentView);
@@ -322,17 +350,12 @@ export function initContextCard() {
 
 export function setContextCardViewPreference(viewMode) {
     currentView = viewMode === 'fleet' ? 'fleet' : 'gauge';
-    if (initialized) {
-        applyViewMode(currentView);
-    }
+    if (initialized) applyViewMode(currentView);
 }
 
-export function updateContextCard(d, l) {
-    initContextCard();
-    lastDashboard = d;
-    lastLlamaMetrics = l;
+function renderContextCard() {
     const elements = ensureElements();
-    const model = deriveContextViewModel(d, l);
+    const model = deriveContextViewModel(lastDashboard || {}, lastLlamaMetrics);
     const visibleSource = model.nonStaleChats.length ? model.nonStaleChats : model.chatSummaries;
     if (visibleSource.length <= Math.max(MAX_VISIBLE_CHATS, MAX_VISIBLE_FLEET_ROWS)) {
         expanded = false;
@@ -350,4 +373,23 @@ export function updateContextCard(d, l) {
     renderGaugeView(model);
     renderFleetView(model);
     applyViewMode(currentView);
+}
+
+export function updateContextCard(d, l) {
+    initContextCard();
+    lastDashboard = d;
+    lastLlamaMetrics = l;
+
+    // When capacity is known, backfill lastCtxPct for any tab that doesn't have it.
+    // This runs once per capacity value change (e.g., first connect after page load).
+    const capacity = l?.context_capacity_tokens || l?.kv_cache_max || 0;
+    if (capacity > 0) backfillCtxPct(capacity);
+
+    renderContextCard();
+}
+
+// Called by chat-state after tabs load from disk so the card shows immediately.
+export function updateContextCardFromChatTabs() {
+    initContextCard();
+    renderContextCard();
 }

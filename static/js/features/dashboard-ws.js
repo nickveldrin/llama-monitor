@@ -29,6 +29,7 @@ import {
 import {
     setChipState,
     setCardState,
+    setEmptyState,
     pushSparklinePoint,
     renderSparkline,
     renderLiveSparkline,
@@ -42,15 +43,15 @@ import {
     renderRequestStats,
     renderGenerationDetailItems,
     renderDecodingConfig,
+    formatParamCount,
     renderCapabilityPopover,
     updateMetricDelta,
-    setEmptyState,
+    setMetricSectionVisibility,
     renderGpuCard,
     renderSystemCard,
-    setMetricSectionVisibility,
 } from './dashboard-render.js';
 import { animateNumber } from './animate.js';
-import { updateContextCard } from './context-card.js';
+import { updateContextCard, updateContextCardFromChatTabs } from './context-card.js';
 import { activeChatTab } from './chat-state.js';
 import { setRemoteAgentStatus } from './remote-agent.js';
 import { hideConnectingState, switchView } from './setup-view.js';
@@ -126,10 +127,17 @@ export function initWebSocket() {
         (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws'
     );
 
-    ws.onmessage = e => {
-        const d = JSON.parse(e.data);
-        updateDashboard(d);
-    };
+ws.onmessage = e => {
+    const d = JSON.parse(e.data);
+    updateDashboard(d);
+};
+
+// Poll context card after chat tabs load
+window.onChatTabsLoaded = () => {
+    setTimeout(() => {
+        updateContextCardFromChatTabs();
+    }, 500);
+};
 
     ws.onerror = e => console.error('WebSocket error:', e);
 
