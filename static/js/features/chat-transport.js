@@ -271,6 +271,7 @@ export async function _doSendChat(tab) {
                     if (c) {
                         msgContent += c;
                         lastContentTime = Date.now();
+                        const isFirstToken = !msgEl;
                         if (!msgEl && typeof appendAssistantPlaceholder === 'function') {
                             msgEl = appendAssistantPlaceholder();
                         }
@@ -281,7 +282,8 @@ export async function _doSendChat(tab) {
                                     ? renderMdStreaming(msgContent)
                                     : msgContent;
                         }
-                        if (typeof incrementUnreadCount === 'function') incrementUnreadCount();
+                        // Increment once per response (not per token) so badge = unread message count
+                        if (isFirstToken && typeof incrementUnreadCount === 'function') incrementUnreadCount();
                     }
                 } catch { /* malformed chunk — skip */ }
             }
